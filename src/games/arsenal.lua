@@ -23,9 +23,6 @@ function Arsenal.Init(ctx)
 
     local UNLOADED = false
 
-    -- ============================================================
-    -- SISTEMA DE TRADUÇÃO DINÂMICA
-    -- ============================================================
     local langRefresh = {}
 
     local function registerRefresh(fn)
@@ -114,6 +111,9 @@ function Arsenal.Init(ctx)
         Surface = Color3.fromRGB(22, 22, 28),
         Surface2 = Color3.fromRGB(32, 32, 40),
         Border = Color3.fromRGB(45, 45, 55),
+        SidebarColor = Color3.fromRGB(40, 40, 45),      -- CINZA
+        ContentColor = Color3.fromRGB(20, 60, 80),      -- CIANO ESCURO
+        TitleRed = Color3.fromRGB(255, 60, 60),         -- VERMELHO
         Primary = Color3.fromRGB(0, 180, 255),
         Gradient1 = Color3.fromRGB(100, 80, 220),
         Gradient2 = Color3.fromRGB(0, 180, 255),
@@ -272,7 +272,7 @@ function Arsenal.Init(ctx)
     Title.BackgroundTransparency = 1
     Title.Font = Theme.FontBold
     Title.Text = "INFINITE ZEN"
-    Title.TextColor3 = Theme.Text
+    Title.TextColor3 = Theme.TitleRed  -- VERMELHO
     Title.TextSize = 16
     Title.TextXAlignment = Enum.TextXAlignment.Left
     Title.ZIndex = 3
@@ -288,12 +288,11 @@ function Arsenal.Init(ctx)
     Subtitle.TextXAlignment = Enum.TextXAlignment.Left
     Subtitle.ZIndex = 3
 
-    -- BOTÃO DE IDIOMA
     local LangBtn = Instance.new("TextButton", Header)
     LangBtn.Size = UDim2.new(0, 60, 0, 26)
     LangBtn.Position = UDim2.new(1, -110, 0.5, -13)
     LangBtn.BackgroundColor3 = Theme.Surface2
-    LangBtn.Text = "BR"
+    LangBtn.Text = "US"
     LangBtn.Font = Theme.FontBold
     LangBtn.TextSize = 12
     LangBtn.TextColor3 = Theme.Text
@@ -301,7 +300,6 @@ function Arsenal.Init(ctx)
     LangBtn.ZIndex = 3
     Instance.new("UICorner", LangBtn).CornerRadius = UDim.new(0, 6)
 
-    -- DROPDOWN DE IDIOMAS (escondido)
     local LangDropdown = Instance.new("Frame", Header)
     LangDropdown.Size = UDim2.new(0, 140, 0, 0)
     LangDropdown.Position = UDim2.new(1, -110, 1, 4)
@@ -321,13 +319,11 @@ function Arsenal.Init(ctx)
     dropdownLayout.Padding = UDim.new(0, 2)
     dropdownLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
-    -- Popula dropdown
     local availableLangs = Language.getAvailable()
 
     for i, langData in ipairs(availableLangs) do
         local optBtn = Instance.new("TextButton", LangDropdown)
         optBtn.Size = UDim2.new(1, -8, 0, 30)
-        optBtn.Position = UDim2.new(0, 4, 0, i * 32 - 30)
         optBtn.BackgroundColor3 = Theme.Surface
         optBtn.Text = "  [" .. langData.shortCode .. "]  " .. langData.displayName
         optBtn.Font = Theme.Font
@@ -351,21 +347,18 @@ function Arsenal.Init(ctx)
         end)
     end
 
-    -- Ajusta tamanho do dropdown
     local totalDropdownHeight = #availableLangs * 32 + 8
     LangDropdown.Size = UDim2.new(0, 140, 0, totalDropdownHeight)
 
-    -- Toggle do dropdown
     local dropdownOpen = false
     LangBtn.MouseButton1Click:Connect(function()
         dropdownOpen = not dropdownOpen
         LangDropdown.Visible = dropdownOpen
     end)
 
-    -- Atualiza o texto do botão quando idioma muda
     registerRefresh(function()
         local data = Language.getCurrentData()
-        LangBtn.Text = "[" .. data.shortCode .. "] " .. data.flag
+        LangBtn.Text = "[" .. data.shortCode .. "]"
     end)
 
     local MinBtn = Instance.new("TextButton", Header)
@@ -432,19 +425,22 @@ function Arsenal.Init(ctx)
     makeDraggable(Title)
     makeDraggable(Subtitle)
 
-    -- SIDEBAR
+    -- SIDEBAR (CINZA)
     local Sidebar = Instance.new("Frame", MainFrame)
     Sidebar.Size = UDim2.new(0, 140, 1, -65)
     Sidebar.Position = UDim2.new(0, 10, 0, 58)
-    Sidebar.BackgroundColor3 = Theme.Surface
+    Sidebar.BackgroundColor3 = Theme.SidebarColor  -- CINZA
     Sidebar.BorderSizePixel = 0
     Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 10)
 
-    -- CONTENT
+    -- CONTENT (CIANO)
     local Content = Instance.new("Frame", MainFrame)
     Content.Size = UDim2.new(1, -170, 1, -70)
     Content.Position = UDim2.new(0, 160, 0, 58)
-    Content.BackgroundTransparency = 1
+    Content.BackgroundColor3 = Theme.ContentColor  -- CIANO ESCURO
+    Content.BackgroundTransparency = 0.3
+    Content.BorderSizePixel = 0
+    Instance.new("UICorner", Content).CornerRadius = UDim.new(0, 10)
 
     -- MINIMIZE
     local minimized = false
@@ -498,7 +494,8 @@ function Arsenal.Init(ctx)
         end)
 
         local container = Instance.new("ScrollingFrame", Content)
-        container.Size = UDim2.new(1, 0, 1, 0)
+        container.Size = UDim2.new(1, -10, 1, -10)
+        container.Position = UDim2.new(0, 5, 0, 5)
         container.BackgroundTransparency = 1
         container.BorderSizePixel = 0
         container.CanvasSize = UDim2.new(0, 0, 0, 0)
@@ -534,7 +531,6 @@ function Arsenal.Init(ctx)
         table.insert(tabs, tab)
         if #tabs == 1 then task.defer(activate) end
 
-        -- TOGGLE
         tab.CreateToggle = function(labelKey, featureId, callback)
             local holder = Instance.new("Frame", container)
             holder.Size = UDim2.new(1, -10, 0, 36)
@@ -625,7 +621,6 @@ function Arsenal.Init(ctx)
             return handle
         end
 
-        -- SLIDER
         tab.CreateSlider = function(labelKey, min, max, defaultValue, featureId, callback)
             local holder = Instance.new("Frame", container)
             holder.Size = UDim2.new(1, -10, 0, 44)
@@ -717,7 +712,6 @@ function Arsenal.Init(ctx)
             return handle
         end
 
-        -- BUTTON
         tab.CreateButton = function(labelKey, callback, style)
             local btn = Instance.new("TextButton", container)
             btn.Size = UDim2.new(1, -10, 0, 34)
@@ -746,7 +740,6 @@ function Arsenal.Init(ctx)
             return btn
         end
 
-        -- LABEL
         tab.CreateLabel = function(textKey, color)
             local lbl = Instance.new("TextLabel", container)
             lbl.Size = UDim2.new(1, -10, 0, 18)
@@ -767,7 +760,7 @@ function Arsenal.Init(ctx)
         return tab
     end
 
-        -- ============================================================
+    -- ============================================================
     -- FEATURES
     -- ============================================================
 
@@ -798,7 +791,6 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- AIMBOT
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.aimbot then return end
         local mouse = UserInputService:GetMouseLocation()
@@ -823,7 +815,6 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- SILENT HEADSHOT
     local silentHolding = false
     local silentTarget = nil
     local silentOriginalCam = nil
@@ -1535,7 +1526,6 @@ function Arsenal.Init(ctx)
         versionLabel.Text = Language.get("version_text")
     end)
 
-    -- Atualiza subtitle dinamicamente
     registerRefresh(function()
         Subtitle.Text = Language.get("hub_subtitle") .. " • v1.0"
     end)
