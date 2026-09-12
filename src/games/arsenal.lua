@@ -50,8 +50,6 @@ function Arsenal.Init(ctx)
         instaReload = false,
         autoShoot = false,
         autoShootFov = 100,
-        wallShoot = false,
-        wallShootSize = 8,
         speed = false,
         airJump = false,
         esp = false,
@@ -66,7 +64,6 @@ function Arsenal.Init(ctx)
             fastReload = nil,
             instaReload = nil,
             autoShoot = nil,
-            wallShoot = nil,
             speed = nil,
             airJump = nil,
             esp = nil,
@@ -85,7 +82,6 @@ function Arsenal.Init(ctx)
         fastReload = "Fast Reload",
         instaReload = "Insta-Reload",
         autoShoot = "Auto Shoot",
-        wallShoot = "Wall Shoot",
         speed = "Speed",
         airJump = "Air Jump",
         esp = "ESP",
@@ -663,8 +659,8 @@ function Arsenal.Init(ctx)
             if isEnemy(p) and p.Character then
                 local head = p.Character:FindFirstChild("Head")
                 if head then
-                    local sp, onScreen = Camera:WorldToViewportPoint(head.Position)
-                    if onScreen then
+                    local sp, onScreen, depth = Camera:WorldToViewportPoint(head.Position)
+                    if onScreen and depth > 0 then
                         local d = (Vector2.new(sp.X, sp.Y) - Vector2.new(mouse.X, mouse.Y)).Magnitude
                         if d < minDist then minDist = d; closest = p end
                     end
@@ -693,8 +689,8 @@ function Arsenal.Init(ctx)
             if isEnemy(p) and p.Character then
                 local head = p.Character:FindFirstChild("Head")
                 if head then
-                    local sp, onScreen = Camera:WorldToViewportPoint(head.Position)
-                    if onScreen then
+                    local sp, onScreen, depth = Camera:WorldToViewportPoint(head.Position)
+                    if onScreen and depth > 0 then
                         local d = (Vector2.new(sp.X, sp.Y) - Vector2.new(mouse.X, mouse.Y)).Magnitude
                         if d < minDist then
                             minDist = d
@@ -750,27 +746,41 @@ function Arsenal.Init(ctx)
     end)
 
     -- ============================================================
-    -- AUTO SHOOT
+    -- AUTO SHOOT (CORRIGIDO)
     -- ============================================================
+    local function hasLineOfSight(fromPos, targetPart)
+        local params = RaycastParams.new()
+        params.FilterType = Enum.RaycastFilterType.Exclude
+        params.FilterDescendantsInstances = {LocalPlayer.Character, targetPart.Parent}
+        local result = workspace:Raycast(fromPos, targetPart.Position - fromPos, params)
+        return result == nil
+    end
+
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.autoShoot then return end
         local mouse = UserInputService:GetMouseLocation()
         local targetInFov = false
+
         for _, p in ipairs(Players:GetPlayers()) do
             if isEnemy(p) and p.Character then
                 local head = p.Character:FindFirstChild("Head")
                 if head then
-                    local sp, onScreen = Camera:WorldToViewportPoint(head.Position)
-                    if onScreen then
+                    local sp, onScreen, depth = Camera:WorldToViewportPoint(head.Position)
+                    -- onScreen + depth > 0 (na frente da câmera)
+                    if onScreen and depth > 0 then
                         local d = (Vector2.new(sp.X, sp.Y) - Vector2.new(mouse.X, mouse.Y)).Magnitude
                         if d < State.autoShootFov then
-                            targetInFov = true
-                            break
+                            -- Verifica linha de visão (sem parede)
+                            if hasLineOfSight(Camera.CFrame.Position, head) then
+                                targetInFov = true
+                                break
+                            end
                         end
                     end
                 end
             end
         end
+
         if targetInFov then
             pcall(function()
                 VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
@@ -782,7 +792,7 @@ function Arsenal.Init(ctx)
     end)
 
     -- ============================================================
-    -- HEAD EXPANDER + WALL SHOOT
+    -- HEAD EXPANDER
     -- ============================================================
     local hitboxSaved = {}
 
@@ -848,15 +858,11 @@ function Arsenal.Init(ctx)
     end
 
     RunService.Heartbeat:Connect(function()
-        if UNLOADED then return end
-        if not State.headExpander and not State.wallShoot then return end
+        if UNLOADED or not State.headExpander then return end
         for _, p in ipairs(Players:GetPlayers()) do
             if p == LocalPlayer then
             elseif isEnemy(p) then
-                if p.Character then
-                    local size = State.wallShoot and State.wallShootSize or State.headExpanderSize
-                    expandPlayer(p, size)
-                end
+                if p.Character then expandPlayer(p, State.headExpanderSize) end
             else
                 if hitboxSaved[p] then restorePlayer(p) end
             end
@@ -1244,7 +1250,7 @@ function Arsenal.Init(ctx)
     CombatTab.CreateSlider("Silent FOV", 30, 300, 120, "silentFov")
     CombatTab.CreateToggle("Aimbot (Legit)", "aimbot")
     CombatTab.CreateToggle("Head Expander", "headExpander", function(v)
-        if not v and not State.wallShoot then restoreAll() end
+        if not v then restoreAll() end
     end)
     CombatTab.CreateSlider("Head Size", 1, 8, 3, "headExpanderSize")
     CombatTab.CreateToggle("Backstab", "backstab")
@@ -1263,10 +1269,6 @@ function Arsenal.Init(ctx)
     WeaponTab.CreateToggle("Insta-Reload", "instaReload")
     WeaponTab.CreateToggle("Auto Shoot", "autoShoot")
     WeaponTab.CreateSlider("Auto Shoot FOV", 30, 300, 100, "autoShootFov")
-    WeaponTab.CreateToggle("Wall Shoot", "wallShoot", function(v)
-        if not v and not State.headExpander then restoreAll() end
-    end)
-    WeaponTab.CreateSlider("Wall Shoot Size", 4, 15, 8, "wallShootSize")
 
     local MovementTab = CreateTab("Movement", "🏃")
     MovementTab.CreateToggle("Speed", "speed", function(v)
