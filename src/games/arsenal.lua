@@ -1,5 +1,6 @@
 -- ============================================================
 -- INFINITE ZEN - MÓDULO ARSENAL v1.0
+-- Tema: INFINITE ZEN (Vermelho/Preto Shinobi)
 -- ============================================================
 
 local Arsenal = {}
@@ -24,7 +25,7 @@ function Arsenal.Init(ctx)
     local UNLOADED = false
 
     -- ============================================================
-    -- SISTEMA DE TRADUÇÃO (via função global)
+    -- SISTEMA DE TRADUÇÃO
     -- ============================================================
     local langRefresh = {}
 
@@ -33,7 +34,6 @@ function Arsenal.Init(ctx)
         pcall(fn)
     end
 
-    -- Função GLOBAL que o language.lua chama quando o idioma muda
     _G.IZ_RefreshLanguage = function()
         for _, fn in ipairs(langRefresh) do
             pcall(fn)
@@ -110,24 +110,35 @@ function Arsenal.Init(ctx)
     GUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     GUI.Parent = PlayerGui
 
+    -- ============================================================
+    -- THEME - INFINITE ZEN (Vermelho/Preto Shinobi)
+    -- ============================================================
     local Theme = {
-        Bg = Color3.fromRGB(14, 14, 18),
-        Surface = Color3.fromRGB(22, 22, 28),
-        Surface2 = Color3.fromRGB(32, 32, 40),
-        Border = Color3.fromRGB(45, 45, 55),
-        SidebarColor = Color3.fromRGB(40, 40, 45),
-        ContentColor = Color3.fromRGB(20, 60, 80),
-        TitleRed = Color3.fromRGB(255, 60, 60),
-        Primary = Color3.fromRGB(0, 180, 255),
-        Gradient1 = Color3.fromRGB(100, 80, 220),
-        Gradient2 = Color3.fromRGB(0, 180, 255),
+        Bg = Color3.fromRGB(8, 4, 6),
+        Surface = Color3.fromRGB(18, 8, 12),
+        Surface2 = Color3.fromRGB(35, 12, 18),
+        Border = Color3.fromRGB(80, 15, 20),
+        SidebarColor = Color3.fromRGB(15, 6, 10),
+        ContentColor = Color3.fromRGB(25, 10, 15),
+
+        Primary = Color3.fromRGB(255, 30, 40),
+        PrimaryDark = Color3.fromRGB(180, 15, 25),
+
+        Gradient1 = Color3.fromRGB(150, 10, 20),
+        Gradient2 = Color3.fromRGB(255, 40, 40),
+
+        TitleRed = Color3.fromRGB(255, 50, 50),
+
         Success = Color3.fromRGB(0, 220, 130),
-        Danger = Color3.fromRGB(255, 70, 70),
-        Warning = Color3.fromRGB(255, 180, 60),
-        Text = Color3.fromRGB(240, 240, 250),
-        TextDim = Color3.fromRGB(150, 155, 170),
+        Danger = Color3.fromRGB(255, 40, 40),
+        Warning = Color3.fromRGB(255, 150, 50),
+
+        Text = Color3.fromRGB(255, 245, 245),
+        TextDim = Color3.fromRGB(160, 120, 130),
+        TextRed = Color3.fromRGB(255, 80, 80),
+
         Font = Enum.Font.GothamMedium,
-        FontBold = Enum.Font.GothamBold,
+        FontBold = Enum.Font.GothamBlack,
     }
 
     local activeNotifs = {}
@@ -215,12 +226,12 @@ function Arsenal.Init(ctx)
     MainFrame.Position = UDim2.new(0.5, -310, 0.5, -240)
     MainFrame.BackgroundColor3 = Theme.Bg
     MainFrame.BorderSizePixel = 0
-    Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
+    Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
 
     local mainStroke = Instance.new("UIStroke", MainFrame)
-    mainStroke.Color = Theme.Border
-    mainStroke.Thickness = 1
-    mainStroke.Transparency = 0.4
+    mainStroke.Color = Theme.Primary
+    mainStroke.Thickness = 1.5
+    mainStroke.Transparency = 0.3
 
     local shadow = Instance.new("ImageLabel", MainFrame)
     shadow.Image = "rbxassetid://1316045217"
@@ -236,18 +247,20 @@ function Arsenal.Init(ctx)
     Header.Size = UDim2.new(1, 0, 0, 48)
     Header.BackgroundColor3 = Theme.Surface
     Header.BorderSizePixel = 0
-    Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 12)
+    Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 8)
 
     local headerGradient = Instance.new("UIGradient")
     headerGradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Theme.Gradient1),
-        ColorSequenceKeypoint.new(1, Theme.Gradient2)
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(180, 10, 20)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 30, 40)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(100, 5, 15))
     })
     headerGradient.Transparency = NumberSequence.new({
-        NumberSequenceKeypoint.new(0, 0.85),
-        NumberSequenceKeypoint.new(0.5, 0.95),
-        NumberSequenceKeypoint.new(1, 1)
+        NumberSequenceKeypoint.new(0, 0.75),
+        NumberSequenceKeypoint.new(0.5, 0.9),
+        NumberSequenceKeypoint.new(1, 0.95)
     })
+    headerGradient.Rotation = 15
     headerGradient.Parent = Header
 
     local headerFix = Instance.new("Frame", Header)
@@ -265,21 +278,27 @@ function Arsenal.Init(ctx)
 
     local headerBarGradient = Instance.new("UIGradient")
     headerBarGradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Theme.Gradient1),
-        ColorSequenceKeypoint.new(1, Theme.Gradient2)
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 5, 15)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 50, 50)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(100, 5, 15))
     })
     headerBarGradient.Parent = headerBar
 
     local Title = Instance.new("TextLabel", Header)
-    Title.Size = UDim2.new(0, 200, 0, 22)
+    Title.Size = UDim2.new(0, 250, 0, 22)
     Title.Position = UDim2.new(0, 20, 0, 6)
     Title.BackgroundTransparency = 1
     Title.Font = Theme.FontBold
-    Title.Text = "INFINITE ZEN"
+    Title.Text = "∞ INFINITE ZEN"
     Title.TextColor3 = Theme.TitleRed
-    Title.TextSize = 16
+    Title.TextSize = 17
     Title.TextXAlignment = Enum.TextXAlignment.Left
     Title.ZIndex = 3
+
+    local titleStroke = Instance.new("UIStroke", Title)
+    titleStroke.Color = Color3.fromRGB(255, 100, 100)
+    titleStroke.Thickness = 1
+    titleStroke.Transparency = 0.7
 
     local Subtitle = Instance.new("TextLabel", Header)
     Subtitle.Size = UDim2.new(0, 200, 0, 18)
@@ -287,7 +306,7 @@ function Arsenal.Init(ctx)
     Subtitle.BackgroundTransparency = 1
     Subtitle.Font = Theme.Font
     Subtitle.Text = "Arsenal Edition"
-    Subtitle.TextColor3 = Color3.fromRGB(200, 205, 220)
+    Subtitle.TextColor3 = Color3.fromRGB(220, 180, 185)
     Subtitle.TextSize = 11
     Subtitle.TextXAlignment = Enum.TextXAlignment.Left
     Subtitle.ZIndex = 3
@@ -435,7 +454,12 @@ function Arsenal.Init(ctx)
     Sidebar.Position = UDim2.new(0, 10, 0, 58)
     Sidebar.BackgroundColor3 = Theme.SidebarColor
     Sidebar.BorderSizePixel = 0
-    Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 10)
+    Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 8)
+
+    local sidebarStroke = Instance.new("UIStroke", Sidebar)
+    sidebarStroke.Color = Theme.Border
+    sidebarStroke.Thickness = 1
+    sidebarStroke.Transparency = 0.5
 
     -- CONTENT
     local Content = Instance.new("Frame", MainFrame)
@@ -444,7 +468,12 @@ function Arsenal.Init(ctx)
     Content.BackgroundColor3 = Theme.ContentColor
     Content.BackgroundTransparency = 0.3
     Content.BorderSizePixel = 0
-    Instance.new("UICorner", Content).CornerRadius = UDim.new(0, 10)
+    Instance.new("UICorner", Content).CornerRadius = UDim.new(0, 8)
+
+    local contentStroke = Instance.new("UIStroke", Content)
+    contentStroke.Color = Theme.Border
+    contentStroke.Thickness = 1
+    contentStroke.Transparency = 0.5
 
     -- MINIMIZE
     local minimized = false
@@ -480,7 +509,7 @@ function Arsenal.Init(ctx)
         btn.TextSize = 12
         btn.TextXAlignment = Enum.TextXAlignment.Left
         btn.AutoButtonColor = false
-        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
 
         registerRefresh(function()
             btn.Text = "  " .. icon .. "   " .. Language.get(nameKey)
@@ -543,6 +572,11 @@ function Arsenal.Init(ctx)
             holder.BorderSizePixel = 0
             Instance.new("UICorner", holder).CornerRadius = UDim.new(0, 6)
 
+            local holderStroke = Instance.new("UIStroke", holder)
+            holderStroke.Color = Theme.Border
+            holderStroke.Thickness = 1
+            holderStroke.Transparency = 0.7
+
             local lbl = Instance.new("TextLabel", holder)
             lbl.Size = UDim2.new(0.5, 0, 1, 0)
             lbl.Position = UDim2.new(0, 12, 0, 0)
@@ -586,7 +620,6 @@ function Arsenal.Init(ctx)
             toggleBtn.AutoButtonColor = false
             Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 6)
 
-            -- Função que atualiza o texto do toggle
             local function refreshToggleText()
                 if State[featureId] then
                     toggleBtn.Text = Language.get("on")
@@ -595,7 +628,6 @@ function Arsenal.Init(ctx)
                 end
             end
 
-            -- Registra o refresh
             registerRefresh(refreshToggleText)
 
             local function setState(v, silent)
@@ -648,6 +680,11 @@ function Arsenal.Init(ctx)
             holder.BackgroundColor3 = Theme.Surface
             holder.BorderSizePixel = 0
             Instance.new("UICorner", holder).CornerRadius = UDim.new(0, 6)
+
+            local holderStroke = Instance.new("UIStroke", holder)
+            holderStroke.Color = Theme.Border
+            holderStroke.Thickness = 1
+            holderStroke.Transparency = 0.7
 
             local lbl = Instance.new("TextLabel", holder)
             lbl.Size = UDim2.new(0.6, 0, 0, 18)
@@ -737,7 +774,7 @@ function Arsenal.Init(ctx)
         tab.CreateButton = function(labelKey, callback, style)
             local btn = Instance.new("TextButton", container)
             btn.Size = UDim2.new(1, -10, 0, 34)
-            btn.BackgroundColor3 = style == "danger" and Color3.fromRGB(60, 25, 25) or Theme.Surface
+            btn.BackgroundColor3 = style == "danger" and Color3.fromRGB(60, 15, 20) or Theme.Surface
             btn.BorderSizePixel = 0
             btn.Text = ""
             btn.Font = Theme.Font
@@ -746,15 +783,20 @@ function Arsenal.Init(ctx)
             btn.AutoButtonColor = false
             Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
 
+            local btnStroke = Instance.new("UIStroke", btn)
+            btnStroke.Color = Theme.Border
+            btnStroke.Thickness = 1
+            btnStroke.Transparency = 0.7
+
             registerRefresh(function()
                 btn.Text = Language.get(labelKey)
             end)
 
             btn.MouseEnter:Connect(function()
-                btn.BackgroundColor3 = style == "danger" and Color3.fromRGB(80, 30, 30) or Theme.Primary
+                btn.BackgroundColor3 = style == "danger" and Color3.fromRGB(80, 20, 25) or Theme.Primary
             end)
             btn.MouseLeave:Connect(function()
-                btn.BackgroundColor3 = style == "danger" and Color3.fromRGB(60, 25, 25) or Theme.Surface
+                btn.BackgroundColor3 = style == "danger" and Color3.fromRGB(60, 15, 20) or Theme.Surface
             end)
             btn.MouseButton1Click:Connect(function()
                 if callback then callback() end
@@ -788,7 +830,7 @@ function Arsenal.Init(ctx)
     -- ============================================================
 
     local fovCircle = Drawing.new("Circle")
-    fovCircle.Color = Color3.fromRGB(0, 200, 255)
+    fovCircle.Color = Color3.fromRGB(255, 30, 40)
     fovCircle.Thickness = 1.5
     fovCircle.Filled = false
     fovCircle.NumSides = 100
@@ -1048,7 +1090,7 @@ function Arsenal.Init(ctx)
         if not p.Character then return end
         local chams = Instance.new("Highlight")
         chams.Adornee = p.Character
-        chams.FillColor = Color3.fromRGB(255, 60, 60)
+        chams.FillColor = Color3.fromRGB(255, 30, 40)
         chams.FillTransparency = 0.6
         chams.OutlineColor = Color3.fromRGB(255, 255, 255)
         chams.OutlineTransparency = 0.3
@@ -1063,11 +1105,11 @@ function Arsenal.Init(ctx)
             return d
         end
 
-        data.box = newDrawing("Square", {Thickness = 1.5, Color = Color3.fromRGB(0, 200, 255), Filled = false, Transparency = 1})
+        data.box = newDrawing("Square", {Thickness = 1.5, Color = Color3.fromRGB(255, 30, 40), Filled = false, Transparency = 1})
         data.name = newDrawing("Text", {Size = 14, Center = true, Outline = true, Color = Color3.fromRGB(255, 255, 255)})
-        data.distance = newDrawing("Text", {Size = 12, Center = true, Outline = true, Color = Color3.fromRGB(0, 200, 255)})
+        data.distance = newDrawing("Text", {Size = 12, Center = true, Outline = true, Color = Color3.fromRGB(255, 80, 80)})
         data.health = newDrawing("Line", {Thickness = 3, Color = Color3.fromRGB(0, 255, 0)})
-        data.tracer = newDrawing("Line", {Thickness = 1.2, Color = Color3.fromRGB(0, 200, 255)})
+        data.tracer = newDrawing("Line", {Thickness = 1.2, Color = Color3.fromRGB(255, 30, 40)})
         data.headDot = newDrawing("Circle", {Radius = 4, NumSides = 20, Thickness = 1, Filled = false, Color = Color3.fromRGB(255, 255, 255)})
 
         ESP.data[p] = data
@@ -1135,7 +1177,7 @@ function Arsenal.Init(ctx)
             local cy = (headSp.Y + footSp.Y) / 2
             d.box.Position = Vector2.new(cx - w / 2, cy - h / 2)
             d.box.Size = Vector2.new(w, h)
-            d.box.Color = Color3.fromRGB(0, 200, 255)
+            d.box.Color = Color3.fromRGB(255, 30, 40)
             d.box.Visible = true
         else
             d.box.Visible = false
