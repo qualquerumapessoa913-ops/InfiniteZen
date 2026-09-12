@@ -16,7 +16,7 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 -- CONFIGURAÇÕES
 -- ============================================================
 local CONFIG = {
-    REPO = "https://raw.githubusercontent.com/SEU_USUARIO/InfiniteZen/main",
+    REPO = "https://raw.githubusercontent.com/qualquerumapessoa913-ops/InfiniteZen/Moon-Angel",
     DEFAULT_LANG = "en",
 
     SUPPORTED_GAMES = {
