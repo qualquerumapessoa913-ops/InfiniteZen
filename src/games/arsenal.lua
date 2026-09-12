@@ -1,6 +1,5 @@
 -- ============================================================
 -- INFINITE ZEN - MÓDULO ARSENAL
--- Seu script original envelopado em Init(ctx)
 -- ============================================================
 
 local Arsenal = {}
@@ -12,7 +11,7 @@ function Arsenal.Init(ctx)
     print("[Infinite Zen] Inicializando Arsenal...")
 
     -- ============================================================
-    -- SCRIPT ORIGINAL - INFINITE ZEN
+    -- SCRIPT ORIGINAL
     -- ============================================================
 
     local Players = game:GetService("Players")
@@ -107,14 +106,14 @@ function Arsenal.Init(ctx)
     GUI.Parent = PlayerGui
 
     -- ============================================================
-    -- THEME
+    -- THEME (CORES ORIGINAIS - AZUL)
     -- ============================================================
     local Theme = {
         Bg = Color3.fromRGB(14, 14, 18),
         Surface = Color3.fromRGB(22, 22, 28),
         Surface2 = Color3.fromRGB(32, 32, 40),
         Border = Color3.fromRGB(45, 45, 55),
-        Primary = Color3.fromRGB(150, 80, 255),
+        Primary = Color3.fromRGB(0, 180, 255),  -- ← AZUL ORIGINAL
         Success = Color3.fromRGB(0, 220, 130),
         Danger = Color3.fromRGB(255, 70, 70),
         Warning = Color3.fromRGB(255, 180, 60),
@@ -624,7 +623,7 @@ function Arsenal.Init(ctx)
 
     -- FOV Circle
     local fovCircle = Drawing.new("Circle")
-    fovCircle.Color = Color3.fromRGB(150, 80, 255)
+    fovCircle.Color = Color3.fromRGB(0, 200, 255)  -- ← AZUL ORIGINAL
     fovCircle.Thickness = 1.5
     fovCircle.Filled = false
     fovCircle.NumSides = 100
@@ -869,11 +868,11 @@ function Arsenal.Init(ctx)
             return d
         end
 
-        data.box = newDrawing("Square", {Thickness = 1.5, Color = Color3.fromRGB(150, 80, 255), Filled = false, Transparency = 1})
+        data.box = newDrawing("Square", {Thickness = 1.5, Color = Color3.fromRGB(0, 200, 255), Filled = false, Transparency = 1})
         data.name = newDrawing("Text", {Size = 14, Center = true, Outline = true, Color = Color3.fromRGB(255, 255, 255)})
-        data.distance = newDrawing("Text", {Size = 12, Center = true, Outline = true, Color = Color3.fromRGB(150, 80, 255)})
+        data.distance = newDrawing("Text", {Size = 12, Center = true, Outline = true, Color = Color3.fromRGB(0, 200, 255)})
         data.health = newDrawing("Line", {Thickness = 3, Color = Color3.fromRGB(0, 255, 0)})
-        data.tracer = newDrawing("Line", {Thickness = 1.2, Color = Color3.fromRGB(150, 80, 255)})
+        data.tracer = newDrawing("Line", {Thickness = 1.2, Color = Color3.fromRGB(0, 200, 255)})
         data.headDot = newDrawing("Circle", {Radius = 4, NumSides = 20, Thickness = 1, Filled = false, Color = Color3.fromRGB(255, 255, 255)})
 
         ESP.data[p] = data
@@ -941,7 +940,7 @@ function Arsenal.Init(ctx)
             local cy = (headSp.Y + footSp.Y) / 2
             d.box.Position = Vector2.new(cx - w / 2, cy - h / 2)
             d.box.Size = Vector2.new(w, h)
-            d.box.Color = Color3.fromRGB(150, 80, 255)
+            d.box.Color = Color3.fromRGB(0, 200, 255)
             d.box.Visible = true
         else
             d.box.Visible = false
@@ -1407,10 +1406,6 @@ function Arsenal.Init(ctx)
 
     print("[Infinite Zen] ✅ Arsenal carregado!")
     print("[Infinite Zen] K = Minimize | E = Backstab | X = Silent Headshot")
-
-    -- ============================================================
-    -- FIM DO SCRIPT ORIGINAL
-    -- ============================================================
 end
 
 return Arsenal
