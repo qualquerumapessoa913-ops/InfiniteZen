@@ -1,10 +1,10 @@
 -- ============================================================
--- INFINITE ZEN - SISTEMA DE IDIOMAS (EXPANDIDO)
+-- INFINITE ZEN - SISTEMA DE IDIOMAS
 -- ============================================================
 
 local Language = {}
 
-Language.current = "pt-br"
+Language.current = "en"
 Language.listeners = {}
 
 Language.translations = {
@@ -13,19 +13,16 @@ Language.translations = {
         displayName = "Portugues (BR)",
         shortCode = "BR",
 
-        -- Header
         hub_name = "INFINITE ZEN",
         hub_subtitle = "Arsenal Edition",
         language_label = "Idioma",
 
-        -- Tabs
         tab_combat = "Combat",
         tab_weapon = "Armas",
         tab_movement = "Movimento",
         tab_visuals = "Visual",
         tab_settings = "Config",
 
-        -- Combat
         silent_headshot = "Silent Headshot",
         silent_fov = "FOV do Silent",
         aimbot = "Aimbot (Legit)",
@@ -33,7 +30,6 @@ Language.translations = {
         head_size = "Tamanho da Cabeca",
         backstab = "Backstab",
 
-        -- Weapon
         no_recoil = "Sem Recuo",
         rapid_fire = "Tiro Rapido",
         fast_reload = "Recarga Rapida",
@@ -41,15 +37,12 @@ Language.translations = {
         auto_shoot = "Tiro Automatico",
         auto_shoot_fov = "FOV do Tiro Auto",
 
-        -- Movement
         speed = "Velocidade",
         air_jump = "Pulo no Ar",
 
-        -- Visuals
         esp = "ESP (Tudo)",
         max_distance = "Distancia Maxima",
 
-        -- Settings
         interface_label = "Interface",
         save_config = "Salvar Config",
         load_config = "Carregar Config",
@@ -60,12 +53,10 @@ Language.translations = {
         unload_script = "Descarregar Script",
         version_text = "Infinite Zen v1.0",
 
-        -- Toggle states
-        on = "ON",
-        off = "OFF",
+        on = "Ligado",
+        off = "Desligado",
         key = "tecla",
 
-        -- Notifications
         config_saved = "Configuracoes salvas com sucesso",
         config_loaded = "Configuracoes carregadas",
         config_error_save = "Executor nao suporta writefile",
@@ -80,6 +71,7 @@ Language.translations = {
         config_title = "Config",
         error_title = "Erro",
         load_title = "Carregar",
+        unsupported_title = "Jogo Nao Suportado",
     },
 
     ["en"] = {
@@ -145,6 +137,7 @@ Language.translations = {
         config_title = "Config",
         error_title = "Error",
         load_title = "Load",
+        unsupported_title = "Unsupported Game",
     },
 
     ["es"] = {
@@ -192,8 +185,8 @@ Language.translations = {
         unload_script = "Descargar Script",
         version_text = "Infinite Zen v1.0",
 
-        on = "ON",
-        off = "OFF",
+        on = "Encendido",
+        off = "Apagado",
         key = "tecla",
 
         config_saved = "Configuracion guardada",
@@ -210,23 +203,39 @@ Language.translations = {
         config_title = "Config",
         error_title = "Error",
         load_title = "Cargar",
+        unsupported_title = "Juego No Soportado",
     },
 }
 
 function Language.get(key)
     local t = Language.translations[Language.current]
     if t and t[key] then return t[key] end
-    local fb = Language.translations["pt-br"]
+    local fb = Language.translations["en"]
     if fb and fb[key] then return fb[key] end
     return key
 end
 
+-- ============================================================
+-- FUNÇÃO DE REFRESH GLOBAL (FORÇA ATUALIZAÇÃO DE TODA UI)
+-- ============================================================
 function Language.setLanguage(code)
-    if not Language.translations[code] then return false end
-    Language.current = code
-    for _, callback in ipairs(Language.listeners) do
-        task.spawn(callback)
+    if not Language.translations[code] then
+        print("[LANG] Codigo nao encontrado: " .. tostring(code))
+        return false
     end
+    Language.current = code
+    print("[LANG] Idioma alterado para: " .. code)
+
+    -- 1) Chama a função global (se existir)
+    if _G.IZ_RefreshLanguage then
+        pcall(_G.IZ_RefreshLanguage)
+    end
+
+    -- 2) Chama todos os listeners registrados
+    for _, callback in ipairs(Language.listeners) do
+        pcall(callback)
+    end
+
     return true
 end
 

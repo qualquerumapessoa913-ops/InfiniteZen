@@ -23,6 +23,9 @@ function Arsenal.Init(ctx)
 
     local UNLOADED = false
 
+    -- ============================================================
+    -- SISTEMA DE TRADUÇÃO (via função global)
+    -- ============================================================
     local langRefresh = {}
 
     local function registerRefresh(fn)
@@ -30,11 +33,12 @@ function Arsenal.Init(ctx)
         pcall(fn)
     end
 
-    Language.onChange(function()
+    -- Função GLOBAL que o language.lua chama quando o idioma muda
+    _G.IZ_RefreshLanguage = function()
         for _, fn in ipairs(langRefresh) do
             pcall(fn)
         end
-    end)
+    end
 
     local function isEnemy(player)
         if player == LocalPlayer then return false end
@@ -111,9 +115,9 @@ function Arsenal.Init(ctx)
         Surface = Color3.fromRGB(22, 22, 28),
         Surface2 = Color3.fromRGB(32, 32, 40),
         Border = Color3.fromRGB(45, 45, 55),
-        SidebarColor = Color3.fromRGB(40, 40, 45),      -- CINZA
-        ContentColor = Color3.fromRGB(20, 60, 80),      -- CIANO ESCURO
-        TitleRed = Color3.fromRGB(255, 60, 60),         -- VERMELHO
+        SidebarColor = Color3.fromRGB(40, 40, 45),
+        ContentColor = Color3.fromRGB(20, 60, 80),
+        TitleRed = Color3.fromRGB(255, 60, 60),
         Primary = Color3.fromRGB(0, 180, 255),
         Gradient1 = Color3.fromRGB(100, 80, 220),
         Gradient2 = Color3.fromRGB(0, 180, 255),
@@ -272,7 +276,7 @@ function Arsenal.Init(ctx)
     Title.BackgroundTransparency = 1
     Title.Font = Theme.FontBold
     Title.Text = "INFINITE ZEN"
-    Title.TextColor3 = Theme.TitleRed  -- VERMELHO
+    Title.TextColor3 = Theme.TitleRed
     Title.TextSize = 16
     Title.TextXAlignment = Enum.TextXAlignment.Left
     Title.ZIndex = 3
@@ -425,19 +429,19 @@ function Arsenal.Init(ctx)
     makeDraggable(Title)
     makeDraggable(Subtitle)
 
-    -- SIDEBAR (CINZA)
+    -- SIDEBAR
     local Sidebar = Instance.new("Frame", MainFrame)
     Sidebar.Size = UDim2.new(0, 140, 1, -65)
     Sidebar.Position = UDim2.new(0, 10, 0, 58)
-    Sidebar.BackgroundColor3 = Theme.SidebarColor  -- CINZA
+    Sidebar.BackgroundColor3 = Theme.SidebarColor
     Sidebar.BorderSizePixel = 0
     Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 10)
 
-    -- CONTENT (CIANO)
+    -- CONTENT
     local Content = Instance.new("Frame", MainFrame)
     Content.Size = UDim2.new(1, -170, 1, -70)
     Content.Position = UDim2.new(0, 160, 0, 58)
-    Content.BackgroundColor3 = Theme.ContentColor  -- CIANO ESCURO
+    Content.BackgroundColor3 = Theme.ContentColor
     Content.BackgroundTransparency = 0.3
     Content.BorderSizePixel = 0
     Instance.new("UICorner", Content).CornerRadius = UDim.new(0, 10)
@@ -531,6 +535,7 @@ function Arsenal.Init(ctx)
         table.insert(tabs, tab)
         if #tabs == 1 then task.defer(activate) end
 
+        -- TOGGLE
         tab.CreateToggle = function(labelKey, featureId, callback)
             local holder = Instance.new("Frame", container)
             holder.Size = UDim2.new(1, -10, 0, 36)
@@ -564,7 +569,9 @@ function Arsenal.Init(ctx)
             Instance.new("UICorner", keyBtn).CornerRadius = UDim.new(0, 6)
 
             registerRefresh(function()
-                if not State.keybinds[featureId] then
+                if State.keybinds[featureId] then
+                    keyBtn.Text = State.keybinds[featureId]
+                else
                     keyBtn.Text = Language.get("key")
                 end
             end)
@@ -573,16 +580,27 @@ function Arsenal.Init(ctx)
             toggleBtn.Size = UDim2.new(0, 50, 0, 22)
             toggleBtn.Position = UDim2.new(1, -58, 0.5, -11)
             toggleBtn.BackgroundColor3 = State[featureId] and Theme.Success or Theme.Surface2
-            toggleBtn.Text = State[featureId] and Language.get("on") or Language.get("off")
             toggleBtn.Font = Theme.FontBold
             toggleBtn.TextSize = 11
             toggleBtn.TextColor3 = Theme.Text
             toggleBtn.AutoButtonColor = false
             Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 6)
 
+            -- Função que atualiza o texto do toggle
+            local function refreshToggleText()
+                if State[featureId] then
+                    toggleBtn.Text = Language.get("on")
+                else
+                    toggleBtn.Text = Language.get("off")
+                end
+            end
+
+            -- Registra o refresh
+            registerRefresh(refreshToggleText)
+
             local function setState(v, silent)
                 State[featureId] = v
-                toggleBtn.Text = v and Language.get("on") or Language.get("off")
+                refreshToggleText()
                 toggleBtn.BackgroundColor3 = v and Theme.Success or Theme.Surface2
                 if not silent and callback then callback(v) end
             end
@@ -590,10 +608,6 @@ function Arsenal.Init(ctx)
             local function toggle()
                 setState(not State[featureId])
             end
-
-            registerRefresh(function()
-                toggleBtn.Text = State[featureId] and Language.get("on") or Language.get("off")
-            end)
 
             toggleBtn.MouseButton1Click:Connect(toggle)
 
@@ -610,9 +624,15 @@ function Arsenal.Init(ctx)
                 Toggle = toggle,
                 SetKeybind = function(key)
                     State.keybinds[featureId] = key
-                    keyBtn.Text = key or Language.get("key")
-                    keyBtn.BackgroundColor3 = key and Theme.Primary or Theme.Surface2
-                    keyBtn.TextColor3 = key and Theme.Text or Theme.TextDim
+                    if key then
+                        keyBtn.Text = key
+                        keyBtn.BackgroundColor3 = Theme.Primary
+                        keyBtn.TextColor3 = Theme.Text
+                    else
+                        keyBtn.Text = Language.get("key")
+                        keyBtn.BackgroundColor3 = Theme.Surface2
+                        keyBtn.TextColor3 = Theme.TextDim
+                    end
                 end,
                 keyBtn = keyBtn,
             }
@@ -621,6 +641,7 @@ function Arsenal.Init(ctx)
             return handle
         end
 
+        -- SLIDER
         tab.CreateSlider = function(labelKey, min, max, defaultValue, featureId, callback)
             local holder = Instance.new("Frame", container)
             holder.Size = UDim2.new(1, -10, 0, 44)
@@ -712,6 +733,7 @@ function Arsenal.Init(ctx)
             return handle
         end
 
+        -- BUTTON
         tab.CreateButton = function(labelKey, callback, style)
             local btn = Instance.new("TextButton", container)
             btn.Size = UDim2.new(1, -10, 0, 34)
@@ -740,6 +762,7 @@ function Arsenal.Init(ctx)
             return btn
         end
 
+        -- LABEL
         tab.CreateLabel = function(textKey, color)
             local lbl = Instance.new("TextLabel", container)
             lbl.Size = UDim2.new(1, -10, 0, 18)
@@ -882,7 +905,6 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- AUTO SHOOT
     local function hasLineOfSight(fromPos, targetPart)
         if not targetPart or not targetPart.Parent then return false end
 
@@ -944,7 +966,6 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- HEAD EXPANDER
     local hitboxSaved = {}
 
     local function saveOriginal(player, part)
@@ -1020,7 +1041,6 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- ESP
     local ESP = {data = {}}
 
     local function createESP(p)
@@ -1179,7 +1199,6 @@ function Arsenal.Init(ctx)
         removeESP(p)
     end)
 
-    -- RAPID FIRE / NO RECOIL / FAST RELOAD / INSTA RELOAD
     local reloadOriginals = {}
 
     RunService.Heartbeat:Connect(function()
@@ -1288,7 +1307,6 @@ function Arsenal.Init(ctx)
         end
     end)()
 
-    -- SPEED
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.speed then return end
         local char = LocalPlayer.Character
@@ -1298,7 +1316,6 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- AIR JUMP
     local airJumpConn = nil
 
     local function startAirJump()
@@ -1318,7 +1335,6 @@ function Arsenal.Init(ctx)
         if airJumpConn then airJumpConn:Disconnect(); airJumpConn = nil end
     end
 
-    -- BACKSTAB
     local backstabLock = {active = false, target = nil, endTime = 0}
 
     local function getClosestEnemyAnywhere()
@@ -1492,6 +1508,7 @@ function Arsenal.Init(ctx)
 
     local function unloadScript()
         UNLOADED = true
+        _G.IZ_RefreshLanguage = nil
         restoreAll()
         clearAllESP()
         if airJumpConn then airJumpConn:Disconnect() end
@@ -1511,7 +1528,6 @@ function Arsenal.Init(ctx)
     SettingsTab.CreateLabel(" ")
     SettingsTab.CreateButton("unload_script", unloadScript, "danger")
 
-    -- VERSION LABEL
     local versionLabel = Instance.new("TextLabel", MainFrame)
     versionLabel.Size = UDim2.new(1, -20, 0, 16)
     versionLabel.Position = UDim2.new(0, 10, 1, -20)
@@ -1530,9 +1546,6 @@ function Arsenal.Init(ctx)
         Subtitle.Text = Language.get("hub_subtitle") .. " • v1.0"
     end)
 
-    -- ============================================================
-    -- KEYBIND SYSTEM
-    -- ============================================================
     local MINIMIZE_KEY = Enum.KeyCode.K
 
     UserInputService.InputBegan:Connect(function(input, gp)
