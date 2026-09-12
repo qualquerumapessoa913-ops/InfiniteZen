@@ -1,5 +1,5 @@
 -- ============================================================
--- INFINITE ZEN - MÓDULO ARSENAL
+-- INFINITE ZEN - MÓDULO ARSENAL v1.0
 -- ============================================================
 
 local Arsenal = {}
@@ -23,6 +23,22 @@ function Arsenal.Init(ctx)
 
     local UNLOADED = false
 
+    -- ============================================================
+    -- SISTEMA DE TRADUÇÃO DINÂMICA
+    -- ============================================================
+    local langRefresh = {}
+
+    local function registerRefresh(fn)
+        table.insert(langRefresh, fn)
+        pcall(fn)
+    end
+
+    Language.onChange(function()
+        for _, fn in ipairs(langRefresh) do
+            pcall(fn)
+        end
+    end)
+
     local function isEnemy(player)
         if player == LocalPlayer then return false end
         if not player.Character then return false end
@@ -34,9 +50,6 @@ function Arsenal.Init(ctx)
         return player.Team ~= myTeam
     end
 
-    -- ============================================================
-    -- STATE
-    -- ============================================================
     local State = {
         silentHeadshot = false,
         aimbot = false,
@@ -96,15 +109,14 @@ function Arsenal.Init(ctx)
     GUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     GUI.Parent = PlayerGui
 
-    -- ============================================================
-    -- THEME (CORES ORIGINAIS)
-    -- ============================================================
     local Theme = {
         Bg = Color3.fromRGB(14, 14, 18),
         Surface = Color3.fromRGB(22, 22, 28),
         Surface2 = Color3.fromRGB(32, 32, 40),
         Border = Color3.fromRGB(45, 45, 55),
         Primary = Color3.fromRGB(0, 180, 255),
+        Gradient1 = Color3.fromRGB(100, 80, 220),
+        Gradient2 = Color3.fromRGB(0, 180, 255),
         Success = Color3.fromRGB(0, 220, 130),
         Danger = Color3.fromRGB(255, 70, 70),
         Warning = Color3.fromRGB(255, 180, 60),
@@ -128,8 +140,7 @@ function Arsenal.Init(ctx)
         notif.Parent = GUI
         notif.ZIndex = 999
 
-        local c = Instance.new("UICorner", notif)
-        c.CornerRadius = UDim.new(0, 10)
+        Instance.new("UICorner", notif).CornerRadius = UDim.new(0, 10)
 
         local strokeColor = isError and Theme.Danger or Theme.Warning
 
@@ -192,51 +203,6 @@ function Arsenal.Init(ctx)
     end
 
     -- ============================================================
-    -- DRAG SYSTEM
-    -- ============================================================
-    local drag = {active = false, frame = nil, input = nil, start = nil, frameStart = nil}
-
-    local function startDrag(frame, input)
-        if drag.active then return end
-        drag.active = true
-        drag.frame = frame
-        drag.input = input
-        drag.start = input.Position
-        drag.frameStart = frame.Position
-    end
-
-    UserInputService.InputChanged:Connect(function(input)
-        if UNLOADED then return end
-        if drag.active and drag.frame and input == drag.input then
-            local d = input.Position - drag.start
-            drag.frame.Position = UDim2.new(
-                drag.frameStart.X.Scale, drag.frameStart.X.Offset + d.X,
-                drag.frameStart.Y.Scale, drag.frameStart.Y.Offset + d.Y
-            )
-        end
-    end)
-
-    UserInputService.InputEnded:Connect(function(input)
-        if UNLOADED then return end
-        if input == drag.input then
-            drag.active = false
-            drag.frame = nil
-            drag.input = nil
-        end
-    end)
-
-    UserInputService.TouchMoved:Connect(function(input)
-        if UNLOADED then return end
-        if drag.active and input == drag.input then
-            local d = input.Position - drag.start
-            drag.frame.Position = UDim2.new(
-                drag.frameStart.X.Scale, drag.frameStart.X.Offset + d.X,
-                drag.frameStart.Y.Scale, drag.frameStart.Y.Offset + d.Y
-            )
-        end
-    end)
-
-    -- ============================================================
     -- MAIN WINDOW
     -- ============================================================
     local MainFrame = Instance.new("Frame", GUI)
@@ -245,7 +211,6 @@ function Arsenal.Init(ctx)
     MainFrame.Position = UDim2.new(0.5, -310, 0.5, -240)
     MainFrame.BackgroundColor3 = Theme.Bg
     MainFrame.BorderSizePixel = 0
-    MainFrame.Active = true
     Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
 
     local mainStroke = Instance.new("UIStroke", MainFrame)
@@ -263,11 +228,23 @@ function Arsenal.Init(ctx)
 
     -- HEADER
     local Header = Instance.new("Frame", MainFrame)
-    Header.Size = UDim2.new(1, 0, 0, 45)
+    Header.Name = "Header"
+    Header.Size = UDim2.new(1, 0, 0, 48)
     Header.BackgroundColor3 = Theme.Surface
     Header.BorderSizePixel = 0
-    Header.Active = true
     Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 12)
+
+    local headerGradient = Instance.new("UIGradient")
+    headerGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Theme.Gradient1),
+        ColorSequenceKeypoint.new(1, Theme.Gradient2)
+    })
+    headerGradient.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0.85),
+        NumberSequenceKeypoint.new(0.5, 0.95),
+        NumberSequenceKeypoint.new(1, 1)
+    })
+    headerGradient.Parent = Header
 
     local headerFix = Instance.new("Frame", Header)
     headerFix.Size = UDim2.new(1, 0, 0, 12)
@@ -275,25 +252,121 @@ function Arsenal.Init(ctx)
     headerFix.BackgroundColor3 = Theme.Surface
     headerFix.BorderSizePixel = 0
 
+    local headerBar = Instance.new("Frame", Header)
+    headerBar.Size = UDim2.new(1, 0, 0, 2)
+    headerBar.Position = UDim2.new(0, 0, 0, 0)
+    headerBar.BackgroundColor3 = Theme.Primary
+    headerBar.BorderSizePixel = 0
+    headerBar.ZIndex = 2
+
+    local headerBarGradient = Instance.new("UIGradient")
+    headerBarGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Theme.Gradient1),
+        ColorSequenceKeypoint.new(1, Theme.Gradient2)
+    })
+    headerBarGradient.Parent = headerBar
+
     local Title = Instance.new("TextLabel", Header)
-    Title.Size = UDim2.new(1, -100, 0, 22)
-    Title.Position = UDim2.new(0, 20, 0, 4)
+    Title.Size = UDim2.new(0, 200, 0, 22)
+    Title.Position = UDim2.new(0, 20, 0, 6)
     Title.BackgroundTransparency = 1
     Title.Font = Theme.FontBold
     Title.Text = "INFINITE ZEN"
-    Title.TextColor3 = Theme.Primary
-    Title.TextSize = 15
+    Title.TextColor3 = Theme.Text
+    Title.TextSize = 16
     Title.TextXAlignment = Enum.TextXAlignment.Left
+    Title.ZIndex = 3
 
     local Subtitle = Instance.new("TextLabel", Header)
-    Subtitle.Size = UDim2.new(1, -100, 0, 18)
-    Subtitle.Position = UDim2.new(0, 20, 0, 23)
+    Subtitle.Size = UDim2.new(0, 200, 0, 18)
+    Subtitle.Position = UDim2.new(0, 20, 0, 25)
     Subtitle.BackgroundTransparency = 1
     Subtitle.Font = Theme.Font
-    Subtitle.Text = "Arsenal Edition • v4.3"
-    Subtitle.TextColor3 = Theme.TextDim
+    Subtitle.Text = "Arsenal Edition"
+    Subtitle.TextColor3 = Color3.fromRGB(200, 205, 220)
     Subtitle.TextSize = 11
     Subtitle.TextXAlignment = Enum.TextXAlignment.Left
+    Subtitle.ZIndex = 3
+
+    -- BOTÃO DE IDIOMA
+    local LangBtn = Instance.new("TextButton", Header)
+    LangBtn.Size = UDim2.new(0, 60, 0, 26)
+    LangBtn.Position = UDim2.new(1, -110, 0.5, -13)
+    LangBtn.BackgroundColor3 = Theme.Surface2
+    LangBtn.Text = "BR"
+    LangBtn.Font = Theme.FontBold
+    LangBtn.TextSize = 12
+    LangBtn.TextColor3 = Theme.Text
+    LangBtn.AutoButtonColor = false
+    LangBtn.ZIndex = 3
+    Instance.new("UICorner", LangBtn).CornerRadius = UDim.new(0, 6)
+
+    -- DROPDOWN DE IDIOMAS (escondido)
+    local LangDropdown = Instance.new("Frame", Header)
+    LangDropdown.Size = UDim2.new(0, 140, 0, 0)
+    LangDropdown.Position = UDim2.new(1, -110, 1, 4)
+    LangDropdown.BackgroundColor3 = Theme.Surface2
+    LangDropdown.BorderSizePixel = 0
+    LangDropdown.Visible = false
+    LangDropdown.ZIndex = 10
+    LangDropdown.ClipsDescendants = true
+    Instance.new("UICorner", LangDropdown).CornerRadius = UDim.new(0, 8)
+
+    local dropdownStroke = Instance.new("UIStroke", LangDropdown)
+    dropdownStroke.Color = Theme.Primary
+    dropdownStroke.Thickness = 1
+    dropdownStroke.Transparency = 0.3
+
+    local dropdownLayout = Instance.new("UIListLayout", LangDropdown)
+    dropdownLayout.Padding = UDim.new(0, 2)
+    dropdownLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+    -- Popula dropdown
+    local availableLangs = Language.getAvailable()
+
+    for i, langData in ipairs(availableLangs) do
+        local optBtn = Instance.new("TextButton", LangDropdown)
+        optBtn.Size = UDim2.new(1, -8, 0, 30)
+        optBtn.Position = UDim2.new(0, 4, 0, i * 32 - 30)
+        optBtn.BackgroundColor3 = Theme.Surface
+        optBtn.Text = "  [" .. langData.shortCode .. "]  " .. langData.displayName
+        optBtn.Font = Theme.Font
+        optBtn.TextSize = 12
+        optBtn.TextColor3 = Theme.Text
+        optBtn.TextXAlignment = Enum.TextXAlignment.Left
+        optBtn.AutoButtonColor = false
+        optBtn.ZIndex = 11
+        Instance.new("UICorner", optBtn).CornerRadius = UDim.new(0, 6)
+
+        optBtn.MouseEnter:Connect(function()
+            optBtn.BackgroundColor3 = Theme.Surface2
+        end)
+        optBtn.MouseLeave:Connect(function()
+            optBtn.BackgroundColor3 = Theme.Surface
+        end)
+
+        optBtn.MouseButton1Click:Connect(function()
+            Language.setLanguage(langData.code)
+            LangDropdown.Visible = false
+        end)
+    end
+
+    -- Ajusta tamanho do dropdown
+    local totalDropdownHeight = #availableLangs * 32 + 8
+    LangDropdown.Size = UDim2.new(0, 140, 0, totalDropdownHeight)
+
+    -- Toggle do dropdown
+    local dropdownOpen = false
+    LangBtn.MouseButton1Click:Connect(function()
+        dropdownOpen = not dropdownOpen
+        LangDropdown.Visible = dropdownOpen
+    end)
+
+    -- Atualiza o texto do botão quando idioma muda
+    registerRefresh(function()
+        local data = Language.getCurrentData()
+        LangBtn.Text = "[" .. data.shortCode .. "] " .. data.flag
+    end)
 
     local MinBtn = Instance.new("TextButton", Header)
     MinBtn.Size = UDim2.new(0, 30, 0, 30)
@@ -303,44 +376,74 @@ function Arsenal.Init(ctx)
     MinBtn.Font = Theme.FontBold
     MinBtn.TextSize = 18
     MinBtn.TextColor3 = Theme.Text
+    MinBtn.ZIndex = 3
     Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0, 6)
 
-    Header.InputBegan:Connect(function(input)
+    -- ============================================================
+    -- DRAG SYSTEM
+    -- ============================================================
+    local dragging = false
+    local dragInput = nil
+    local dragStart = nil
+    local startPos = nil
+
+    local function updateDrag(input)
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(
+            startPos.X.Scale, startPos.X.Offset + delta.X,
+            startPos.Y.Scale, startPos.Y.Offset + delta.Y
+        )
+    end
+
+    local function makeDraggable(element)
+        element.InputBegan:Connect(function(input)
+            if UNLOADED then return end
+            if input.UserInputType == Enum.UserInputType.MouseButton1
+                or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+                dragStart = input.Position
+                startPos = MainFrame.Position
+
+                input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then
+                        dragging = false
+                    end
+                end)
+            end
+        end)
+
+        element.InputChanged:Connect(function(input)
+            if UNLOADED then return end
+            if input.UserInputType == Enum.UserInputType.MouseMovement
+                or input.UserInputType == Enum.UserInputType.Touch then
+                dragInput = input
+            end
+        end)
+    end
+
+    UserInputService.InputChanged:Connect(function(input)
         if UNLOADED then return end
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-            or input.UserInputType == Enum.UserInputType.Touch then
-            startDrag(MainFrame, input)
+        if input == dragInput and dragging then
+            updateDrag(input)
         end
     end)
 
-    Title.InputBegan:Connect(function(input)
-        if UNLOADED then return end
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-            or input.UserInputType == Enum.UserInputType.Touch then
-            startDrag(MainFrame, input)
-        end
-    end)
-
-    Subtitle.InputBegan:Connect(function(input)
-        if UNLOADED then return end
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-            or input.UserInputType == Enum.UserInputType.Touch then
-            startDrag(MainFrame, input)
-        end
-    end)
+    makeDraggable(Header)
+    makeDraggable(Title)
+    makeDraggable(Subtitle)
 
     -- SIDEBAR
     local Sidebar = Instance.new("Frame", MainFrame)
-    Sidebar.Size = UDim2.new(0, 140, 1, -60)
-    Sidebar.Position = UDim2.new(0, 10, 0, 55)
+    Sidebar.Size = UDim2.new(0, 140, 1, -65)
+    Sidebar.Position = UDim2.new(0, 10, 0, 58)
     Sidebar.BackgroundColor3 = Theme.Surface
     Sidebar.BorderSizePixel = 0
     Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 10)
 
     -- CONTENT
     local Content = Instance.new("Frame", MainFrame)
-    Content.Size = UDim2.new(1, -170, 1, -65)
-    Content.Position = UDim2.new(0, 160, 0, 55)
+    Content.Size = UDim2.new(1, -170, 1, -70)
+    Content.Position = UDim2.new(0, 160, 0, 58)
     Content.BackgroundTransparency = 1
 
     -- MINIMIZE
@@ -349,7 +452,7 @@ function Arsenal.Init(ctx)
         minimized = v
         Sidebar.Visible = not v
         Content.Visible = not v
-        MainFrame.Size = v and UDim2.new(0, 620, 0, 45) or UDim2.new(0, 620, 0, 480)
+        MainFrame.Size = v and UDim2.new(0, 620, 0, 48) or UDim2.new(0, 620, 0, 480)
     end
 
     MinBtn.MouseButton1Click:Connect(function()
@@ -363,22 +466,36 @@ function Arsenal.Init(ctx)
     local toggleHandles = {}
     local sliderHandles = {}
 
-    local function CreateTab(name, icon)
+    local function CreateTab(nameKey, icon)
         local tab = {}
-        tab.name = name
 
         local btn = Instance.new("TextButton", Sidebar)
         btn.Size = UDim2.new(1, -16, 0, 38)
         btn.Position = UDim2.new(0, 8, 0, 8 + #tabs * 44)
         btn.BackgroundColor3 = Theme.Surface
         btn.BorderSizePixel = 0
-        btn.Text = "  " .. icon .. "   " .. name
+        btn.Text = "  " .. icon .. "   "
         btn.Font = Theme.Font
         btn.TextColor3 = Theme.TextDim
         btn.TextSize = 12
         btn.TextXAlignment = Enum.TextXAlignment.Left
         btn.AutoButtonColor = false
         Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+
+        registerRefresh(function()
+            btn.Text = "  " .. icon .. "   " .. Language.get(nameKey)
+        end)
+
+        btn.MouseEnter:Connect(function()
+            if btn.BackgroundColor3 == Theme.Surface then
+                btn.BackgroundColor3 = Theme.Surface2
+            end
+        end)
+        btn.MouseLeave:Connect(function()
+            if btn.BackgroundColor3 == Theme.Surface2 then
+                btn.BackgroundColor3 = Theme.Surface
+            end
+        end)
 
         local container = Instance.new("ScrollingFrame", Content)
         container.Size = UDim2.new(1, 0, 1, 0)
@@ -417,7 +534,8 @@ function Arsenal.Init(ctx)
         table.insert(tabs, tab)
         if #tabs == 1 then task.defer(activate) end
 
-        tab.CreateToggle = function(label, featureId, callback)
+        -- TOGGLE
+        tab.CreateToggle = function(labelKey, featureId, callback)
             local holder = Instance.new("Frame", container)
             holder.Size = UDim2.new(1, -10, 0, 36)
             holder.BackgroundColor3 = Theme.Surface
@@ -431,25 +549,35 @@ function Arsenal.Init(ctx)
             lbl.Font = Theme.Font
             lbl.TextSize = 12
             lbl.TextColor3 = Theme.Text
-            lbl.Text = label
             lbl.TextXAlignment = Enum.TextXAlignment.Left
+            lbl.Text = ""
+
+            registerRefresh(function()
+                lbl.Text = Language.get(labelKey)
+            end)
 
             local keyBtn = Instance.new("TextButton", holder)
             keyBtn.Size = UDim2.new(0, 50, 0, 22)
             keyBtn.Position = UDim2.new(0.55, 0, 0.5, -11)
             keyBtn.BackgroundColor3 = State.keybinds[featureId] and Theme.Primary or Theme.Surface2
-            keyBtn.Text = State.keybinds[featureId] or "key"
+            keyBtn.Text = State.keybinds[featureId] or Language.get("key")
             keyBtn.Font = Theme.FontBold
             keyBtn.TextSize = 11
             keyBtn.TextColor3 = State.keybinds[featureId] and Theme.Text or Theme.TextDim
             keyBtn.AutoButtonColor = false
             Instance.new("UICorner", keyBtn).CornerRadius = UDim.new(0, 6)
 
+            registerRefresh(function()
+                if not State.keybinds[featureId] then
+                    keyBtn.Text = Language.get("key")
+                end
+            end)
+
             local toggleBtn = Instance.new("TextButton", holder)
             toggleBtn.Size = UDim2.new(0, 50, 0, 22)
             toggleBtn.Position = UDim2.new(1, -58, 0.5, -11)
             toggleBtn.BackgroundColor3 = State[featureId] and Theme.Success or Theme.Surface2
-            toggleBtn.Text = State[featureId] and "ON" or "OFF"
+            toggleBtn.Text = State[featureId] and Language.get("on") or Language.get("off")
             toggleBtn.Font = Theme.FontBold
             toggleBtn.TextSize = 11
             toggleBtn.TextColor3 = Theme.Text
@@ -458,7 +586,7 @@ function Arsenal.Init(ctx)
 
             local function setState(v, silent)
                 State[featureId] = v
-                toggleBtn.Text = v and "ON" or "OFF"
+                toggleBtn.Text = v and Language.get("on") or Language.get("off")
                 toggleBtn.BackgroundColor3 = v and Theme.Success or Theme.Surface2
                 if not silent and callback then callback(v) end
             end
@@ -466,6 +594,10 @@ function Arsenal.Init(ctx)
             local function toggle()
                 setState(not State[featureId])
             end
+
+            registerRefresh(function()
+                toggleBtn.Text = State[featureId] and Language.get("on") or Language.get("off")
+            end)
 
             toggleBtn.MouseButton1Click:Connect(toggle)
 
@@ -482,7 +614,7 @@ function Arsenal.Init(ctx)
                 Toggle = toggle,
                 SetKeybind = function(key)
                     State.keybinds[featureId] = key
-                    keyBtn.Text = key or "key"
+                    keyBtn.Text = key or Language.get("key")
                     keyBtn.BackgroundColor3 = key and Theme.Primary or Theme.Surface2
                     keyBtn.TextColor3 = key and Theme.Text or Theme.TextDim
                 end,
@@ -493,7 +625,8 @@ function Arsenal.Init(ctx)
             return handle
         end
 
-        tab.CreateSlider = function(label, min, max, defaultValue, featureId, callback)
+        -- SLIDER
+        tab.CreateSlider = function(labelKey, min, max, defaultValue, featureId, callback)
             local holder = Instance.new("Frame", container)
             holder.Size = UDim2.new(1, -10, 0, 44)
             holder.BackgroundColor3 = Theme.Surface
@@ -507,8 +640,12 @@ function Arsenal.Init(ctx)
             lbl.Font = Theme.Font
             lbl.TextSize = 11
             lbl.TextColor3 = Theme.Text
-            lbl.Text = label
             lbl.TextXAlignment = Enum.TextXAlignment.Left
+            lbl.Text = ""
+
+            registerRefresh(function()
+                lbl.Text = Language.get(labelKey)
+            end)
 
             local valLbl = Instance.new("TextLabel", holder)
             valLbl.Size = UDim2.new(0.35, 0, 0, 18)
@@ -540,7 +677,7 @@ function Arsenal.Init(ctx)
             click.BackgroundTransparency = 1
             click.Text = ""
 
-            local dragging = false
+            local draggingSlider = false
             local function update(mouse)
                 local p = barBg.AbsolutePosition
                 local s = barBg.AbsoluteSize
@@ -554,16 +691,16 @@ function Arsenal.Init(ctx)
             end
 
             click.MouseButton1Down:Connect(function()
-                dragging = true
+                draggingSlider = true
                 update(UserInputService:GetMouseLocation())
             end)
             UserInputService.InputEnded:Connect(function(i)
                 if UNLOADED then return end
-                if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+                if i.UserInputType == Enum.UserInputType.MouseButton1 then draggingSlider = false end
             end)
             RunService.RenderStepped:Connect(function()
                 if UNLOADED then return end
-                if dragging then update(UserInputService:GetMouseLocation()) end
+                if draggingSlider then update(UserInputService:GetMouseLocation()) end
             end)
 
             local handle = {
@@ -580,17 +717,22 @@ function Arsenal.Init(ctx)
             return handle
         end
 
-        tab.CreateButton = function(label, callback, style)
+        -- BUTTON
+        tab.CreateButton = function(labelKey, callback, style)
             local btn = Instance.new("TextButton", container)
             btn.Size = UDim2.new(1, -10, 0, 34)
             btn.BackgroundColor3 = style == "danger" and Color3.fromRGB(60, 25, 25) or Theme.Surface
             btn.BorderSizePixel = 0
-            btn.Text = label
+            btn.Text = ""
             btn.Font = Theme.Font
             btn.TextColor3 = style == "danger" and Theme.Danger or Theme.Text
             btn.TextSize = 12
             btn.AutoButtonColor = false
             Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+
+            registerRefresh(function()
+                btn.Text = Language.get(labelKey)
+            end)
 
             btn.MouseEnter:Connect(function()
                 btn.BackgroundColor3 = style == "danger" and Color3.fromRGB(80, 30, 30) or Theme.Primary
@@ -604,22 +746,28 @@ function Arsenal.Init(ctx)
             return btn
         end
 
-        tab.CreateLabel = function(text, color)
+        -- LABEL
+        tab.CreateLabel = function(textKey, color)
             local lbl = Instance.new("TextLabel", container)
             lbl.Size = UDim2.new(1, -10, 0, 18)
             lbl.BackgroundTransparency = 1
             lbl.Font = Theme.Font
             lbl.TextSize = 11
             lbl.TextColor3 = color or Theme.TextDim
-            lbl.Text = text
             lbl.TextXAlignment = Enum.TextXAlignment.Left
+            lbl.Text = ""
+
+            registerRefresh(function()
+                lbl.Text = Language.get(textKey)
+            end)
+
             return lbl
         end
 
         return tab
     end
 
-    -- ============================================================
+        -- ============================================================
     -- FEATURES
     -- ============================================================
 
@@ -675,9 +823,7 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- ============================================================
     -- SILENT HEADSHOT
-    -- ============================================================
     local silentHolding = false
     local silentTarget = nil
     local silentOriginalCam = nil
@@ -745,14 +891,32 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- ============================================================
-    -- AUTO SHOOT (CORRIGIDO)
-    -- ============================================================
+    -- AUTO SHOOT
     local function hasLineOfSight(fromPos, targetPart)
+        if not targetPart or not targetPart.Parent then return false end
+
         local params = RaycastParams.new()
         params.FilterType = Enum.RaycastFilterType.Exclude
-        params.FilterDescendantsInstances = {LocalPlayer.Character, targetPart.Parent}
-        local result = workspace:Raycast(fromPos, targetPart.Position - fromPos, params)
+        params.IgnoreWater = true
+
+        local exclusions = {}
+        if LocalPlayer.Character then
+            table.insert(exclusions, LocalPlayer.Character)
+        end
+        table.insert(exclusions, targetPart.Parent)
+        params.FilterDescendantsInstances = exclusions
+
+        local direction = targetPart.Position - fromPos
+        local distance = direction.Magnitude
+        if distance < 0.1 then return true end
+
+        local unitDir = direction.Unit
+        local origin = fromPos + unitDir * 2
+        local rayLength = distance - 2
+
+        if rayLength <= 0 then return true end
+
+        local result = workspace:Raycast(origin, unitDir * rayLength, params)
         return result == nil
     end
 
@@ -766,11 +930,9 @@ function Arsenal.Init(ctx)
                 local head = p.Character:FindFirstChild("Head")
                 if head then
                     local sp, onScreen, depth = Camera:WorldToViewportPoint(head.Position)
-                    -- onScreen + depth > 0 (na frente da câmera)
                     if onScreen and depth > 0 then
                         local d = (Vector2.new(sp.X, sp.Y) - Vector2.new(mouse.X, mouse.Y)).Magnitude
                         if d < State.autoShootFov then
-                            -- Verifica linha de visão (sem parede)
                             if hasLineOfSight(Camera.CFrame.Position, head) then
                                 targetInFov = true
                                 break
@@ -791,9 +953,7 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- ============================================================
     -- HEAD EXPANDER
-    -- ============================================================
     local hitboxSaved = {}
 
     local function saveOriginal(player, part)
@@ -869,9 +1029,7 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- ============================================================
     -- ESP
-    -- ============================================================
     local ESP = {data = {}}
 
     local function createESP(p)
@@ -1030,9 +1188,7 @@ function Arsenal.Init(ctx)
         removeESP(p)
     end)
 
-    -- ============================================================
     -- RAPID FIRE / NO RECOIL / FAST RELOAD / INSTA RELOAD
-    -- ============================================================
     local reloadOriginals = {}
 
     RunService.Heartbeat:Connect(function()
@@ -1141,9 +1297,7 @@ function Arsenal.Init(ctx)
         end
     end)()
 
-    -- ============================================================
     -- SPEED
-    -- ============================================================
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.speed then return end
         local char = LocalPlayer.Character
@@ -1153,9 +1307,7 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- ============================================================
     -- AIR JUMP
-    -- ============================================================
     local airJumpConn = nil
 
     local function startAirJump()
@@ -1175,9 +1327,7 @@ function Arsenal.Init(ctx)
         if airJumpConn then airJumpConn:Disconnect(); airJumpConn = nil end
     end
 
-    -- ============================================================
     -- BACKSTAB
-    -- ============================================================
     local backstabLock = {active = false, target = nil, endTime = 0}
 
     local function getClosestEnemyAnywhere()
@@ -1215,13 +1365,13 @@ function Arsenal.Init(ctx)
         if UNLOADED then return end
         local target = getClosestEnemyAnywhere()
         if not target or not target.Character then
-            print("[Infinite Zen] Nenhum inimigo encontrado"); return
+            print("[Infinite Zen] " .. Language.get("no_enemy")); return
         end
         local targetHRP = target.Character:FindFirstChild("HumanoidRootPart")
         local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         if not targetHRP or not myHRP then return end
 
-        print("[Infinite Zen] Backstab em: " .. target.Name)
+        print("[Infinite Zen] " .. Language.get("backstab_target") .. target.Name)
         myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, 0, 2)
         backstabLock.active = true
         backstabLock.target = target
@@ -1245,20 +1395,20 @@ function Arsenal.Init(ctx)
     -- ============================================================
     -- CRIAR ABAS
     -- ============================================================
-    local CombatTab = CreateTab("Combat", "⚔️")
-    CombatTab.CreateToggle("Silent Headshot", "silentHeadshot")
-    CombatTab.CreateSlider("Silent FOV", 30, 300, 120, "silentFov")
-    CombatTab.CreateToggle("Aimbot (Legit)", "aimbot")
-    CombatTab.CreateToggle("Head Expander", "headExpander", function(v)
+    local CombatTab = CreateTab("tab_combat", "⚔️")
+    CombatTab.CreateToggle("silent_headshot", "silentHeadshot")
+    CombatTab.CreateSlider("silent_fov", 30, 300, 120, "silentFov")
+    CombatTab.CreateToggle("aimbot", "aimbot")
+    CombatTab.CreateToggle("head_expander", "headExpander", function(v)
         if not v then restoreAll() end
     end)
-    CombatTab.CreateSlider("Head Size", 1, 8, 3, "headExpanderSize")
-    CombatTab.CreateToggle("Backstab", "backstab")
+    CombatTab.CreateSlider("head_size", 1, 8, 3, "headExpanderSize")
+    CombatTab.CreateToggle("backstab", "backstab")
 
-    local WeaponTab = CreateTab("Weapon", "🔫")
-    WeaponTab.CreateToggle("No-Recoil", "noRecoil")
-    WeaponTab.CreateToggle("Rapid Fire", "rapidFire")
-    WeaponTab.CreateToggle("Fast Reload", "fastReload", function(v)
+    local WeaponTab = CreateTab("tab_weapon", "🔫")
+    WeaponTab.CreateToggle("no_recoil", "noRecoil")
+    WeaponTab.CreateToggle("rapid_fire", "rapidFire")
+    WeaponTab.CreateToggle("fast_reload", "fastReload", function(v)
         if not v then
             for value, original in pairs(reloadOriginals) do
                 pcall(function() value.Value = original end)
@@ -1266,12 +1416,12 @@ function Arsenal.Init(ctx)
             reloadOriginals = {}
         end
     end)
-    WeaponTab.CreateToggle("Insta-Reload", "instaReload")
-    WeaponTab.CreateToggle("Auto Shoot", "autoShoot")
-    WeaponTab.CreateSlider("Auto Shoot FOV", 30, 300, 100, "autoShootFov")
+    WeaponTab.CreateToggle("insta_reload", "instaReload")
+    WeaponTab.CreateToggle("auto_shoot", "autoShoot")
+    WeaponTab.CreateSlider("auto_shoot_fov", 30, 300, 100, "autoShootFov")
 
-    local MovementTab = CreateTab("Movement", "🏃")
-    MovementTab.CreateToggle("Speed", "speed", function(v)
+    local MovementTab = CreateTab("tab_movement", "🏃")
+    MovementTab.CreateToggle("speed", "speed", function(v)
         if not v then
             local char = LocalPlayer.Character
             if char then
@@ -1280,12 +1430,12 @@ function Arsenal.Init(ctx)
             end
         end
     end)
-    MovementTab.CreateToggle("Air Jump", "airJump", function(v)
+    MovementTab.CreateToggle("air_jump", "airJump", function(v)
         if v then startAirJump() else stopAirJump() end
     end)
 
-    local VisualsTab = CreateTab("Visuals", "👁️")
-    VisualsTab.CreateToggle("ESP (Tudo)", "esp", function(v)
+    local VisualsTab = CreateTab("tab_visuals", "👁️")
+    VisualsTab.CreateToggle("esp", "esp", function(v)
         if v then
             for _, p in ipairs(Players:GetPlayers()) do
                 if p ~= LocalPlayer and p.Character then createESP(p) end
@@ -1294,9 +1444,9 @@ function Arsenal.Init(ctx)
             clearAllESP()
         end
     end)
-    VisualsTab.CreateSlider("Max Distance", 100, 10000, 500, "espMaxDistance")
+    VisualsTab.CreateSlider("max_distance", 100, 10000, 500, "espMaxDistance")
 
-    local SettingsTab = CreateTab("Settings", "⚙️")
+    local SettingsTab = CreateTab("tab_settings", "⚙️")
 
     local function saveConfig()
         local data = {}
@@ -1309,9 +1459,9 @@ function Arsenal.Init(ctx)
             writefile("InfiniteZen_Config.json", json)
         end)
         if ok then
-            Notify("💾 Config", "Configurações salvas com sucesso", 3)
+            Notify("💾 " .. Language.get("config_title"), Language.get("config_saved"), 3)
         else
-            Notify("⚠️ Erro", "Executor não suporta writefile", 3, true)
+            Notify("⚠️ " .. Language.get("error_title"), Language.get("config_error_save"), 3, true)
         end
     end
 
@@ -1340,12 +1490,12 @@ function Arsenal.Init(ctx)
                 for featId, handle in pairs(sliderHandles) do
                     if State[featId] ~= nil then handle.SetValue(State[featId]) end
                 end
-                Notify("📂 Config", "Configurações carregadas", 3)
+                Notify("📂 " .. Language.get("load_title"), Language.get("config_loaded"), 3)
             else
-                Notify("⚠️ Erro", "Arquivo corrompido", 3, true)
+                Notify("⚠️ " .. Language.get("error_title"), Language.get("config_error_corrupt"), 3, true)
             end
         else
-            Notify("⚠️ Erro", "Nenhum config salvo", 3, true)
+            Notify("⚠️ " .. Language.get("error_title"), Language.get("config_error_load"), 3, true)
         end
     end
 
@@ -1359,17 +1509,40 @@ function Arsenal.Init(ctx)
         print("[Infinite Zen] Script descarregado")
     end
 
-    SettingsTab.CreateLabel("Interface")
-    SettingsTab.CreateButton("💾 Save Config", saveConfig)
-    SettingsTab.CreateButton("📂 Load Config", loadConfig)
+    SettingsTab.CreateLabel("interface_label")
+    SettingsTab.CreateButton("save_config", saveConfig)
+    SettingsTab.CreateButton("load_config", loadConfig)
     SettingsTab.CreateLabel(" ")
-    SettingsTab.CreateLabel("Info")
-    SettingsTab.CreateLabel("K = Minimize UI")
-    SettingsTab.CreateLabel("Cada feature tem sua própria keybind")
-    SettingsTab.CreateLabel("Clique no botão de keybind pra gravar")
+    SettingsTab.CreateLabel("info_label")
+    SettingsTab.CreateLabel("key_minimize")
+    SettingsTab.CreateLabel("keybind_help1")
+    SettingsTab.CreateLabel("keybind_help2")
     SettingsTab.CreateLabel(" ")
-    SettingsTab.CreateButton("🔄 Unload Script", unloadScript, "danger")
+    SettingsTab.CreateButton("unload_script", unloadScript, "danger")
 
+    -- VERSION LABEL
+    local versionLabel = Instance.new("TextLabel", MainFrame)
+    versionLabel.Size = UDim2.new(1, -20, 0, 16)
+    versionLabel.Position = UDim2.new(0, 10, 1, -20)
+    versionLabel.BackgroundTransparency = 1
+    versionLabel.Font = Theme.Font
+    versionLabel.TextSize = 10
+    versionLabel.TextColor3 = Theme.TextDim
+    versionLabel.TextXAlignment = Enum.TextXAlignment.Right
+    versionLabel.Text = Language.get("version_text")
+
+    registerRefresh(function()
+        versionLabel.Text = Language.get("version_text")
+    end)
+
+    -- Atualiza subtitle dinamicamente
+    registerRefresh(function()
+        Subtitle.Text = Language.get("hub_subtitle") .. " • v1.0"
+    end)
+
+    -- ============================================================
+    -- KEYBIND SYSTEM
+    -- ============================================================
     local MINIMIZE_KEY = Enum.KeyCode.K
 
     UserInputService.InputBegan:Connect(function(input, gp)
@@ -1389,8 +1562,8 @@ function Arsenal.Init(ctx)
             local newKey = input.KeyCode.Name
 
             if newKey == "K" then
-                Notify("🚫 Keybind Bloqueada",
-                    "K já está reservada para Minimize UI",
+                Notify("🚫 " .. Language.get("keybind_locked"),
+                    Language.get("keybind_locked_desc"),
                     4, true)
                 recordingKeyFor = nil
                 local handle = toggleHandles[featId]
@@ -1401,8 +1574,8 @@ function Arsenal.Init(ctx)
             local conflictFeat = findFeatureWithKeybind(newKey)
             if conflictFeat and conflictFeat ~= featId then
                 local conflictLabel = FeatureLabels[conflictFeat] or conflictFeat
-                Notify("🚫 Keybind em Uso",
-                    newKey .. " já está sendo usada por: " .. conflictLabel,
+                Notify("🚫 " .. Language.get("keybind_inuse"),
+                    newKey .. Language.get("keybind_inuse_desc") .. conflictLabel,
                     4, true)
                 recordingKeyFor = nil
                 local handle = toggleHandles[featId]
