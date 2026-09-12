@@ -1,5 +1,6 @@
 -- ============================================================
 -- INFINITE ZEN - MÓDULO ARSENAL
+-- Cores 100% originais do Hawk Hub
 -- ============================================================
 
 local Arsenal = {}
@@ -9,10 +10,6 @@ function Arsenal.Init(ctx)
     local gameName = ctx.gameName
 
     print("[Infinite Zen] Inicializando Arsenal...")
-
-    -- ============================================================
-    -- SCRIPT ORIGINAL
-    -- ============================================================
 
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -27,9 +24,6 @@ function Arsenal.Init(ctx)
 
     local UNLOADED = false
 
-    -- ============================================================
-    -- isEnemy
-    -- ============================================================
     local function isEnemy(player)
         if player == LocalPlayer then return false end
         if not player.Character then return false end
@@ -41,9 +35,6 @@ function Arsenal.Init(ctx)
         return player.Team ~= myTeam
     end
 
-    -- ============================================================
-    -- STATE
-    -- ============================================================
     local State = {
         silentHeadshot = false,
         aimLock = false,
@@ -93,9 +84,6 @@ function Arsenal.Init(ctx)
         esp = "ESP",
     }
 
-    -- ============================================================
-    -- GUI
-    -- ============================================================
     local oldMenu = PlayerGui:FindFirstChild("InfiniteZen")
     if oldMenu then oldMenu:Destroy() end
 
@@ -106,14 +94,14 @@ function Arsenal.Init(ctx)
     GUI.Parent = PlayerGui
 
     -- ============================================================
-    -- THEME (CORES ORIGINAIS - AZUL)
+    -- THEME (CORES ORIGINAIS DO HAWK HUB - NÃO MUDAR!)
     -- ============================================================
     local Theme = {
         Bg = Color3.fromRGB(14, 14, 18),
         Surface = Color3.fromRGB(22, 22, 28),
         Surface2 = Color3.fromRGB(32, 32, 40),
         Border = Color3.fromRGB(45, 45, 55),
-        Primary = Color3.fromRGB(0, 180, 255),  -- ← AZUL ORIGINAL
+        Primary = Color3.fromRGB(0, 180, 255),
         Success = Color3.fromRGB(0, 220, 130),
         Danger = Color3.fromRGB(255, 70, 70),
         Warning = Color3.fromRGB(255, 180, 60),
@@ -123,9 +111,6 @@ function Arsenal.Init(ctx)
         FontBold = Enum.Font.GothamBold,
     }
 
-    -- ============================================================
-    -- NOTIFICATION SYSTEM
-    -- ============================================================
     local activeNotifs = {}
 
     local function Notify(title, content, duration, isError)
@@ -203,9 +188,6 @@ function Arsenal.Init(ctx)
         return nil
     end
 
-    -- ============================================================
-    -- DRAG SYSTEM
-    -- ============================================================
     local drag = {active = false, frame = nil, input = nil, start = nil, frameStart = nil}
 
     local function startDrag(frame, input)
@@ -248,9 +230,6 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- ============================================================
-    -- MAIN WINDOW
-    -- ============================================================
     local MainFrame = Instance.new("Frame", GUI)
     MainFrame.Name = "MainFrame"
     MainFrame.Size = UDim2.new(0, 620, 0, 480)
@@ -272,7 +251,6 @@ function Arsenal.Init(ctx)
     shadow.ImageTransparency = 0.55
     shadow.ZIndex = 0
 
-    -- HEADER
     local Header = Instance.new("Frame", MainFrame)
     Header.Size = UDim2.new(1, 0, 0, 45)
     Header.BackgroundColor3 = Theme.Surface
@@ -300,7 +278,7 @@ function Arsenal.Init(ctx)
     Subtitle.Position = UDim2.new(0, 20, 0, 23)
     Subtitle.BackgroundTransparency = 1
     Subtitle.Font = Theme.Font
-    Subtitle.Text = "Infinite Zen Edition • v1.0"
+    Subtitle.Text = "Arsenal Edition • v4.2"
     Subtitle.TextColor3 = Theme.TextDim
     Subtitle.TextSize = 11
     Subtitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -323,7 +301,6 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- SIDEBAR
     local Sidebar = Instance.new("Frame", MainFrame)
     Sidebar.Size = UDim2.new(0, 140, 1, -60)
     Sidebar.Position = UDim2.new(0, 10, 0, 55)
@@ -331,13 +308,11 @@ function Arsenal.Init(ctx)
     Sidebar.BorderSizePixel = 0
     Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 10)
 
-    -- CONTENT
     local Content = Instance.new("Frame", MainFrame)
     Content.Size = UDim2.new(1, -170, 1, -65)
     Content.Position = UDim2.new(0, 160, 0, 55)
     Content.BackgroundTransparency = 1
 
-    -- MINIMIZE
     local minimized = false
     local function setMinimized(v)
         minimized = v
@@ -350,9 +325,6 @@ function Arsenal.Init(ctx)
         setMinimized(not minimized)
     end)
 
-    -- ============================================================
-    -- TABS
-    -- ============================================================
     local tabs = {}
     local toggleHandles = {}
     local sliderHandles = {}
@@ -411,7 +383,6 @@ function Arsenal.Init(ctx)
         table.insert(tabs, tab)
         if #tabs == 1 then task.defer(activate) end
 
-        -- TOGGLE
         tab.CreateToggle = function(label, featureId, callback)
             local holder = Instance.new("Frame", container)
             holder.Size = UDim2.new(1, -10, 0, 36)
@@ -488,7 +459,6 @@ function Arsenal.Init(ctx)
             return handle
         end
 
-        -- SLIDER
         tab.CreateSlider = function(label, min, max, defaultValue, featureId, callback)
             local holder = Instance.new("Frame", container)
             holder.Size = UDim2.new(1, -10, 0, 44)
@@ -576,7 +546,6 @@ function Arsenal.Init(ctx)
             return handle
         end
 
-        -- BUTTON
         tab.CreateButton = function(label, callback, style)
             local btn = Instance.new("TextButton", container)
             btn.Size = UDim2.new(1, -10, 0, 34)
@@ -601,7 +570,6 @@ function Arsenal.Init(ctx)
             return btn
         end
 
-        -- LABEL
         tab.CreateLabel = function(text, color)
             local lbl = Instance.new("TextLabel", container)
             lbl.Size = UDim2.new(1, -10, 0, 18)
@@ -621,9 +589,8 @@ function Arsenal.Init(ctx)
     -- FEATURES
     -- ============================================================
 
-    -- FOV Circle
     local fovCircle = Drawing.new("Circle")
-    fovCircle.Color = Color3.fromRGB(0, 200, 255)  -- ← AZUL ORIGINAL
+    fovCircle.Color = Color3.fromRGB(0, 200, 255)
     fovCircle.Thickness = 1.5
     fovCircle.Filled = false
     fovCircle.NumSides = 100
@@ -646,7 +613,6 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- AIMBOT
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.aimbot then return end
         local mouse = UserInputService:GetMouseLocation()
@@ -671,7 +637,6 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- AIM LOCK
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.aimLock then return end
         local myChar = LocalPlayer.Character
@@ -700,7 +665,6 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- SILENT HEADSHOT
     local silentHolding = false
     local silentTarget = nil
     local silentOriginalCam = nil
@@ -768,7 +732,6 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- HEAD EXPANDER
     local hitboxSaved = {}
 
     local function saveOriginal(player, part)
@@ -836,7 +799,6 @@ function Arsenal.Init(ctx)
         if UNLOADED or not State.headExpander then return end
         for _, p in ipairs(Players:GetPlayers()) do
             if p == LocalPlayer then
-                -- nada
             elseif isEnemy(p) then
                 if p.Character then expandPlayer(p, State.headExpanderSize) end
             else
@@ -845,7 +807,6 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- ESP
     local ESP = {data = {}}
 
     local function createESP(p)
@@ -1004,7 +965,6 @@ function Arsenal.Init(ctx)
         removeESP(p)
     end)
 
-    -- RAPID FIRE / NO RECOIL / FAST RELOAD / INSTA RELOAD
     local reloadOriginals = {}
 
     RunService.Heartbeat:Connect(function()
@@ -1113,7 +1073,6 @@ function Arsenal.Init(ctx)
         end
     end)()
 
-    -- SPEED
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.speed then return end
         local char = LocalPlayer.Character
@@ -1123,7 +1082,6 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- AIR JUMP
     local airJumpConn = nil
 
     local function startAirJump()
@@ -1143,7 +1101,6 @@ function Arsenal.Init(ctx)
         if airJumpConn then airJumpConn:Disconnect(); airJumpConn = nil end
     end
 
-    -- BACKSTAB
     local backstabLock = {active = false, target = nil, endTime = 0}
 
     local function getClosestEnemyAnywhere()
@@ -1208,9 +1165,6 @@ function Arsenal.Init(ctx)
         end
     end
 
-    -- ============================================================
-    -- CRIAR ABAS
-    -- ============================================================
     local CombatTab = CreateTab("Combat", "⚔️")
     CombatTab.CreateToggle("Silent Headshot", "silentHeadshot")
     CombatTab.CreateSlider("Silent FOV", 30, 300, 120, "silentFov")
@@ -1261,7 +1215,6 @@ function Arsenal.Init(ctx)
     end)
     VisualsTab.CreateSlider("Max Distance", 100, 10000, 500, "espMaxDistance")
 
-    -- SETTINGS TAB
     local SettingsTab = CreateTab("Settings", "⚙️")
 
     local function saveConfig()
@@ -1336,9 +1289,6 @@ function Arsenal.Init(ctx)
     SettingsTab.CreateLabel(" ")
     SettingsTab.CreateButton("🔄 Unload Script", unloadScript, "danger")
 
-    -- ============================================================
-    -- KEYBIND SYSTEM (com CONFLICT BLOCK)
-    -- ============================================================
     local MINIMIZE_KEY = Enum.KeyCode.K
 
     UserInputService.InputBegan:Connect(function(input, gp)
