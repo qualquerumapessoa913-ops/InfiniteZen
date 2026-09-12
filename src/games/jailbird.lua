@@ -1,6 +1,6 @@
 -- ============================================================
--- INFINITE ZEN - MÓDULO JAILBIRD v1.2 (MERGED)
--- Jailbird (PlaceId 14939963714) + Arsenal Features
+-- INFINITE ZEN - MÓDULO JAILBIRD v1.3 (FIXED)
+-- Jailbird (PlaceId 14939963714)
 -- ============================================================
 
 local Jailbird = {}
@@ -9,7 +9,7 @@ function Jailbird.Init(ctx)
     local Language = ctx.Language
     local gameName = ctx.gameName
 
-    print("[Infinite Zen] Inicializando Jailbird v1.2 MERGED...")
+    print("[Infinite Zen] Inicializando Jailbird v1.3 FIXED...")
 
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -63,10 +63,9 @@ function Jailbird.Init(ctx)
     }
 
     -- ============================================================
-    -- ESTADO (MERGED)
+    -- ESTADO
     -- ============================================================
     local State = {
-        -- Combat
         silentHeadshot = false,
         silentFov = 120,
         aimbot = false,
@@ -76,22 +75,19 @@ function Jailbird.Init(ctx)
         headExpander = false,
         headExpanderSize = 3,
         backstab = false,
-        -- Weapon
         noRecoil = false,
         rapidFire = false,
         fastReload = false,
         instaReload = false,
         autoShoot = false,
         autoShootFov = 100,
-        -- Movement
+        autoShootDelay = 0.05,
         speed = false,
         speedValue = 50,
         airJump = false,
-        -- Visuals
         esp = false,
         espMaxDistance = 500,
         fullbright = false,
-        -- Keybinds
         keybinds = {
             silentHeadshot = "X",
             aimbot = nil,
@@ -251,6 +247,14 @@ function Jailbird.Init(ctx)
         return result == nil
     end
 
+    -- Tenta pegar remote de look (Jailbird específico)
+    local lookRemote = nil
+    pcall(function()
+        if ReplicatedStorage:FindFirstChild("GameEvents") then
+            lookRemote = ReplicatedStorage.GameEvents:FindFirstChild("LookRotation")
+        end
+    end)
+
     -- ============================================================
     -- MAIN WINDOW
     -- ============================================================
@@ -329,7 +333,7 @@ function Jailbird.Init(ctx)
     Subtitle.Position = UDim2.new(0, 20, 0, 25)
     Subtitle.BackgroundTransparency = 1
     Subtitle.Font = Theme.Font
-    Subtitle.Text = "Jailbird Merged Edition v1.2"
+    Subtitle.Text = "Jailbird v1.3 FIXED"
     Subtitle.TextColor3 = Color3.fromRGB(220, 180, 185)
     Subtitle.TextSize = 11
     Subtitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -438,7 +442,6 @@ function Jailbird.Init(ctx)
     end)
     makeDraggable(Header); makeDraggable(Title); makeDraggable(Subtitle)
 
-    -- SIDEBAR + CONTENT
     local Sidebar = Instance.new("Frame", MainFrame)
     Sidebar.Size = UDim2.new(0, 140, 1, -65)
     Sidebar.Position = UDim2.new(0, 10, 0, 58)
@@ -799,7 +802,7 @@ function Jailbird.Init(ctx)
     end
 
     -- ============================================================
-    -- FOV CIRCLE (Arsenal feature)
+    -- FOV CIRCLE
     -- ============================================================
     local fovCircle = Drawing.new("Circle")
     fovCircle.Color = Theme.Primary
@@ -829,12 +832,8 @@ function Jailbird.Init(ctx)
     end)
 
     -- ============================================================
-    -- SILENT HEADSHOT (camera lock on shoot)
+    -- TARGETING HELPERS
     -- ============================================================
-    local silentHolding = false
-    local silentTarget = nil
-    local silentOriginalCam = nil
-
     local function getClosestHeadInFov(fovRange)
         local mouse = UserInputService:GetMouseLocation()
         local closest, minDist = nil, fovRange
@@ -845,7 +844,10 @@ function Jailbird.Init(ctx)
                     local sp, onScreen, depth = Camera:WorldToViewportPoint(head.Position)
                     if onScreen and depth > 0 then
                         local d = (Vector2.new(sp.X, sp.Y) - Vector2.new(mouse.X, mouse.Y)).Magnitude
-                        if d < minDist then minDist = d; closest = p end
+                        if d < minDist then
+                            minDist = d
+                            closest = p
+                        end
                     end
                 end
             end
@@ -853,26 +855,42 @@ function Jailbird.Init(ctx)
         return closest
     end
 
+    -- ============================================================
+    -- SILENT HEADSHOT (FIX)
+    -- ============================================================
+    local silentHolding = false
+    local silentTarget = nil
+    local silentOriginalCF = nil
+
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not silentHolding then return end
         if not silentTarget or not silentTarget.Character then silentHolding = false; return end
         local head = silentTarget.Character:FindFirstChild("Head")
         if not head then silentHolding = false; return end
-        Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position + Vector3.new(0, 0.15, 0))
+        -- FIX: usa CFrame + remote se disponível
+        local newCF = CFrame.new(Camera.CFrame.Position, head.Position + Vector3.new(0, 0.15, 0))
+        Camera.CFrame = newCF
+        if lookRemote then
+            pcall(function() lookRemote:FireServer(newCF) end)
+        end
     end)
 
     UserInputService.InputBegan:Connect(function(input, gp)
         if UNLOADED or gp then return end
         if not State.silentHeadshot then return end
         if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
-        silentOriginalCam = Camera.CFrame
+        silentOriginalCF = Camera.CFrame
         local target = getClosestHeadInFov(State.silentFov)
         if not target or not target.Character then return end
         silentTarget = target
         silentHolding = true
         local head = target.Character:FindFirstChild("Head")
         if head then
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position + Vector3.new(0, 0.15, 0))
+            local newCF = CFrame.new(Camera.CFrame.Position, head.Position + Vector3.new(0, 0.15, 0))
+            Camera.CFrame = newCF
+            if lookRemote then
+                pcall(function() lookRemote:FireServer(newCF) end)
+            end
         end
     end)
 
@@ -882,15 +900,18 @@ function Jailbird.Init(ctx)
         if silentHolding then
             silentHolding = false
             silentTarget = nil
-            if silentOriginalCam then
-                Camera.CFrame = silentOriginalCam
-                silentOriginalCam = nil
+            if silentOriginalCF then
+                Camera.CFrame = silentOriginalCF
+                if lookRemote then
+                    pcall(function() lookRemote:FireServer(silentOriginalCF) end)
+                end
+                silentOriginalCF = nil
             end
         end
     end)
 
     -- ============================================================
-    -- AIMBOT
+    -- AIMBOT (FIX: mousemoverel)
     -- ============================================================
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.aimbot then return end
@@ -902,8 +923,16 @@ function Jailbird.Init(ctx)
                 if myRoot then
                     local dist3D = (head.Position - myRoot.Position).Magnitude
                     if dist3D <= State.aimbotMaxDist and hasLineOfSight(Camera.CFrame.Position, head) then
-                        local targetCFrame = CFrame.new(Camera.CFrame.Position, head.Position)
-                        Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, State.aimbotSmoothness)
+                        local sp, onScreen = Camera:WorldToViewportPoint(head.Position)
+                        if onScreen then
+                            local mouse = UserInputService:GetMouseLocation()
+                            local dx = sp.X - mouse.X
+                            local dy = sp.Y - mouse.Y
+                            local s = State.aimbotSmoothness
+                            if mousemoverel then
+                                pcall(function() mousemoverel(dx * s, dy * s) end)
+                            end
+                        end
                     end
                 end
             end
@@ -911,12 +940,20 @@ function Jailbird.Init(ctx)
     end)
 
     -- ============================================================
-    -- AUTO SHOOT
+    -- AUTO SHOOT (FIX: tool:Activate + VirtualInput + mouse1click)
     -- ============================================================
+    local lastAutoShoot = 0
+
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.autoShoot then return end
+        if tick() - lastAutoShoot < State.autoShootDelay then return end
+        local char = LocalPlayer.Character
+        if not char then return end
+        local tool = char:FindFirstChildOfClass("Tool")
+        if not tool then return end
+
         local mouse = UserInputService:GetMouseLocation()
-        local targetInFov = false
+        local targetFound = false
         for _, p in ipairs(Players:GetPlayers()) do
             if isEnemy(p) and p.Character then
                 local head = p.Character:FindFirstChild("Head")
@@ -925,14 +962,18 @@ function Jailbird.Init(ctx)
                     if onScreen and depth > 0 then
                         local d = (Vector2.new(sp.X, sp.Y) - Vector2.new(mouse.X, mouse.Y)).Magnitude
                         if d < State.autoShootFov and hasLineOfSight(Camera.CFrame.Position, head) then
-                            targetInFov = true
+                            targetFound = true
                             break
                         end
                     end
                 end
             end
         end
-        if targetInFov then
+
+        if targetFound then
+            lastAutoShoot = tick()
+            -- 3 métodos em sequência (fallback)
+            pcall(function() tool:Activate() end)
             pcall(function()
                 VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
                 task.wait(0.01)
@@ -999,18 +1040,18 @@ function Jailbird.Init(ctx)
         Camera.CFrame = CFrame.new(mHRP.Position, tHRP.Position)
         task.wait(0.02)
         for _ = 1, 3 do
+            pcall(function() mouse1click() end)
             pcall(function()
                 VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
                 task.wait(0.02)
                 VirtualInput:SendMouseButtonEvent(0, 0, 0, false, game, 0)
             end)
-            pcall(function() mouse1click() end)
             task.wait(0.05)
         end
     end
 
     -- ============================================================
-    -- HEAD EXPANDER (Head + Torso + HeadHB)
+    -- HEAD EXPANDER
     -- ============================================================
     local hitboxSaved = {}
 
@@ -1052,16 +1093,6 @@ function Jailbird.Init(ctx)
             torso.CanCollide = false
             torso.Massless = true
         end
-        local headHB = p.Character:FindFirstChild("HeadHB")
-        if headHB and headHB:IsA("BasePart") then
-            saveOriginal(p, headHB)
-            local base = hitboxSaved[p][headHB]
-            local hbMult = math.min(size * 1.5, 12)
-            headHB.Size = Vector3.new(base.X * hbMult, base.Y * hbMult, base.Z * hbMult)
-            headHB.Transparency = 1
-            headHB.CanCollide = false
-            headHB.Massless = true
-        end
     end
 
     RunService.Heartbeat:Connect(function()
@@ -1077,7 +1108,7 @@ function Jailbird.Init(ctx)
     end)
 
     -- ============================================================
-    -- WEAPON HACKS (No-Recoil, Rapid Fire, Fast/Insta Reload)
+    -- WEAPON HACKS
     -- ============================================================
     local reloadOriginals = {}
 
@@ -1096,12 +1127,12 @@ function Jailbird.Init(ctx)
                 if tool:IsA("Tool") then
                     if State.rapidFire then
                         pcall(function()
-                            for _, name in ipairs({"FireRate", "BFireRate", "RateOfFire"}) do
+                            for _, name in ipairs({"FireRate", "BFireRate", "RateOfFire", "ShootCooldown", "FireDelay"}) do
                                 local f = tool:FindFirstChild(name)
                                 if f and (f:IsA("NumberValue") or f:IsA("IntValue")) then
-                                    f.Value = 0.03
+                                    f.Value = 0.01
                                 elseif typeof(tool[name]) == "number" then
-                                    tool[name] = 0.03
+                                    tool[name] = 0.01
                                 end
                             end
                             for _, name in ipairs({"Cooldown", "EquipTime", "EquipCooldown", "SwapCooldown", "NextFire"}) do
@@ -1119,7 +1150,7 @@ function Jailbird.Init(ctx)
                             for _, d in ipairs(tool:GetDescendants()) do
                                 if d:IsA("NumberValue") or d:IsA("IntValue") then
                                     local n = d.Name:lower()
-                                    if n:find("recoil") or n:find("kick") or n:find("spread") then
+                                    if n:find("recoil") or n:find("kick") or n:find("spread") or n:find("camera") then
                                         d.Value = 0
                                     end
                                 end
@@ -1130,9 +1161,10 @@ function Jailbird.Init(ctx)
                         pcall(function()
                             for _, d in ipairs(tool:GetDescendants()) do
                                 if d:IsA("NumberValue") or d:IsA("IntValue") then
-                                    if d.Name:lower():find("reload") then
+                                    local n = d.Name:lower()
+                                    if n:find("reload") and not n:find("reloading") then
                                         if not reloadOriginals[d] then reloadOriginals[d] = d.Value end
-                                        d.Value = reloadOriginals[d] * 0.3
+                                        d.Value = reloadOriginals[d] * 0.15
                                     end
                                 end
                             end
@@ -1142,7 +1174,11 @@ function Jailbird.Init(ctx)
                         pcall(function()
                             for _, d in ipairs(tool:GetDescendants()) do
                                 if d:IsA("NumberValue") or d:IsA("IntValue") then
-                                    if d.Name:lower():find("reload") then d.Value = 0 end
+                                    local n = d.Name:lower()
+                                    if n:find("reload") and not n:find("reloading") then
+                                        if not reloadOriginals[d] then reloadOriginals[d] = d.Value end
+                                        d.Value = 0
+                                    end
                                 end
                             end
                         end)
@@ -1152,7 +1188,7 @@ function Jailbird.Init(ctx)
         end
     end)
 
-    -- Loop em ReplicatedStorage.Weapons (Jailbird tem essa pasta!)
+    -- Loop em ReplicatedStorage.Weapons + Modules.Constants
     coroutine.wrap(function()
         while true do
             if UNLOADED then return end
@@ -1162,17 +1198,41 @@ function Jailbird.Init(ctx)
                         for _, d in ipairs(ReplicatedStorage.Weapons:GetDescendants()) do
                             if d:IsA("NumberValue") or d:IsA("IntValue") then
                                 local n = d.Name:lower()
-                                if State.rapidFire and (n == "firerate" or n == "bfirerate" or n == "rateoffire") then
-                                    d.Value = 0.03
+                                if State.rapidFire and (n == "firerate" or n == "bfirerate" or n == "rateoffire" or n == "firedelay") then
+                                    d.Value = 0.01
                                 elseif State.rapidFire and (n:find("cooldown") or n:find("equip") or n:find("swap")) then
                                     d.Value = 0
                                 elseif State.noRecoil and (n == "recoilcontrol" or n:find("recoil")) then
                                     d.Value = 0
-                                elseif State.fastReload and not State.instaReload and n:find("reload") then
+                                elseif State.fastReload and not State.instaReload and n:find("reload") and not n:find("reloading") then
                                     if not reloadOriginals[d] then reloadOriginals[d] = d.Value end
-                                    d.Value = reloadOriginals[d] * 0.3
-                                elseif State.instaReload and n:find("reload") then
+                                    d.Value = reloadOriginals[d] * 0.15
+                                elseif State.instaReload and n:find("reload") and not n:find("reloading") then
+                                    if not reloadOriginals[d] then reloadOriginals[d] = d.Value end
                                     d.Value = 0
+                                end
+                            end
+                        end
+                    end
+                    if ReplicatedStorage:FindFirstChild("Modules") then
+                        local constants = ReplicatedStorage.Modules:FindFirstChild("Constants")
+                        if constants and constants:IsA("ModuleScript") then
+                            -- Não consegue editar ModuleScript direto, mas tenta via require
+                            local ok, mod = pcall(require, constants)
+                            if ok and type(mod) == "table" then
+                                if State.noRecoil then
+                                    for k, v in pairs(mod) do
+                                        if type(k) == "string" and (k:lower():find("recoil") or k:lower():find("spread")) then
+                                            pcall(function() mod[k] = 0 end)
+                                        end
+                                    end
+                                end
+                                if State.rapidFire then
+                                    for k, v in pairs(mod) do
+                                        if type(k) == "string" and (k:lower():find("firerate") or k:lower():find("firedelay")) then
+                                            pcall(function() mod[k] = 0.01 end)
+                                        end
+                                    end
                                 end
                             end
                         end
@@ -1340,18 +1400,23 @@ function Jailbird.Init(ctx)
     end)
 
     -- ============================================================
-    -- AIR JUMP
+    -- AIR JUMP (FIX: velocity direto no HRP)
     -- ============================================================
     local airJumpConn = nil
+    local AIR_JUMP_POWER = 55
+
     local function startAirJump()
         if airJumpConn then airJumpConn:Disconnect() end
-        local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-        local hum = char:WaitForChild("Humanoid")
         airJumpConn = UserInputService.JumpRequest:Connect(function()
             if UNLOADED then return end
-            if hum and hum:GetState() ~= Enum.HumanoidStateType.Dead then
-                hum:ChangeState(Enum.HumanoidStateType.Jumping)
-            end
+            local char = LocalPlayer.Character
+            if not char then return end
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if not hrp or not hum then return end
+            if hum:GetState() == Enum.HumanoidStateType.Dead then return end
+            -- Aplica velocity vertical direto (funciona no ar)
+            hrp.Velocity = Vector3.new(hrp.Velocity.X, AIR_JUMP_POWER, hrp.Velocity.Z)
         end)
     end
     local function stopAirJump()
@@ -1417,7 +1482,7 @@ function Jailbird.Init(ctx)
 
     local function saveConfig(name)
         ensureFolder()
-        local data = {version = "1.2", language = Language.getCurrent(), state = {}, keybinds = State.keybinds}
+        local data = {version = "1.3", language = Language.getCurrent(), state = {}, keybinds = State.keybinds}
         for k, v in pairs(State) do
             if k ~= "keybinds" then data.state[k] = v end
         end
@@ -1532,6 +1597,9 @@ function Jailbird.Init(ctx)
     WeaponTab.CreateToggle("Insta-Reload", "instaReload")
     WeaponTab.CreateToggle("Auto Shoot", "autoShoot")
     WeaponTab.CreateSlider("Auto Shoot FOV", 30, 300, 100, "autoShootFov")
+    WeaponTab.CreateSlider("Auto Shoot Delay (ms)", 10, 500, 50, "autoShootDelay", function(v)
+        State.autoShootDelay = v / 1000
+    end)
 
     local MovementTab = CreateTab("MOVEMENT", "🏃")
     MovementTab.CreateToggle("Speedhack", "speed")
@@ -1695,7 +1763,7 @@ function Jailbird.Init(ctx)
         disableFullbright()
         if fovCircle then fovCircle:Remove() end
         GUI:Destroy()
-        print("[Infinite Zen] Jailbird v1.2 unloaded")
+        print("[Infinite Zen] Jailbird v1.3 unloaded")
     end, "danger")
 
     local CreditsTab = CreateTab("CREDITS", "➕")
@@ -1712,8 +1780,8 @@ function Jailbird.Init(ctx)
     end)
     discordBtn.BackgroundColor3 = Theme.Discord
     CreditsTab.CreateLabel(" ")
-    CreditsTab.CreateLabel("Infinite Zen v1.2", Theme.TextDim)
-    CreditsTab.CreateLabel("Jailbird Merged", Theme.Warning)
+    CreditsTab.CreateLabel("Infinite Zen v1.3", Theme.TextDim)
+    CreditsTab.CreateLabel("Jailbird FIXED", Theme.Warning)
     CreditsTab.CreateLabel("© 2026 Eclipse Dev", Theme.TextDim)
 
     -- ============================================================
@@ -1774,7 +1842,6 @@ function Jailbird.Init(ctx)
         end
     end)
 
-    -- AUTOLOAD
     task.defer(function()
         local autoloadName = getAutoload()
         if autoloadName then
@@ -1785,14 +1852,11 @@ function Jailbird.Init(ctx)
 
     task.wait(0.5)
     if IS_JAILBIRD then
-        Notify("🎯 Jailbird v1.2", "Merged Edition carregado!", 5)
+        Notify("🎯 Jailbird v1.3", "FIXED Edition carregado!", 5)
     end
 
-    print("[Infinite Zen] ✅ Jailbird v1.2 MERGED carregado!")
-    print("[Infinite Zen] Combat: Silent Headshot (X) | Aimbot | Head Expander | Backstab (E)")
-    print("[Infinite Zen] Weapon: No-Recoil | Rapid Fire | Fast/Insta Reload | Auto Shoot")
-    print("[Infinite Zen] Movement: Speed | Air Jump | Fullbright")
-    print("[Infinite Zen] Visuals: ESP com head dot + tracer")
+    print("[Infinite Zen] ✅ Jailbird v1.3 FIXED carregado!")
+    print("[Infinite Zen] Fixes: Aimbot mousemoverel | Air Jump velocity | Auto Shoot tool:Activate | Silent Headshot remote")
 end
 
 return Jailbird
