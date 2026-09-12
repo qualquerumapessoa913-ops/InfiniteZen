@@ -1,6 +1,5 @@
 -- ============================================================
 -- INFINITE ZEN - MÓDULO ARSENAL
--- Cores 100% originais do Hawk Hub
 -- ============================================================
 
 local Arsenal = {}
@@ -35,9 +34,11 @@ function Arsenal.Init(ctx)
         return player.Team ~= myTeam
     end
 
+    -- ============================================================
+    -- STATE
+    -- ============================================================
     local State = {
         silentHeadshot = false,
-        aimLock = false,
         aimbot = false,
         headExpander = false,
         headExpanderSize = 3,
@@ -47,13 +48,16 @@ function Arsenal.Init(ctx)
         rapidFire = false,
         fastReload = false,
         instaReload = false,
+        autoShoot = false,
+        autoShootFov = 100,
+        wallShoot = false,
+        wallShootSize = 8,
         speed = false,
         airJump = false,
         esp = false,
         espMaxDistance = 500,
         keybinds = {
             silentHeadshot = "X",
-            aimLock = nil,
             aimbot = nil,
             headExpander = nil,
             backstab = "E",
@@ -61,6 +65,8 @@ function Arsenal.Init(ctx)
             rapidFire = nil,
             fastReload = nil,
             instaReload = nil,
+            autoShoot = nil,
+            wallShoot = nil,
             speed = nil,
             airJump = nil,
             esp = nil,
@@ -71,7 +77,6 @@ function Arsenal.Init(ctx)
 
     local FeatureLabels = {
         silentHeadshot = "Silent Headshot",
-        aimLock = "Aim Lock",
         aimbot = "Aimbot",
         headExpander = "Head Expander",
         backstab = "Backstab",
@@ -79,6 +84,8 @@ function Arsenal.Init(ctx)
         rapidFire = "Rapid Fire",
         fastReload = "Fast Reload",
         instaReload = "Insta-Reload",
+        autoShoot = "Auto Shoot",
+        wallShoot = "Wall Shoot",
         speed = "Speed",
         airJump = "Air Jump",
         esp = "ESP",
@@ -94,7 +101,7 @@ function Arsenal.Init(ctx)
     GUI.Parent = PlayerGui
 
     -- ============================================================
-    -- THEME (CORES ORIGINAIS DO HAWK HUB - NÃO MUDAR!)
+    -- THEME (CORES ORIGINAIS)
     -- ============================================================
     local Theme = {
         Bg = Color3.fromRGB(14, 14, 18),
@@ -188,6 +195,9 @@ function Arsenal.Init(ctx)
         return nil
     end
 
+    -- ============================================================
+    -- DRAG SYSTEM
+    -- ============================================================
     local drag = {active = false, frame = nil, input = nil, start = nil, frameStart = nil}
 
     local function startDrag(frame, input)
@@ -230,12 +240,16 @@ function Arsenal.Init(ctx)
         end
     end)
 
+    -- ============================================================
+    -- MAIN WINDOW
+    -- ============================================================
     local MainFrame = Instance.new("Frame", GUI)
     MainFrame.Name = "MainFrame"
     MainFrame.Size = UDim2.new(0, 620, 0, 480)
     MainFrame.Position = UDim2.new(0.5, -310, 0.5, -240)
     MainFrame.BackgroundColor3 = Theme.Bg
     MainFrame.BorderSizePixel = 0
+    MainFrame.Active = true
     Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
 
     local mainStroke = Instance.new("UIStroke", MainFrame)
@@ -251,10 +265,12 @@ function Arsenal.Init(ctx)
     shadow.ImageTransparency = 0.55
     shadow.ZIndex = 0
 
+    -- HEADER
     local Header = Instance.new("Frame", MainFrame)
     Header.Size = UDim2.new(1, 0, 0, 45)
     Header.BackgroundColor3 = Theme.Surface
     Header.BorderSizePixel = 0
+    Header.Active = true
     Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 12)
 
     local headerFix = Instance.new("Frame", Header)
@@ -278,7 +294,7 @@ function Arsenal.Init(ctx)
     Subtitle.Position = UDim2.new(0, 20, 0, 23)
     Subtitle.BackgroundTransparency = 1
     Subtitle.Font = Theme.Font
-    Subtitle.Text = "Arsenal Edition • v4.2"
+    Subtitle.Text = "Arsenal Edition • v4.3"
     Subtitle.TextColor3 = Theme.TextDim
     Subtitle.TextSize = 11
     Subtitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -293,6 +309,14 @@ function Arsenal.Init(ctx)
     MinBtn.TextColor3 = Theme.Text
     Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0, 6)
 
+    Header.InputBegan:Connect(function(input)
+        if UNLOADED then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            startDrag(MainFrame, input)
+        end
+    end)
+
     Title.InputBegan:Connect(function(input)
         if UNLOADED then return end
         if input.UserInputType == Enum.UserInputType.MouseButton1
@@ -301,6 +325,15 @@ function Arsenal.Init(ctx)
         end
     end)
 
+    Subtitle.InputBegan:Connect(function(input)
+        if UNLOADED then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            startDrag(MainFrame, input)
+        end
+    end)
+
+    -- SIDEBAR
     local Sidebar = Instance.new("Frame", MainFrame)
     Sidebar.Size = UDim2.new(0, 140, 1, -60)
     Sidebar.Position = UDim2.new(0, 10, 0, 55)
@@ -308,11 +341,13 @@ function Arsenal.Init(ctx)
     Sidebar.BorderSizePixel = 0
     Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 10)
 
+    -- CONTENT
     local Content = Instance.new("Frame", MainFrame)
     Content.Size = UDim2.new(1, -170, 1, -65)
     Content.Position = UDim2.new(0, 160, 0, 55)
     Content.BackgroundTransparency = 1
 
+    -- MINIMIZE
     local minimized = false
     local function setMinimized(v)
         minimized = v
@@ -325,6 +360,9 @@ function Arsenal.Init(ctx)
         setMinimized(not minimized)
     end)
 
+    -- ============================================================
+    -- TABS
+    -- ============================================================
     local tabs = {}
     local toggleHandles = {}
     local sliderHandles = {}
@@ -605,6 +643,9 @@ function Arsenal.Init(ctx)
         if State.silentHeadshot then
             fovCircle.Visible = true
             fovCircle.Radius = State.silentFov / 6
+        elseif State.autoShoot then
+            fovCircle.Visible = true
+            fovCircle.Radius = State.autoShootFov / 6
         elseif State.aimbot then
             fovCircle.Visible = true
             fovCircle.Radius = 25
@@ -613,6 +654,7 @@ function Arsenal.Init(ctx)
         end
     end)
 
+    -- AIMBOT
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.aimbot then return end
         local mouse = UserInputService:GetMouseLocation()
@@ -637,34 +679,9 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    RunService.RenderStepped:Connect(function()
-        if UNLOADED or not State.aimLock then return end
-        local myChar = LocalPlayer.Character
-        if not myChar then return end
-        local myHead = myChar:FindFirstChild("Head")
-        if not myHead then return end
-        local myPos = myHead.Position
-        local found = nil
-        for _, p in ipairs(Players:GetPlayers()) do
-            if isEnemy(p) and p.Character then
-                local head = p.Character:FindFirstChild("Head")
-                if head then
-                    local lookVec = head.CFrame.LookVector
-                    local toMe = (myPos - head.Position).Unit
-                    local dot = lookVec:Dot(toMe)
-                    local angle = math.deg(math.acos(math.clamp(dot, -1, 1)))
-                    if angle < 25 then
-                        found = head
-                        break
-                    end
-                end
-            end
-        end
-        if found then
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, found.Position + Vector3.new(0, 0.15, 0))
-        end
-    end)
-
+    -- ============================================================
+    -- SILENT HEADSHOT
+    -- ============================================================
     local silentHolding = false
     local silentTarget = nil
     local silentOriginalCam = nil
@@ -732,6 +749,41 @@ function Arsenal.Init(ctx)
         end
     end)
 
+    -- ============================================================
+    -- AUTO SHOOT
+    -- ============================================================
+    RunService.Heartbeat:Connect(function()
+        if UNLOADED or not State.autoShoot then return end
+        local mouse = UserInputService:GetMouseLocation()
+        local targetInFov = false
+        for _, p in ipairs(Players:GetPlayers()) do
+            if isEnemy(p) and p.Character then
+                local head = p.Character:FindFirstChild("Head")
+                if head then
+                    local sp, onScreen = Camera:WorldToViewportPoint(head.Position)
+                    if onScreen then
+                        local d = (Vector2.new(sp.X, sp.Y) - Vector2.new(mouse.X, mouse.Y)).Magnitude
+                        if d < State.autoShootFov then
+                            targetInFov = true
+                            break
+                        end
+                    end
+                end
+            end
+        end
+        if targetInFov then
+            pcall(function()
+                VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+                task.wait(0.01)
+                VirtualInput:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+            end)
+            pcall(function() mouse1click() end)
+        end
+    end)
+
+    -- ============================================================
+    -- HEAD EXPANDER + WALL SHOOT
+    -- ============================================================
     local hitboxSaved = {}
 
     local function saveOriginal(player, part)
@@ -796,17 +848,24 @@ function Arsenal.Init(ctx)
     end
 
     RunService.Heartbeat:Connect(function()
-        if UNLOADED or not State.headExpander then return end
+        if UNLOADED then return end
+        if not State.headExpander and not State.wallShoot then return end
         for _, p in ipairs(Players:GetPlayers()) do
             if p == LocalPlayer then
             elseif isEnemy(p) then
-                if p.Character then expandPlayer(p, State.headExpanderSize) end
+                if p.Character then
+                    local size = State.wallShoot and State.wallShootSize or State.headExpanderSize
+                    expandPlayer(p, size)
+                end
             else
                 if hitboxSaved[p] then restorePlayer(p) end
             end
         end
     end)
 
+    -- ============================================================
+    -- ESP
+    -- ============================================================
     local ESP = {data = {}}
 
     local function createESP(p)
@@ -965,6 +1024,9 @@ function Arsenal.Init(ctx)
         removeESP(p)
     end)
 
+    -- ============================================================
+    -- RAPID FIRE / NO RECOIL / FAST RELOAD / INSTA RELOAD
+    -- ============================================================
     local reloadOriginals = {}
 
     RunService.Heartbeat:Connect(function()
@@ -1073,6 +1135,9 @@ function Arsenal.Init(ctx)
         end
     end)()
 
+    -- ============================================================
+    -- SPEED
+    -- ============================================================
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.speed then return end
         local char = LocalPlayer.Character
@@ -1082,6 +1147,9 @@ function Arsenal.Init(ctx)
         end
     end)
 
+    -- ============================================================
+    -- AIR JUMP
+    -- ============================================================
     local airJumpConn = nil
 
     local function startAirJump()
@@ -1101,6 +1169,9 @@ function Arsenal.Init(ctx)
         if airJumpConn then airJumpConn:Disconnect(); airJumpConn = nil end
     end
 
+    -- ============================================================
+    -- BACKSTAB
+    -- ============================================================
     local backstabLock = {active = false, target = nil, endTime = 0}
 
     local function getClosestEnemyAnywhere()
@@ -1165,13 +1236,15 @@ function Arsenal.Init(ctx)
         end
     end
 
+    -- ============================================================
+    -- CRIAR ABAS
+    -- ============================================================
     local CombatTab = CreateTab("Combat", "⚔️")
     CombatTab.CreateToggle("Silent Headshot", "silentHeadshot")
     CombatTab.CreateSlider("Silent FOV", 30, 300, 120, "silentFov")
-    CombatTab.CreateToggle("Aim Lock", "aimLock")
     CombatTab.CreateToggle("Aimbot (Legit)", "aimbot")
     CombatTab.CreateToggle("Head Expander", "headExpander", function(v)
-        if not v then restoreAll() end
+        if not v and not State.wallShoot then restoreAll() end
     end)
     CombatTab.CreateSlider("Head Size", 1, 8, 3, "headExpanderSize")
     CombatTab.CreateToggle("Backstab", "backstab")
@@ -1188,6 +1261,12 @@ function Arsenal.Init(ctx)
         end
     end)
     WeaponTab.CreateToggle("Insta-Reload", "instaReload")
+    WeaponTab.CreateToggle("Auto Shoot", "autoShoot")
+    WeaponTab.CreateSlider("Auto Shoot FOV", 30, 300, 100, "autoShootFov")
+    WeaponTab.CreateToggle("Wall Shoot", "wallShoot", function(v)
+        if not v and not State.headExpander then restoreAll() end
+    end)
+    WeaponTab.CreateSlider("Wall Shoot Size", 4, 15, 8, "wallShootSize")
 
     local MovementTab = CreateTab("Movement", "🏃")
     MovementTab.CreateToggle("Speed", "speed", function(v)
