@@ -1,0 +1,15 @@
+{
+    "luau-lsp.platform.type": "roblox",
+    "luau-lsp.diagnostics.globals": [
+        "getgenv", "loadstring", "writefile", "readfile",
+        "isfile", "mousemoverel", "mouse1click",
+        "fireclickdetector", "hookfunction", "getrawmetatable",
+        "identifyexecutor", "request", "Drawing", "task",
+        "typeof", "syn", "Krnl", "spawn", "wait", "tick"
+    ],
+    "luau-lsp.diagnostics.disable": [
+        "UnknownGlobal",
+        "UnusedLocal",
+        "DeprecatedApi"
+    ]
+}
