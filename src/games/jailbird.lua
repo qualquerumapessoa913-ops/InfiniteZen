@@ -43,6 +43,17 @@ function Jailbird.Init(ctx)
         for _, fn in ipairs(langRefresh) do pcall(fn) end
     end
 
+    -- ✅ AUTO-FORMATTER: trigger_bot → "Trigger Bot"
+    local function getLabel(labelKey)
+        local t = Language.get(labelKey)
+        if t and t ~= labelKey then return t end
+        local formatted = labelKey:gsub("_", " ")
+        formatted = formatted:gsub("(%a)([%w']*)", function(first, rest)
+            return first:upper() .. rest:lower()
+        end)
+        return formatted
+    end
+
     -- REMOTES
     local GameEvents = ReplicatedStorage:FindFirstChild("GameEvents")
     local Remotes = {
@@ -485,8 +496,7 @@ function Jailbird.Init(ctx)
         Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
 
         registerRefresh(function()
-            local t = Language.get(nameKey)
-            btn.Text = "  " .. icon .. "   " .. ((t and t ~= nameKey) and t or nameKey)
+            btn.Text = "  " .. icon .. "   " .. getLabel(nameKey)
         end)
 
         btn.MouseEnter:Connect(function()
@@ -538,8 +548,7 @@ function Jailbird.Init(ctx)
             lbl.BackgroundTransparency = 1; lbl.Font = Theme.Font; lbl.TextSize = 12
             lbl.TextColor3 = Theme.Text; lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Text = ""
             registerRefresh(function()
-                local t = Language.get(labelKey)
-                lbl.Text = (t and t ~= labelKey) and t or labelKey
+                lbl.Text = getLabel(labelKey)
             end)
 
             local keyBtn = Instance.new("TextButton", holder)
@@ -605,8 +614,7 @@ function Jailbird.Init(ctx)
             lbl.BackgroundTransparency = 1; lbl.Font = Theme.Font; lbl.TextSize = 11
             lbl.TextColor3 = Theme.Text; lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Text = ""
             registerRefresh(function()
-                local t = Language.get(labelKey)
-                lbl.Text = (t and t ~= labelKey) and t or labelKey
+                lbl.Text = getLabel(labelKey)
             end)
 
             local valLbl = Instance.new("TextLabel", holder)
@@ -689,8 +697,7 @@ function Jailbird.Init(ctx)
             local bs = Instance.new("UIStroke", btn)
             bs.Color = Theme.Border; bs.Thickness = 1; bs.Transparency = 0.7
             registerRefresh(function()
-                local t = Language.get(labelKey)
-                btn.Text = (t and t ~= labelKey) and t or labelKey
+                btn.Text = getLabel(labelKey)
             end)
             btn.MouseEnter:Connect(function()
                 btn.BackgroundColor3 = style == "danger" and Color3.fromRGB(80, 20, 25) or Theme.Primary
@@ -708,8 +715,7 @@ function Jailbird.Init(ctx)
             lbl.BackgroundTransparency = 1; lbl.Font = Theme.Font; lbl.TextSize = 11
             lbl.TextColor3 = color or Theme.TextDim; lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Text = ""
             registerRefresh(function()
-                local t = Language.get(textKey)
-                lbl.Text = (t and t ~= textKey) and t or textKey
+                lbl.Text = getLabel(textKey)
             end)
             return lbl
         end
@@ -806,7 +812,7 @@ function Jailbird.Init(ctx)
         return closest
     end
 
-    -- FIRE WEAPON (helper)
+    -- FIRE WEAPON helper
     local function fireWeapon()
         local char = LocalPlayer.Character
         if not char then return false end
@@ -1403,9 +1409,7 @@ function Jailbird.Init(ctx)
         end
     end)
 
-    -- ============================================================
-    -- ESP (com Weapon + Armor)
-    -- ============================================================
+    -- ESP
     local ESP = {data = {}}
 
     local function createESP(p)
@@ -1516,9 +1520,7 @@ function Jailbird.Init(ctx)
                     d.weapon.Position = Vector2.new(headSp.X, headSp.Y - 34)
                     d.weapon.Text = "[" .. tool.Name .. "]"
                     d.weapon.Visible = true
-                else
-                    d.weapon.Visible = false
-                end
+                else d.weapon.Visible = false end
             else d.weapon.Visible = false end
 
             if State.espArmor then
@@ -1809,11 +1811,7 @@ function Jailbird.Init(ctx)
         if ok then Notify("🚫 Autoload", "Disabled", 3) end
     end
     local function getAutoload()
-        local ok, content = pcall(function() return readFile(getAutoloadPath()) end)
-        if not ok then
-            local ok2, content2 = pcall(function() return readfile(getAutoloadPath()) end)
-            if ok2 and content2 and content2 ~= "" then return content2 end
-        end
+        local ok, content = pcall(function() return readfile(getAutoloadPath()) end)
         if ok and content and content ~= "" then return content end
         return nil
     end
@@ -2057,7 +2055,7 @@ function Jailbird.Init(ctx)
 
     SettingsTab.CreateLabel(" ")
     SettingsTab.CreateLabel(" ")
-    SettingsTab.CreateButton("🗑️ Unload Script", function()
+    SettingsTab.CreateButton("unload_script", function()
         UNLOADED = true
         _G.IZ_RefreshLanguage = nil
         clearAllESP()
@@ -2075,7 +2073,6 @@ function Jailbird.Init(ctx)
         print("[Infinite Zen] Jailbird unloaded")
     end, "danger")
 
-    -- CREDITS
     local CreditsTab = CreateTab("tab_credits", "➕")
     CreditsTab.CreateCredit("FOUNDER & DEVELOPER", "Sr Red", Theme.TitleRed)
     CreditsTab.CreateLabel(" ")

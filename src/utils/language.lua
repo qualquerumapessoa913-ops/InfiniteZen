@@ -17,6 +17,7 @@ Language.translations = {
         hub_subtitle = "Arsenal Edition",
         language_label = "Idioma",
 
+        -- Tabs
         tab_combat = "Combat",
         tab_weapon = "Armas",
         tab_movement = "Movimento",
@@ -24,35 +25,55 @@ Language.translations = {
         tab_settings = "Config",
         tab_credits = "Creditos",
 
+        -- Combat
         silent_headshot = "Silent Headshot",
         silent_fov = "FOV do Silent",
         aimbot = "Aimbot (Legit)",
         aimbot_fov = "FOV do Aimbot",
         aimbot_smooth = "Suavidade do Aimbot",
+        aimbot_wallcheck = "Aimbot: Verificar Parede",
+        triggerbot = "Triggerbot",
+        triggerbot_delay = "Delay do Triggerbot",
         head_expander = "Head Expander",
         head_size = "Tamanho da Cabeca",
         backstab = "Backstab",
 
+        -- Weapon
         no_recoil = "Sem Recuo",
+        no_spread = "Sem Dispersao",
         rapid_fire = "Tiro Rapido",
         fast_reload = "Recarga Rapida",
         insta_reload = "Recarga Instantanea",
+        infinite_ammo = "Municao Infinita",
         auto_shoot = "Tiro Automatico",
         auto_shoot_fov = "FOV do Tiro Auto",
 
+        -- Movement
         speed = "Velocidade",
         speed_value = "Valor da Velocidade",
         air_jump = "Pulo no Ar",
+        auto_bhop = "Auto Bhop",
         fullbright = "Fullbright",
 
+        -- Visuals
         esp = "ESP (Tudo)",
         max_distance = "Distancia Maxima",
+        weapon_esp = "ESP de Arma",
+        armor_esp = "ESP de Armadura",
+        grenade_esp = "ESP de Granada",
+        damage_indicator = "Indicador de Dano",
 
+        -- Optimizations
         low_graphics = "Graficos Baixos",
         no_shadows = "Sem Sombras",
         no_fog = "Sem Nevoeiro",
         no_particles = "Sem Particulas",
 
+        -- Security
+        anti_flash = "Anti-Flash",
+        anti_votekick = "Anti-Votekick",
+
+        -- Settings
         interface_label = "Interface",
         save_config = "Salvar Config",
         load_config = "Carregar Config",
@@ -61,12 +82,14 @@ Language.translations = {
         keybind_help1 = "Cada feature tem sua propria keybind",
         keybind_help2 = "Clique no botao de keybind pra gravar",
         unload_script = "Descarregar Script",
-        version_text = "Infinite Zen v1.1",
+        version_text = "Infinite Zen v1.0",
 
+        -- Toggle state
         on = "Ligado",
         off = "Desligado",
         key = "tecla",
 
+        -- Notifications
         config_saved = "Configuracoes salvas com sucesso",
         config_loaded = "Configuracoes carregadas",
         config_error_save = "Executor nao suporta writefile",
@@ -95,6 +118,7 @@ Language.translations = {
         hub_subtitle = "Arsenal Edition",
         language_label = "Language",
 
+        -- Tabs
         tab_combat = "Combat",
         tab_weapon = "Weapon",
         tab_movement = "Movement",
@@ -102,35 +126,55 @@ Language.translations = {
         tab_settings = "Settings",
         tab_credits = "Credits",
 
+        -- Combat
         silent_headshot = "Silent Headshot",
         silent_fov = "Silent FOV",
         aimbot = "Aimbot (Legit)",
         aimbot_fov = "Aimbot FOV",
         aimbot_smooth = "Aimbot Smoothness",
+        aimbot_wallcheck = "Aimbot Wall Check",
+        triggerbot = "Triggerbot",
+        triggerbot_delay = "Triggerbot Delay",
         head_expander = "Head Expander",
         head_size = "Head Size",
         backstab = "Backstab",
 
+        -- Weapon
         no_recoil = "No-Recoil",
+        no_spread = "No Spread",
         rapid_fire = "Rapid Fire",
         fast_reload = "Fast Reload",
         insta_reload = "Insta-Reload",
+        infinite_ammo = "Infinite Ammo",
         auto_shoot = "Auto Shoot",
         auto_shoot_fov = "Auto Shoot FOV",
 
+        -- Movement
         speed = "Speed",
         speed_value = "Speed Value",
         air_jump = "Air Jump",
+        auto_bhop = "Auto Bhop",
         fullbright = "Fullbright",
 
+        -- Visuals
         esp = "ESP (All)",
         max_distance = "Max Distance",
+        weapon_esp = "Weapon ESP",
+        armor_esp = "Armor ESP",
+        grenade_esp = "Grenade ESP",
+        damage_indicator = "Damage Indicator",
 
+        -- Optimizations
         low_graphics = "Low Graphics",
         no_shadows = "No Shadows",
         no_fog = "No Fog",
         no_particles = "No Particles",
 
+        -- Security
+        anti_flash = "Anti-Flash",
+        anti_votekick = "Anti-VoteKick",
+
+        -- Settings
         interface_label = "Interface",
         save_config = "Save Config",
         load_config = "Load Config",
@@ -139,12 +183,14 @@ Language.translations = {
         keybind_help1 = "Each feature has its own keybind",
         keybind_help2 = "Click the keybind button to record",
         unload_script = "Unload Script",
-        version_text = "Infinite Zen v1.1",
+        version_text = "Infinite Zen v1.0",
 
+        -- Toggle state
         on = "ON",
         off = "OFF",
         key = "key",
 
+        -- Notifications
         config_saved = "Config saved successfully",
         config_loaded = "Config loaded",
         config_error_save = "Executor doesn't support writefile",
@@ -173,6 +219,7 @@ Language.translations = {
         hub_subtitle = "Arsenal Edition",
         language_label = "Idioma",
 
+        -- Tabs
         tab_combat = "Combate",
         tab_weapon = "Armas",
         tab_movement = "Movimiento",
@@ -180,35 +227,55 @@ Language.translations = {
         tab_settings = "Ajustes",
         tab_credits = "Creditos",
 
+        -- Combat
         silent_headshot = "Headshot Silencioso",
         silent_fov = "FOV Silencioso",
         aimbot = "Aimbot (Legit)",
         aimbot_fov = "FOV del Aimbot",
         aimbot_smooth = "Suavidad del Aimbot",
+        aimbot_wallcheck = "Aimbot Verificar Pared",
+        triggerbot = "Triggerbot",
+        triggerbot_delay = "Retardo del Triggerbot",
         head_expander = "Expansor de Cabeza",
         head_size = "Tamano de Cabeza",
         backstab = "Apunalar por Detras",
 
+        -- Weapon
         no_recoil = "Sin Retroceso",
+        no_spread = "Sin Dispersion",
         rapid_fire = "Disparo Rapido",
         fast_reload = "Recarga Rapida",
         insta_reload = "Recarga Instantanea",
+        infinite_ammo = "Municion Infinita",
         auto_shoot = "Disparo Automatico",
         auto_shoot_fov = "FOV del Disparo Auto",
 
+        -- Movement
         speed = "Velocidad",
         speed_value = "Valor de Velocidad",
         air_jump = "Salto en el Aire",
+        auto_bhop = "Auto Bhop",
         fullbright = "Fullbright",
 
+        -- Visuals
         esp = "ESP (Todo)",
         max_distance = "Distancia Maxima",
+        weapon_esp = "ESP de Arma",
+        armor_esp = "ESP de Armadura",
+        grenade_esp = "ESP de Granada",
+        damage_indicator = "Indicador de Dano",
 
+        -- Optimizations
         low_graphics = "Graficos Bajos",
         no_shadows = "Sin Sombras",
         no_fog = "Sin Niebla",
         no_particles = "Sin Particulas",
 
+        -- Security
+        anti_flash = "Anti-Flash",
+        anti_votekick = "Anti-Votekick",
+
+        -- Settings
         interface_label = "Interfaz",
         save_config = "Guardar Config",
         load_config = "Cargar Config",
@@ -217,12 +284,14 @@ Language.translations = {
         keybind_help1 = "Cada funcion tiene su propia tecla",
         keybind_help2 = "Haz clic en el boton de tecla para grabar",
         unload_script = "Descargar Script",
-        version_text = "Infinite Zen v1.1",
+        version_text = "Infinite Zen v1.0",
 
+        -- Toggle state
         on = "Encendido",
         off = "Apagado",
         key = "tecla",
 
+        -- Notifications
         config_saved = "Configuracion guardada",
         config_loaded = "Configuracion cargada",
         config_error_save = "El ejecutor no soporta writefile",
@@ -252,7 +321,7 @@ function Language.get(key)
 end
 
 -- ============================================================
--- FUNÇÃO DE REFRESH GLOBAL (FORÇA ATUALIZAÇÃO DE TODA UI)
+-- REFRESH GLOBAL
 -- ============================================================
 function Language.setLanguage(code)
     if not Language.translations[code] then
@@ -262,12 +331,10 @@ function Language.setLanguage(code)
     Language.current = code
     print("[LANG] Idioma alterado para: " .. code)
 
-    -- 1) Chama a função global (se existir)
     if _G.IZ_RefreshLanguage then
         pcall(_G.IZ_RefreshLanguage)
     end
 
-    -- 2) Chama todos os listeners registrados
     for _, callback in ipairs(Language.listeners) do
         pcall(callback)
     end
