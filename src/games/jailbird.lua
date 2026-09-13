@@ -1,5 +1,5 @@
 -- ============================================================
--- INFINITE ZEN - MÓDULO JAILBIRD v1.3 (FIXED)
+-- INFINITE ZEN - MÓDULO JAILBIRD v1.3 (MOBILE + OPTIMIZATIONS + CREDITS)
 -- Jailbird (PlaceId 14939963714)
 -- ============================================================
 
@@ -9,7 +9,7 @@ function Jailbird.Init(ctx)
     local Language = ctx.Language
     local gameName = ctx.gameName
 
-    print("[Infinite Zen] Inicializando Jailbird v1.3 FIXED...")
+    print("[Infinite Zen] Inicializando Jailbird v1.3...")
 
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -24,9 +24,14 @@ function Jailbird.Init(ctx)
     local Camera = workspace.CurrentCamera
 
     local UNLOADED = false
-    local AUTOLOAD_FILE = "InfiniteZen_Jailbird_Autoload.txt"
-    local CONFIG_FOLDER = "InfiniteZen_Configs"
     local IS_JAILBIRD = game.PlaceId == 14939963714
+
+    -- ============================================================
+    -- MOBILE DETECTION
+    -- ============================================================
+    local IS_MOBILE = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+    local MOBILE_SCALE = 0.72
+    print("[Infinite Zen] Mobile:", IS_MOBILE, "| Scale:", MOBILE_SCALE)
 
     -- ============================================================
     -- TRADUÇÃO
@@ -40,30 +45,25 @@ function Jailbird.Init(ctx)
         for _, fn in ipairs(langRefresh) do pcall(fn) end
     end
 
-    -- ============================================================
-    -- THEME
-    -- ============================================================
-    local Theme = {
-        Bg = Color3.fromRGB(8, 4, 6),
-        Surface = Color3.fromRGB(18, 8, 12),
-        Surface2 = Color3.fromRGB(35, 12, 18),
-        Border = Color3.fromRGB(80, 15, 20),
-        SidebarColor = Color3.fromRGB(15, 6, 10),
-        ContentColor = Color3.fromRGB(25, 10, 15),
-        Primary = Color3.fromRGB(255, 30, 40),
-        TitleRed = Color3.fromRGB(255, 50, 50),
-        Success = Color3.fromRGB(0, 220, 130),
-        Danger = Color3.fromRGB(255, 40, 40),
-        Warning = Color3.fromRGB(255, 150, 50),
-        Text = Color3.fromRGB(255, 245, 245),
-        TextDim = Color3.fromRGB(160, 120, 130),
-        Discord = Color3.fromRGB(88, 101, 242),
-        Font = Enum.Font.GothamMedium,
-        FontBold = Enum.Font.GothamBlack,
-    }
+    local function isEnemy(player)
+        if player == LocalPlayer then return false end
+        if not player.Character then return false end
+        if player.Team then
+            local tname = player.Team.Name
+            if tname == "Spectator" or tname == "Spectators" or tname == "Neutral" then
+                return false
+            end
+        end
+        local hum = player.Character:FindFirstChildOfClass("Humanoid")
+        if not hum or hum.Health <= 0 then return false end
+        local myTeam = LocalPlayer.Team
+        if myTeam == nil then return true end
+        if player.Team == nil then return false end
+        return player.Team ~= myTeam
+    end
 
     -- ============================================================
-    -- ESTADO
+    -- STATE
     -- ============================================================
     local State = {
         silentHeadshot = false,
@@ -88,6 +88,10 @@ function Jailbird.Init(ctx)
         esp = false,
         espMaxDistance = 500,
         fullbright = false,
+        lowGraphics = false,
+        noShadows = false,
+        noFog = false,
+        noParticles = false,
         keybinds = {
             silentHeadshot = "X",
             aimbot = nil,
@@ -121,6 +125,10 @@ function Jailbird.Init(ctx)
         airJump = "Air Jump",
         esp = "ESP",
         fullbright = "Fullbright",
+        lowGraphics = "Low Graphics",
+        noShadows = "No Shadows",
+        noFog = "No Fog",
+        noParticles = "No Particles",
     }
 
     local oldMenu = PlayerGui:FindFirstChild("InfiniteZen")
@@ -138,10 +146,31 @@ function Jailbird.Init(ctx)
     end
 
     -- ============================================================
+    -- THEME
+    -- ============================================================
+    local Theme = {
+        Bg = Color3.fromRGB(8, 4, 6),
+        Surface = Color3.fromRGB(18, 8, 12),
+        Surface2 = Color3.fromRGB(35, 12, 18),
+        Border = Color3.fromRGB(80, 15, 20),
+        SidebarColor = Color3.fromRGB(15, 6, 10),
+        ContentColor = Color3.fromRGB(25, 10, 15),
+        Primary = Color3.fromRGB(255, 30, 40),
+        TitleRed = Color3.fromRGB(255, 50, 50),
+        Success = Color3.fromRGB(0, 220, 130),
+        Danger = Color3.fromRGB(255, 40, 40),
+        Warning = Color3.fromRGB(255, 150, 50),
+        Text = Color3.fromRGB(255, 245, 245),
+        TextDim = Color3.fromRGB(160, 120, 130),
+        Discord = Color3.fromRGB(88, 101, 242),
+        Font = Enum.Font.GothamMedium,
+        FontBold = Enum.Font.GothamBlack,
+    }
+
+    -- ============================================================
     -- NOTIFICAÇÕES
     -- ============================================================
     local activeNotifs = {}
-
     local function Notify(title, content, duration, isError)
         duration = duration or 4
         local stackIndex = #activeNotifs
@@ -190,13 +219,11 @@ function Jailbird.Init(ctx)
             for i, n in ipairs(activeNotifs) do
                 if n == notif then table.remove(activeNotifs, i); break end
             end
-            if notif and notif.Parent then
-                TweenService:Create(notif, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-                    Position = UDim2.new(1, 20, 0, notif.Position.Y.Offset)
-                }):Play()
-                task.wait(0.35)
-                if notif.Parent then notif:Destroy() end
-            end
+            TweenService:Create(notif, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+                Position = UDim2.new(1, 20, 0, notif.Position.Y.Offset)
+            }):Play()
+            task.wait(0.35)
+            if notif and notif.Parent then notif:Destroy() end
         end)
     end
 
@@ -210,23 +237,6 @@ function Jailbird.Init(ctx)
     -- ============================================================
     -- HELPERS
     -- ============================================================
-    local function isEnemy(player)
-        if player == LocalPlayer then return false end
-        if not player.Character then return false end
-        if player.Team then
-            local tname = player.Team.Name
-            if tname == "Spectator" or tname == "Spectators" or tname == "Neutral" then
-                return false
-            end
-        end
-        local hum = player.Character:FindFirstChildOfClass("Humanoid")
-        if not hum or hum.Health <= 0 then return false end
-        local myTeam = LocalPlayer.Team
-        if myTeam == nil then return true end
-        if player.Team == nil then return false end
-        return player.Team ~= myTeam
-    end
-
     local function hasLineOfSight(fromPos, targetPart)
         if not targetPart or not targetPart.Parent then return false end
         local params = RaycastParams.new()
@@ -243,11 +253,10 @@ function Jailbird.Init(ctx)
         local origin = fromPos + unitDir * 2
         local rayLength = distance - 2
         if rayLength <= 0 then return true end
-        local result = workspace:Raycast(origin, unitDir * rayLength, params)
-        return result == nil
+        return workspace:Raycast(origin, unitDir * rayLength, params) == nil
     end
 
-    -- Tenta pegar remote de look (Jailbird específico)
+    -- Remote LookRotation (Jailbird)
     local lookRemote = nil
     pcall(function()
         if ReplicatedStorage:FindFirstChild("GameEvents") then
@@ -259,11 +268,24 @@ function Jailbird.Init(ctx)
     -- MAIN WINDOW
     -- ============================================================
     local MainFrame = Instance.new("Frame", GUI)
+    MainFrame.Name = "MainFrame"
     MainFrame.Size = UDim2.new(0, 620, 0, 480)
     MainFrame.Position = UDim2.new(0.5, -310, 0.5, -240)
     MainFrame.BackgroundColor3 = Theme.Bg
     MainFrame.BorderSizePixel = 0
     Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+
+    -- MOBILE: UIScale + recentralização
+    local guiScale = Instance.new("UIScale")
+    guiScale.Scale = IS_MOBILE and MOBILE_SCALE or 1
+    guiScale.Parent = MainFrame
+
+    if IS_MOBILE then
+        local vp = workspace.CurrentCamera.ViewportSize
+        local w = 620 * MOBILE_SCALE
+        local h = 480 * MOBILE_SCALE
+        MainFrame.Position = UDim2.new(0, (vp.X - w) / 2, 0, (vp.Y - h) / 2)
+    end
 
     local mainStroke = Instance.new("UIStroke", MainFrame)
     mainStroke.Color = Theme.Primary; mainStroke.Thickness = 1.5; mainStroke.Transparency = 0.3
@@ -276,6 +298,7 @@ function Jailbird.Init(ctx)
     shadow.ImageTransparency = 0.55
     shadow.ZIndex = 0
 
+    -- HEADER
     local Header = Instance.new("Frame", MainFrame)
     Header.Size = UDim2.new(1, 0, 0, 48)
     Header.BackgroundColor3 = Theme.Surface
@@ -325,15 +348,17 @@ function Jailbird.Init(ctx)
     Title.TextSize = 17
     Title.TextXAlignment = Enum.TextXAlignment.Left
     Title.ZIndex = 3
+
     local titleStroke = Instance.new("UIStroke", Title)
-    titleStroke.Color = Color3.fromRGB(255, 100, 100); titleStroke.Thickness = 1; titleStroke.Transparency = 0.7
+    titleStroke.Color = Color3.fromRGB(255, 100, 100)
+    titleStroke.Thickness = 1; titleStroke.Transparency = 0.7
 
     local Subtitle = Instance.new("TextLabel", Header)
     Subtitle.Size = UDim2.new(0, 250, 0, 18)
     Subtitle.Position = UDim2.new(0, 20, 0, 25)
     Subtitle.BackgroundTransparency = 1
     Subtitle.Font = Theme.Font
-    Subtitle.Text = "Jailbird v1.3 FIXED"
+    Subtitle.Text = "Jailbird v1.3"
     Subtitle.TextColor3 = Color3.fromRGB(220, 180, 185)
     Subtitle.TextSize = 11
     Subtitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -408,6 +433,84 @@ function Jailbird.Init(ctx)
     MinBtn.ZIndex = 3
     Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0, 6)
 
+    -- ============================================================
+    -- ÍCONE FLUTUANTE (SÓ MOBILE)
+    -- ============================================================
+    local reopenBtn = nil
+    local reopenDragging = false
+    local reopenDragStart = nil
+    local reopenStartPos = nil
+    local reopenMoved = false
+
+    if IS_MOBILE then
+        reopenBtn = Instance.new("TextButton", GUI)
+        reopenBtn.Size = UDim2.new(0, 55, 0, 55)
+        reopenBtn.Position = UDim2.new(0, 20, 0, 100)
+        reopenBtn.BackgroundColor3 = Theme.Primary
+        reopenBtn.Text = "∞"
+        reopenBtn.Font = Theme.FontBold
+        reopenBtn.TextSize = 26
+        reopenBtn.TextColor3 = Theme.Text
+        reopenBtn.AutoButtonColor = false
+        reopenBtn.Visible = false
+        reopenBtn.ZIndex = 500
+        Instance.new("UICorner", reopenBtn).CornerRadius = UDim.new(1, 0)
+
+        local reopenStroke = Instance.new("UIStroke", reopenBtn)
+        reopenStroke.Color = Theme.TitleRed
+        reopenStroke.Thickness = 2
+        reopenStroke.Transparency = 0.3
+
+        local reopenShadow = Instance.new("ImageLabel", reopenBtn)
+        reopenShadow.Image = "rbxassetid://1316045217"
+        reopenShadow.Size = UDim2.new(1, 20, 1, 20)
+        reopenShadow.Position = UDim2.new(0, -10, 0, -10)
+        reopenShadow.BackgroundTransparency = 1
+        reopenShadow.ImageTransparency = 0.4
+        reopenShadow.ZIndex = 0
+
+        reopenBtn.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1
+                or input.UserInputType == Enum.UserInputType.Touch then
+                reopenDragging = true
+                reopenMoved = false
+                reopenDragStart = input.Position
+                reopenStartPos = reopenBtn.Position
+            end
+        end)
+
+        reopenBtn.InputChanged:Connect(function(input)
+            if not reopenDragging then return end
+            if input.UserInputType == Enum.UserInputType.MouseMovement
+                or input.UserInputType == Enum.UserInputType.Touch then
+                local delta = input.Position - reopenDragStart
+                if math.abs(delta.X) > 5 or math.abs(delta.Y) > 5 then
+                    reopenMoved = true
+                end
+                reopenBtn.Position = UDim2.new(
+                    reopenStartPos.X.Scale, reopenStartPos.X.Offset + delta.X,
+                    reopenStartPos.Y.Scale, reopenStartPos.Y.Offset + delta.Y
+                )
+            end
+        end)
+
+        UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1
+                or input.UserInputType == Enum.UserInputType.Touch then
+                if reopenDragging then
+                    reopenDragging = false
+                    task.wait(0.1)
+                    reopenMoved = false
+                end
+            end
+        end)
+
+        reopenBtn.MouseButton1Click:Connect(function()
+            if reopenMoved then return end
+            setMinimized(false)
+        end)
+    end
+
     -- DRAG
     local dragging, dragInput, dragStart, startPos
     local function updateDrag(input)
@@ -442,6 +545,7 @@ function Jailbird.Init(ctx)
     end)
     makeDraggable(Header); makeDraggable(Title); makeDraggable(Subtitle)
 
+    -- SIDEBAR + CONTENT
     local Sidebar = Instance.new("Frame", MainFrame)
     Sidebar.Size = UDim2.new(0, 140, 1, -65)
     Sidebar.Position = UDim2.new(0, 10, 0, 58)
@@ -467,6 +571,9 @@ function Jailbird.Init(ctx)
         Sidebar.Visible = not v
         Content.Visible = not v
         MainFrame.Size = v and UDim2.new(0, 620, 0, 48) or UDim2.new(0, 620, 0, 480)
+        if reopenBtn and IS_MOBILE then
+            reopenBtn.Visible = v
+        end
     end
     MinBtn.MouseButton1Click:Connect(function() setMinimized(not minimized) end)
 
@@ -475,20 +582,25 @@ function Jailbird.Init(ctx)
     -- ============================================================
     local tabs, toggleHandles, sliderHandles = {}, {}, {}
 
-    local function CreateTab(name, icon)
+    local function CreateTab(nameKey, icon)
         local tab = {}
         local btn = Instance.new("TextButton", Sidebar)
         btn.Size = UDim2.new(1, -16, 0, 38)
         btn.Position = UDim2.new(0, 8, 0, 8 + #tabs * 44)
         btn.BackgroundColor3 = Theme.Surface
         btn.BorderSizePixel = 0
-        btn.Text = "  " .. icon .. "   " .. name
+        btn.Text = "  " .. icon .. "   "
         btn.Font = Theme.Font
         btn.TextColor3 = Theme.TextDim
         btn.TextSize = 12
         btn.TextXAlignment = Enum.TextXAlignment.Left
         btn.AutoButtonColor = false
         Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+
+        registerRefresh(function()
+            local t = Language.get(nameKey)
+            btn.Text = "  " .. icon .. "   " .. ((t and t ~= nameKey) and t or nameKey)
+        end)
 
         btn.MouseEnter:Connect(function()
             if btn.BackgroundColor3 == Theme.Surface then btn.BackgroundColor3 = Theme.Surface2 end
@@ -531,7 +643,8 @@ function Jailbird.Init(ctx)
         table.insert(tabs, tab)
         if #tabs == 1 then task.defer(activate) end
 
-        tab.CreateToggle = function(label, featureId, callback)
+        -- TOGGLE
+        tab.CreateToggle = function(labelKey, featureId, callback)
             local holder = Instance.new("Frame", container)
             holder.Size = UDim2.new(1, -10, 0, 36)
             holder.BackgroundColor3 = Theme.Surface
@@ -548,7 +661,12 @@ function Jailbird.Init(ctx)
             lbl.TextSize = 12
             lbl.TextColor3 = Theme.Text
             lbl.TextXAlignment = Enum.TextXAlignment.Left
-            lbl.Text = label
+            lbl.Text = ""
+
+            registerRefresh(function()
+                local t = Language.get(labelKey)
+                lbl.Text = (t and t ~= labelKey) and t or labelKey
+            end)
 
             local keyBtn = Instance.new("TextButton", holder)
             keyBtn.Size = UDim2.new(0, 50, 0, 22)
@@ -610,7 +728,8 @@ function Jailbird.Init(ctx)
             return handle
         end
 
-        tab.CreateSlider = function(label, min, max, def, featureId, callback)
+        -- SLIDER (touch-safe)
+        tab.CreateSlider = function(labelKey, min, max, defaultValue, featureId, callback)
             local holder = Instance.new("Frame", container)
             holder.Size = UDim2.new(1, -10, 0, 44)
             holder.BackgroundColor3 = Theme.Surface
@@ -627,7 +746,12 @@ function Jailbird.Init(ctx)
             lbl.TextSize = 11
             lbl.TextColor3 = Theme.Text
             lbl.TextXAlignment = Enum.TextXAlignment.Left
-            lbl.Text = label
+            lbl.Text = ""
+
+            registerRefresh(function()
+                local t = Language.get(labelKey)
+                lbl.Text = (t and t ~= labelKey) and t or labelKey
+            end)
 
             local valLbl = Instance.new("TextLabel", holder)
             valLbl.Size = UDim2.new(0.35, 0, 0, 18)
@@ -636,7 +760,7 @@ function Jailbird.Init(ctx)
             valLbl.Font = Theme.FontBold
             valLbl.TextSize = 11
             valLbl.TextColor3 = Theme.Primary
-            valLbl.Text = tostring(def or min)
+            valLbl.Text = tostring(defaultValue or min)
             valLbl.TextXAlignment = Enum.TextXAlignment.Right
 
             local barBg = Instance.new("Frame", holder)
@@ -646,7 +770,7 @@ function Jailbird.Init(ctx)
             barBg.BorderSizePixel = 0
             Instance.new("UICorner", barBg).CornerRadius = UDim.new(1, 0)
 
-            local cur = def or min
+            local cur = defaultValue or min
             local rel = (cur - min) / (max - min)
             local fill = Instance.new("Frame", barBg)
             fill.Size = UDim2.new(rel, 0, 1, 0)
@@ -655,15 +779,19 @@ function Jailbird.Init(ctx)
             Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
 
             local click = Instance.new("TextButton", holder)
-            click.Size = UDim2.new(1, 0, 1, 0)
+            click.Size = UDim2.new(1, -24, 0, 22)
+            click.Position = UDim2.new(0, 12, 0, 22)
             click.BackgroundTransparency = 1
             click.Text = ""
+            click.AutoButtonColor = false
+            click.ZIndex = 5
 
-            local draggingSlider = false
-            local function update(mouse)
+            local activeInput = nil
+            local function update(posX)
                 local p = barBg.AbsolutePosition
                 local s = barBg.AbsoluteSize
-                local rx = math.clamp((mouse.X - p.X) / s.X, 0, 1)
+                if s.X <= 0 then return end
+                local rx = math.clamp((posX - p.X) / s.X, 0, 1)
                 local v = math.floor(min + (max - min) * rx)
                 cur = v
                 fill.Size = UDim2.new(rx, 0, 1, 0)
@@ -671,17 +799,25 @@ function Jailbird.Init(ctx)
                 State[featureId] = v
                 if callback then callback(v) end
             end
-            click.MouseButton1Down:Connect(function()
-                draggingSlider = true
-                update(UserInputService:GetMouseLocation())
+
+            click.InputBegan:Connect(function(input)
+                if UNLOADED or activeInput then return end
+                if input.UserInputType == Enum.UserInputType.MouseButton1
+                    or input.UserInputType == Enum.UserInputType.Touch then
+                    activeInput = input
+                    update(input.Position.X)
+                end
             end)
-            UserInputService.InputEnded:Connect(function(i)
-                if UNLOADED then return end
-                if i.UserInputType == Enum.UserInputType.MouseButton1 then draggingSlider = false end
+            UserInputService.InputChanged:Connect(function(input)
+                if UNLOADED or activeInput ~= input then return end
+                if input.UserInputType == Enum.UserInputType.MouseMovement
+                    or input.UserInputType == Enum.UserInputType.Touch then
+                    update(input.Position.X)
+                end
             end)
-            RunService.RenderStepped:Connect(function()
+            UserInputService.InputEnded:Connect(function(input)
                 if UNLOADED then return end
-                if draggingSlider then update(UserInputService:GetMouseLocation()) end
+                if input == activeInput then activeInput = nil end
             end)
 
             local handle = {
@@ -698,12 +834,13 @@ function Jailbird.Init(ctx)
             return handle
         end
 
-        tab.CreateButton = function(label, callback, style)
+        -- BUTTON
+        tab.CreateButton = function(labelKey, callback, style)
             local btn = Instance.new("TextButton", container)
             btn.Size = UDim2.new(1, -10, 0, 34)
             btn.BackgroundColor3 = style == "danger" and Color3.fromRGB(60, 15, 20) or Theme.Surface
             btn.BorderSizePixel = 0
-            btn.Text = label
+            btn.Text = ""
             btn.Font = Theme.Font
             btn.TextColor3 = style == "danger" and Theme.Danger or Theme.Text
             btn.TextSize = 12
@@ -711,6 +848,11 @@ function Jailbird.Init(ctx)
             Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
             local bs = Instance.new("UIStroke", btn)
             bs.Color = Theme.Border; bs.Thickness = 1; bs.Transparency = 0.7
+
+            registerRefresh(function()
+                local t = Language.get(labelKey)
+                btn.Text = (t and t ~= labelKey) and t or labelKey
+            end)
 
             btn.MouseEnter:Connect(function()
                 btn.BackgroundColor3 = style == "danger" and Color3.fromRGB(80, 20, 25) or Theme.Primary
@@ -724,18 +866,25 @@ function Jailbird.Init(ctx)
             return btn
         end
 
-        tab.CreateLabel = function(text, color)
+        -- LABEL
+        tab.CreateLabel = function(textKey, color)
             local lbl = Instance.new("TextLabel", container)
             lbl.Size = UDim2.new(1, -10, 0, 18)
             lbl.BackgroundTransparency = 1
             lbl.Font = Theme.Font
             lbl.TextSize = 11
             lbl.TextColor3 = color or Theme.TextDim
-            lbl.Text = text
             lbl.TextXAlignment = Enum.TextXAlignment.Left
+            lbl.Text = ""
+
+            registerRefresh(function()
+                local t = Language.get(textKey)
+                lbl.Text = (t and t ~= textKey) and t or textKey
+            end)
             return lbl
         end
 
+        -- TEXTBOX
         tab.CreateTextBox = function(placeholder, callback)
             local holder = Instance.new("Frame", container)
             holder.Size = UDim2.new(1, -10, 0, 36)
@@ -767,6 +916,7 @@ function Jailbird.Init(ctx)
             return box
         end
 
+        -- CREDIT
         tab.CreateCredit = function(role, name, color)
             local holder = Instance.new("Frame", container)
             holder.Size = UDim2.new(1, -10, 0, 50)
@@ -856,18 +1006,15 @@ function Jailbird.Init(ctx)
     end
 
     -- ============================================================
-    -- SILENT HEADSHOT (FIX)
+    -- SILENT HEADSHOT (with remote LookRotation)
     -- ============================================================
-    local silentHolding = false
-    local silentTarget = nil
-    local silentOriginalCF = nil
+    local silentHolding, silentTarget, silentOriginalCF = false, nil, nil
 
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not silentHolding then return end
         if not silentTarget or not silentTarget.Character then silentHolding = false; return end
         local head = silentTarget.Character:FindFirstChild("Head")
         if not head then silentHolding = false; return end
-        -- FIX: usa CFrame + remote se disponível
         local newCF = CFrame.new(Camera.CFrame.Position, head.Position + Vector3.new(0, 0.15, 0))
         Camera.CFrame = newCF
         if lookRemote then
@@ -876,9 +1023,9 @@ function Jailbird.Init(ctx)
     end)
 
     UserInputService.InputBegan:Connect(function(input, gp)
-        if UNLOADED or gp then return end
-        if not State.silentHeadshot then return end
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+        if UNLOADED or gp or not State.silentHeadshot then return end
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1
+            and input.UserInputType ~= Enum.UserInputType.Touch then return end
         silentOriginalCF = Camera.CFrame
         local target = getClosestHeadInFov(State.silentFov)
         if not target or not target.Character then return end
@@ -896,7 +1043,8 @@ function Jailbird.Init(ctx)
 
     UserInputService.InputEnded:Connect(function(input, gp)
         if UNLOADED or gp then return end
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1
+            and input.UserInputType ~= Enum.UserInputType.Touch then return end
         if silentHolding then
             silentHolding = false
             silentTarget = nil
@@ -911,7 +1059,7 @@ function Jailbird.Init(ctx)
     end)
 
     -- ============================================================
-    -- AIMBOT (FIX: mousemoverel)
+    -- AIMBOT (mousemoverel)
     -- ============================================================
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.aimbot then return end
@@ -940,7 +1088,7 @@ function Jailbird.Init(ctx)
     end)
 
     -- ============================================================
-    -- AUTO SHOOT (FIX: tool:Activate + VirtualInput + mouse1click)
+    -- AUTO SHOOT (tool:Activate + VirtualInput + mouse1click)
     -- ============================================================
     local lastAutoShoot = 0
 
@@ -972,7 +1120,6 @@ function Jailbird.Init(ctx)
 
         if targetFound then
             lastAutoShoot = tick()
-            -- 3 métodos em sequência (fallback)
             pcall(function() tool:Activate() end)
             pcall(function()
                 VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
@@ -1051,7 +1198,7 @@ function Jailbird.Init(ctx)
     end
 
     -- ============================================================
-    -- HEAD EXPANDER
+    -- HEAD EXPANDER (Head + Torso + HeadHB)
     -- ============================================================
     local hitboxSaved = {}
 
@@ -1092,6 +1239,16 @@ function Jailbird.Init(ctx)
             torso.Transparency = 0.7
             torso.CanCollide = false
             torso.Massless = true
+        end
+        local headHB = p.Character:FindFirstChild("HeadHB")
+        if headHB and headHB:IsA("BasePart") then
+            saveOriginal(p, headHB)
+            local base = hitboxSaved[p][headHB]
+            local hbMult = math.min(size * 1.5, 12)
+            headHB.Size = Vector3.new(base.X * hbMult, base.Y * hbMult, base.Z * hbMult)
+            headHB.Transparency = 1
+            headHB.CanCollide = false
+            headHB.Massless = true
         end
     end
 
@@ -1188,7 +1345,6 @@ function Jailbird.Init(ctx)
         end
     end)
 
-    -- Loop em ReplicatedStorage.Weapons + Modules.Constants
     coroutine.wrap(function()
         while true do
             if UNLOADED then return end
@@ -1210,29 +1366,6 @@ function Jailbird.Init(ctx)
                                 elseif State.instaReload and n:find("reload") and not n:find("reloading") then
                                     if not reloadOriginals[d] then reloadOriginals[d] = d.Value end
                                     d.Value = 0
-                                end
-                            end
-                        end
-                    end
-                    if ReplicatedStorage:FindFirstChild("Modules") then
-                        local constants = ReplicatedStorage.Modules:FindFirstChild("Constants")
-                        if constants and constants:IsA("ModuleScript") then
-                            -- Não consegue editar ModuleScript direto, mas tenta via require
-                            local ok, mod = pcall(require, constants)
-                            if ok and type(mod) == "table" then
-                                if State.noRecoil then
-                                    for k, v in pairs(mod) do
-                                        if type(k) == "string" and (k:lower():find("recoil") or k:lower():find("spread")) then
-                                            pcall(function() mod[k] = 0 end)
-                                        end
-                                    end
-                                end
-                                if State.rapidFire then
-                                    for k, v in pairs(mod) do
-                                        if type(k) == "string" and (k:lower():find("firerate") or k:lower():find("firedelay")) then
-                                            pcall(function() mod[k] = 0.01 end)
-                                        end
-                                    end
                                 end
                             end
                         end
@@ -1400,7 +1533,7 @@ function Jailbird.Init(ctx)
     end)
 
     -- ============================================================
-    -- AIR JUMP (FIX: velocity direto no HRP)
+    -- AIR JUMP (velocity-based)
     -- ============================================================
     local airJumpConn = nil
     local AIR_JUMP_POWER = 55
@@ -1415,7 +1548,6 @@ function Jailbird.Init(ctx)
             local hum = char:FindFirstChildOfClass("Humanoid")
             if not hrp or not hum then return end
             if hum:GetState() == Enum.HumanoidStateType.Dead then return end
-            -- Aplica velocity vertical direto (funciona no ar)
             hrp.Velocity = Vector3.new(hrp.Velocity.X, AIR_JUMP_POWER, hrp.Velocity.Z)
         end)
     end
@@ -1470,17 +1602,117 @@ function Jailbird.Init(ctx)
     end
 
     -- ============================================================
-    -- CONFIG SYSTEM
+    -- OPTIMIZATIONS
     -- ============================================================
-    local function ensureFolder()
-        if makefolder and not isfolder(CONFIG_FOLDER) then
-            pcall(function() makefolder(CONFIG_FOLDER) end)
+    local optBackup = {
+        fogEnd = Lighting.FogEnd,
+        fogStart = Lighting.FogStart,
+        globalShadows = Lighting.GlobalShadows,
+        qualityLevel = nil,
+        atmosphereData = {},
+        particles = {},
+    }
+    for _, c in ipairs(Lighting:GetChildren()) do
+        if c:IsA("Atmosphere") then
+            table.insert(optBackup.atmosphereData, {obj = c, D = c.Density, H = c.Haze, G = c.Glare})
         end
     end
+    pcall(function() optBackup.qualityLevel = settings().Rendering.QualityLevel end)
+
+    local function applyLowGraphics(v)
+        if v then
+            pcall(function() settings().Rendering.QualityLevel = Enum.QualityLevel.Level01 end)
+        else
+            if optBackup.qualityLevel then
+                pcall(function() settings().Rendering.QualityLevel = optBackup.qualityLevel end)
+            end
+        end
+    end
+
+    local function applyNoShadows(v)
+        pcall(function() Lighting.GlobalShadows = not v end)
+        for _, d in ipairs(workspace:GetDescendants()) do
+            if d:IsA("BasePart") and d.Name ~= "HumanoidRootPart" then
+                pcall(function() d.CastShadow = not v end)
+            end
+        end
+    end
+
+    local function applyNoFog(v)
+        if v then
+            Lighting.FogEnd = 100000
+            Lighting.FogStart = 0
+            for _, c in ipairs(Lighting:GetChildren()) do
+                if c:IsA("Atmosphere") then
+                    c.Density = 0; c.Haze = 0; c.Glare = 0
+                end
+            end
+        else
+            Lighting.FogEnd = optBackup.fogEnd
+            Lighting.FogStart = optBackup.fogStart
+            for _, data in ipairs(optBackup.atmosphereData) do
+                if data.obj and data.obj.Parent then
+                    pcall(function()
+                        data.obj.Density = data.D
+                        data.obj.Haze = data.H
+                        data.obj.Glare = data.G
+                    end)
+                end
+            end
+        end
+    end
+
+    local function applyNoParticles(v)
+        if v then
+            for _, d in ipairs(workspace:GetDescendants()) do
+                if d:IsA("ParticleEmitter") or d:IsA("Fire") or d:IsA("Smoke") or d:IsA("Sparkles") or d:IsA("Trail") then
+                    if optBackup.particles[d] == nil then
+                        optBackup.particles[d] = d.Enabled
+                    end
+                    pcall(function() d.Enabled = false end)
+                end
+            end
+        else
+            for obj, orig in pairs(optBackup.particles) do
+                if obj and obj.Parent then
+                    pcall(function() obj.Enabled = orig end)
+                end
+            end
+            optBackup.particles = {}
+        end
+    end
+
+    RunService.Heartbeat:Connect(function()
+        if UNLOADED or not State.noParticles then return end
+        for _, d in ipairs(workspace:GetDescendants()) do
+            if d:IsA("ParticleEmitter") or d:IsA("Fire") or d:IsA("Smoke") or d:IsA("Sparkles") then
+                pcall(function() d.Enabled = false end)
+            end
+        end
+    end)
+
+    -- ============================================================
+    -- CONFIG SYSTEM (JAILBIRD FOLDER)
+    -- ============================================================
+    local BASE_FOLDER = "InfiniteZen_Configs"
+    local CONFIG_FOLDER = BASE_FOLDER .. "/Jailbird"
+    local AUTOLOAD_FILE = "InfiniteZen_Jailbird_Autoload.txt"
+
+    local function ensureFolder()
+        if makefolder then
+            if not isfolder(BASE_FOLDER) then
+                pcall(function() makefolder(BASE_FOLDER) end)
+            end
+            if not isfolder(CONFIG_FOLDER) then
+                pcall(function() makefolder(CONFIG_FOLDER) end)
+            end
+        end
+    end
+
     local function getConfigPath(name) return CONFIG_FOLDER .. "/" .. name .. ".json" end
     local function getAutoloadPath() return AUTOLOAD_FILE end
 
-    local function saveConfig(name)
+    local function saveConfigNamed(name)
         ensureFolder()
         local data = {version = "1.3", language = Language.getCurrent(), state = {}, keybinds = State.keybinds}
         for k, v in pairs(State) do
@@ -1488,18 +1720,25 @@ function Jailbird.Init(ctx)
         end
         local json = HttpService:JSONEncode(data)
         local ok, err = pcall(function() writefile(getConfigPath(name), json) end)
-        if ok then Notify("💾 Config", "Saved: " .. name, 3); return true
-        else Notify("⚠️ Error", "Failed: " .. tostring(err), 4, true); return false end
+        if ok then
+            Notify("💾 Config", "Saved: " .. name, 3)
+            return true
+        else
+            Notify("⚠️ Error", "Failed: " .. tostring(err), 4, true)
+            return false
+        end
     end
 
-    local function loadConfig(name)
+    local function loadConfigNamed(name)
         local ok, content = pcall(function() return readfile(getConfigPath(name)) end)
         if not ok or not content then
-            Notify("⚠️ Error", "Config not found: " .. name, 4, true); return false
+            Notify("⚠️ Error", "Config not found: " .. name, 4, true)
+            return false
         end
         local success, data = pcall(function() return HttpService:JSONDecode(content) end)
         if not success or not data then
-            Notify("⚠️ Error", "Corrupted: " .. name, 4, true); return false
+            Notify("⚠️ Error", "Corrupted: " .. name, 4, true)
+            return false
         end
         if data.language then Language.setLanguage(data.language) end
         if data.state then
@@ -1515,6 +1754,10 @@ function Jailbird.Init(ctx)
         for featId, handle in pairs(sliderHandles) do
             if State[featId] ~= nil then handle.SetValue(State[featId]) end
         end
+        if State.lowGraphics then applyLowGraphics(true) end
+        if State.noShadows then applyNoShadows(true) end
+        if State.noFog then applyNoFog(true) end
+        if State.noParticles then applyNoParticles(true) end
         if State.airJump then startAirJump() else stopAirJump() end
         if not State.fullbright then disableFullbright() end
         if not State.headExpander then restoreAllHitboxes() end
@@ -1522,7 +1765,7 @@ function Jailbird.Init(ctx)
         return true
     end
 
-    local function deleteConfig(name)
+    local function deleteConfigNamed(name)
         local path = getConfigPath(name)
         if isfile and isfile(path) then
             pcall(function() delfile(path) end)
@@ -1568,25 +1811,24 @@ function Jailbird.Init(ctx)
     -- ============================================================
     -- ABAS
     -- ============================================================
-    local CombatTab = CreateTab("COMBAT", "⚔️")
-    CombatTab.CreateToggle("Silent Headshot", "silentHeadshot")
-    CombatTab.CreateSlider("Silent FOV", 30, 300, 120, "silentFov")
-    CombatTab.CreateToggle("Aimbot (Legit)", "aimbot")
-    CombatTab.CreateSlider("Aimbot FOV", 30, 300, 100, "aimbotFov")
-    CombatTab.CreateSlider("Aimbot Smoothness", 5, 100, 30, "aimbotSmoothness", function(v)
+    local CombatTab = CreateTab("tab_combat", "⚔️")
+    CombatTab.CreateToggle("silent_headshot", "silentHeadshot")
+    CombatTab.CreateSlider("silent_fov", 30, 300, 120, "silentFov")
+    CombatTab.CreateToggle("aimbot", "aimbot")
+    CombatTab.CreateSlider("aimbot_fov", 30, 300, 100, "aimbotFov")
+    CombatTab.CreateSlider("aimbot_smooth", 5, 100, 30, "aimbotSmoothness", function(v)
         State.aimbotSmoothness = v / 100
     end)
-    CombatTab.CreateSlider("Aimbot Max Dist", 100, 2000, 500, "aimbotMaxDist")
-    CombatTab.CreateToggle("Head Expander", "headExpander", function(v)
+    CombatTab.CreateToggle("head_expander", "headExpander", function(v)
         if not v then restoreAllHitboxes() end
     end)
-    CombatTab.CreateSlider("Head Size", 1, 8, 3, "headExpanderSize")
-    CombatTab.CreateToggle("Backstab", "backstab")
+    CombatTab.CreateSlider("head_size", 1, 8, 3, "headExpanderSize")
+    CombatTab.CreateToggle("backstab", "backstab")
 
-    local WeaponTab = CreateTab("WEAPON", "🔫")
-    WeaponTab.CreateToggle("No-Recoil", "noRecoil")
-    WeaponTab.CreateToggle("Rapid Fire", "rapidFire")
-    WeaponTab.CreateToggle("Fast Reload", "fastReload", function(v)
+    local WeaponTab = CreateTab("tab_weapon", "🔫")
+    WeaponTab.CreateToggle("no_recoil", "noRecoil")
+    WeaponTab.CreateToggle("rapid_fire", "rapidFire")
+    WeaponTab.CreateToggle("fast_reload", "fastReload", function(v)
         if not v then
             for value, original in pairs(reloadOriginals) do
                 pcall(function() value.Value = original end)
@@ -1594,38 +1836,45 @@ function Jailbird.Init(ctx)
             reloadOriginals = {}
         end
     end)
-    WeaponTab.CreateToggle("Insta-Reload", "instaReload")
-    WeaponTab.CreateToggle("Auto Shoot", "autoShoot")
-    WeaponTab.CreateSlider("Auto Shoot FOV", 30, 300, 100, "autoShootFov")
-    WeaponTab.CreateSlider("Auto Shoot Delay (ms)", 10, 500, 50, "autoShootDelay", function(v)
-        State.autoShootDelay = v / 1000
-    end)
+    WeaponTab.CreateToggle("insta_reload", "instaReload")
+    WeaponTab.CreateToggle("auto_shoot", "autoShoot")
+    WeaponTab.CreateSlider("auto_shoot_fov", 30, 300, 100, "autoShootFov")
 
-    local MovementTab = CreateTab("MOVEMENT", "🏃")
-    MovementTab.CreateToggle("Speedhack", "speed")
-    MovementTab.CreateSlider("Speed Value", 12, 300, 50, "speedValue")
-    MovementTab.CreateToggle("Air Jump", "airJump", function(v)
+    local MovementTab = CreateTab("tab_movement", "🏃")
+    MovementTab.CreateToggle("speed", "speed")
+    MovementTab.CreateSlider("speed_value", 12, 300, 50, "speedValue")
+    MovementTab.CreateToggle("air_jump", "airJump", function(v)
         if v then startAirJump() else stopAirJump() end
     end)
-    MovementTab.CreateToggle("Fullbright", "fullbright", function(v)
+    MovementTab.CreateToggle("fullbright", "fullbright", function(v)
         if not v then disableFullbright() end
     end)
 
-    local VisualsTab = CreateTab("VISUALS", "👁️")
-    VisualsTab.CreateToggle("ESP", "esp", function(v)
+    local VisualsTab = CreateTab("tab_visuals", "👁️")
+    VisualsTab.CreateToggle("esp", "esp", function(v)
         if v then
             for _, p in ipairs(Players:GetPlayers()) do
                 if p ~= LocalPlayer and p.Character then createESP(p) end
             end
         else clearAllESP() end
     end)
-    VisualsTab.CreateSlider("ESP Max Dist", 100, 5000, 500, "espMaxDistance")
+    VisualsTab.CreateSlider("max_distance", 100, 5000, 500, "espMaxDistance")
 
-    local SettingsTab = CreateTab("SETTINGS", "⚙️")
-    SettingsTab.CreateLabel("── Save Config ──", Theme.Text)
-    SettingsTab.CreateLabel("Type name and press Enter", Theme.TextDim)
-    SettingsTab.CreateTextBox("Config name...", function(name) saveConfig(name) end)
+    -- SETTINGS
+    local SettingsTab = CreateTab("tab_settings", "⚙️")
+
     SettingsTab.CreateLabel("── Configs ──", Theme.Text)
+    SettingsTab.CreateLabel("Type name and press Enter", Theme.TextDim)
+
+    local refreshConfigListRef = nil
+    SettingsTab.CreateTextBox("Config name...", function(name)
+        if saveConfigNamed(name) and refreshConfigListRef then
+            refreshConfigListRef()
+        end
+    end)
+
+    SettingsTab.CreateLabel(" ")
+    SettingsTab.CreateLabel("── Loaded Configs ──", Theme.Text)
     SettingsTab.CreateLabel("Load • ⚡ Autoload • × Delete", Theme.TextDim)
 
     local configListFrame = Instance.new("Frame", SettingsTab.container)
@@ -1696,7 +1945,8 @@ function Jailbird.Init(ctx)
             loadBtn.AutoButtonColor = false
             Instance.new("UICorner", loadBtn).CornerRadius = UDim.new(0, 4)
             loadBtn.MouseButton1Click:Connect(function()
-                loadConfig(configName); refreshConfigList()
+                loadConfigNamed(configName)
+                refreshConfigList()
             end)
 
             local autoBtn = Instance.new("TextButton", entry)
@@ -1726,10 +1976,12 @@ function Jailbird.Init(ctx)
             delBtn.AutoButtonColor = false
             Instance.new("UICorner", delBtn).CornerRadius = UDim.new(0, 4)
             delBtn.MouseButton1Click:Connect(function()
-                deleteConfig(configName); refreshConfigList()
+                deleteConfigNamed(configName)
+                refreshConfigList()
             end)
         end
     end
+    refreshConfigListRef = refreshConfigList
     refreshConfigList()
 
     SettingsTab.CreateButton("🔄 Refresh List", function()
@@ -1751,8 +2003,37 @@ function Jailbird.Init(ctx)
     end)
     SettingsTab.CreateLabel(" ")
     SettingsTab.CreateButton("🚫 Disable Autoload", function()
-        clearAutoload(); refreshConfigList()
+        clearAutoload()
+        refreshConfigList()
     end)
+
+    SettingsTab.CreateLabel(" ")
+    SettingsTab.CreateLabel("── Optimizations ──", Theme.Text)
+    SettingsTab.CreateLabel("Boost FPS / Reduce lag", Theme.TextDim)
+
+    SettingsTab.CreateToggle("low_graphics", "lowGraphics", function(v) applyLowGraphics(v) end)
+    SettingsTab.CreateToggle("no_shadows", "noShadows", function(v) applyNoShadows(v) end)
+    SettingsTab.CreateToggle("no_fog", "noFog", function(v) applyNoFog(v) end)
+    SettingsTab.CreateToggle("no_particles", "noParticles", function(v) applyNoParticles(v) end)
+
+    SettingsTab.CreateLabel(" ")
+    SettingsTab.CreateButton("⚡ Max FPS Boost", function()
+        toggleHandles.lowGraphics.SetState(true)
+        toggleHandles.noShadows.SetState(true)
+        toggleHandles.noFog.SetState(true)
+        toggleHandles.noParticles.SetState(true)
+        Notify("⚡ Boost", "Otimizações ativadas", 3)
+    end)
+
+    SettingsTab.CreateButton("🔄 Reset Optimizations", function()
+        toggleHandles.lowGraphics.SetState(false)
+        toggleHandles.noShadows.SetState(false)
+        toggleHandles.noFog.SetState(false)
+        toggleHandles.noParticles.SetState(false)
+        Notify("🔄 Reset", "Otimizações desativadas", 3)
+    end)
+
+    SettingsTab.CreateLabel(" ")
     SettingsTab.CreateLabel(" ")
     SettingsTab.CreateButton("🗑️ Unload Script", function()
         UNLOADED = true
@@ -1761,28 +2042,55 @@ function Jailbird.Init(ctx)
         stopAirJump()
         restoreAllHitboxes()
         disableFullbright()
+        applyLowGraphics(false)
+        applyNoShadows(false)
+        applyNoFog(false)
+        applyNoParticles(false)
         if fovCircle then fovCircle:Remove() end
         GUI:Destroy()
-        print("[Infinite Zen] Jailbird v1.3 unloaded")
+        print("[Infinite Zen] Jailbird unloaded")
     end, "danger")
 
-    local CreditsTab = CreateTab("CREDITS", "➕")
+    -- CREDITS
+    local CreditsTab = CreateTab("tab_credits", "➕")
     CreditsTab.CreateCredit("FOUNDER", "Sr Red", Theme.TitleRed)
     CreditsTab.CreateCredit("DEVELOPER", "Eclipse Dev", Theme.Primary)
     CreditsTab.CreateLabel(" ")
-    CreditsTab.CreateLabel("── Discord ──", Theme.Text)
+    CreditsTab.CreateLabel("── Join our Discord ──", Theme.Text)
     CreditsTab.CreateLabel("https://discord.gg/ScZfU2mAGm", Theme.TextDim)
-    local discordBtn = CreditsTab.CreateButton("💬 Join Discord", function()
+    local discordBtn = CreditsTab.CreateButton("💬 Join Discord Server", function()
         if setclipboard then
             setclipboard("https://discord.gg/ScZfU2mAGm")
             Notify("📋 Copied", "Discord link copied!", 3)
-        else Notify("ℹ️ Discord", "discord.gg/ScZfU2mAGm", 5) end
+        else
+            Notify("ℹ️ Discord", "discord.gg/ScZfU2mAGm", 5)
+        end
     end)
     discordBtn.BackgroundColor3 = Theme.Discord
     CreditsTab.CreateLabel(" ")
     CreditsTab.CreateLabel("Infinite Zen v1.3", Theme.TextDim)
-    CreditsTab.CreateLabel("Jailbird FIXED", Theme.Warning)
+    CreditsTab.CreateLabel("Jailbird Edition", Theme.Warning)
     CreditsTab.CreateLabel("© 2026 Eclipse Dev", Theme.TextDim)
+
+    -- Version label
+    local versionLabel = Instance.new("TextLabel", MainFrame)
+    versionLabel.Size = UDim2.new(1, -20, 0, 16)
+    versionLabel.Position = UDim2.new(0, 10, 1, -20)
+    versionLabel.BackgroundTransparency = 1
+    versionLabel.Font = Theme.Font
+    versionLabel.TextSize = 10
+    versionLabel.TextColor3 = Theme.TextDim
+    versionLabel.TextXAlignment = Enum.TextXAlignment.Right
+    versionLabel.Text = "Infinite Zen v1.3"
+
+    -- AUTOLOAD
+    task.defer(function()
+        local autoloadName = getAutoload()
+        if autoloadName then
+            task.wait(1)
+            loadConfigNamed(autoloadName)
+        end
+    end)
 
     -- ============================================================
     -- KEYBIND SYSTEM
@@ -1811,7 +2119,7 @@ function Jailbird.Init(ctx)
             end
             local conflictFeat = findFeatureWithKeybind(newKey)
             if conflictFeat and conflictFeat ~= featId then
-                Notify("🚫 In Use", newKey .. " used by: " .. (FeatureLabels[conflictFeat] or conflictFeat), 4, true)
+                Notify("🚫 In Use", newKey .. " → " .. (FeatureLabels[conflictFeat] or conflictFeat), 4, true)
                 recordingKeyFor = nil
                 local handle = toggleHandles[featId]
                 if handle then handle.SetKeybind(State.keybinds[featId]) end
@@ -1842,21 +2150,14 @@ function Jailbird.Init(ctx)
         end
     end)
 
-    task.defer(function()
-        local autoloadName = getAutoload()
-        if autoloadName then
-            task.wait(1)
-            loadConfig(autoloadName)
-        end
-    end)
-
     task.wait(0.5)
     if IS_JAILBIRD then
-        Notify("🎯 Jailbird v1.3", "FIXED Edition carregado!", 5)
+        Notify("🎯 Jailbird v1.3", "Carregado!", 4)
     end
 
-    print("[Infinite Zen] ✅ Jailbird v1.3 FIXED carregado!")
-    print("[Infinite Zen] Fixes: Aimbot mousemoverel | Air Jump velocity | Auto Shoot tool:Activate | Silent Headshot remote")
+    print("[Infinite Zen] ✅ Jailbird v1.3 carregado!")
+    print("[Infinite Zen] K = Minimize | E = Backstab | X = Silent Headshot")
+    print("[Infinite Zen] Configs em: InfiniteZen_Configs/Jailbird")
 end
 
 return Jailbird

@@ -22,10 +22,13 @@ Language.translations = {
         tab_movement = "Movimento",
         tab_visuals = "Visual",
         tab_settings = "Config",
+        tab_credits = "Creditos",
 
         silent_headshot = "Silent Headshot",
         silent_fov = "FOV do Silent",
         aimbot = "Aimbot (Legit)",
+        aimbot_fov = "FOV do Aimbot",
+        aimbot_smooth = "Suavidade do Aimbot",
         head_expander = "Head Expander",
         head_size = "Tamanho da Cabeca",
         backstab = "Backstab",
@@ -38,10 +41,17 @@ Language.translations = {
         auto_shoot_fov = "FOV do Tiro Auto",
 
         speed = "Velocidade",
+        speed_value = "Valor da Velocidade",
         air_jump = "Pulo no Ar",
+        fullbright = "Fullbright",
 
         esp = "ESP (Tudo)",
         max_distance = "Distancia Maxima",
+
+        low_graphics = "Graficos Baixos",
+        no_shadows = "Sem Sombras",
+        no_fog = "Sem Nevoeiro",
+        no_particles = "Sem Particulas",
 
         interface_label = "Interface",
         save_config = "Salvar Config",
@@ -51,7 +61,7 @@ Language.translations = {
         keybind_help1 = "Cada feature tem sua propria keybind",
         keybind_help2 = "Clique no botao de keybind pra gravar",
         unload_script = "Descarregar Script",
-        version_text = "Infinite Zen v1.0",
+        version_text = "Infinite Zen v1.3",
 
         on = "Ligado",
         off = "Desligado",
@@ -72,6 +82,8 @@ Language.translations = {
         error_title = "Erro",
         load_title = "Carregar",
         unsupported_title = "Jogo Nao Suportado",
+        unsupported_message_pt = "Este jogo nao e suportado pelo Infinite Zen.",
+        unsupported_message_en = "This game is not supported by Infinite Zen.",
     },
 
     ["en"] = {
@@ -88,10 +100,13 @@ Language.translations = {
         tab_movement = "Movement",
         tab_visuals = "Visuals",
         tab_settings = "Settings",
+        tab_credits = "Credits",
 
         silent_headshot = "Silent Headshot",
         silent_fov = "Silent FOV",
         aimbot = "Aimbot (Legit)",
+        aimbot_fov = "Aimbot FOV",
+        aimbot_smooth = "Aimbot Smoothness",
         head_expander = "Head Expander",
         head_size = "Head Size",
         backstab = "Backstab",
@@ -104,10 +119,17 @@ Language.translations = {
         auto_shoot_fov = "Auto Shoot FOV",
 
         speed = "Speed",
+        speed_value = "Speed Value",
         air_jump = "Air Jump",
+        fullbright = "Fullbright",
 
         esp = "ESP (All)",
         max_distance = "Max Distance",
+
+        low_graphics = "Low Graphics",
+        no_shadows = "No Shadows",
+        no_fog = "No Fog",
+        no_particles = "No Particles",
 
         interface_label = "Interface",
         save_config = "Save Config",
@@ -117,7 +139,7 @@ Language.translations = {
         keybind_help1 = "Each feature has its own keybind",
         keybind_help2 = "Click the keybind button to record",
         unload_script = "Unload Script",
-        version_text = "Infinite Zen v1.0",
+        version_text = "Infinite Zen v1.3",
 
         on = "ON",
         off = "OFF",
@@ -138,6 +160,8 @@ Language.translations = {
         error_title = "Error",
         load_title = "Load",
         unsupported_title = "Unsupported Game",
+        unsupported_message_pt = "Este jogo nao e suportado pelo Infinite Zen.",
+        unsupported_message_en = "This game is not supported by Infinite Zen.",
     },
 
     ["es"] = {
@@ -154,10 +178,13 @@ Language.translations = {
         tab_movement = "Movimiento",
         tab_visuals = "Visuales",
         tab_settings = "Ajustes",
+        tab_credits = "Creditos",
 
         silent_headshot = "Headshot Silencioso",
         silent_fov = "FOV Silencioso",
         aimbot = "Aimbot (Legit)",
+        aimbot_fov = "FOV del Aimbot",
+        aimbot_smooth = "Suavidad del Aimbot",
         head_expander = "Expansor de Cabeza",
         head_size = "Tamano de Cabeza",
         backstab = "Apunalar por Detras",
@@ -170,10 +197,17 @@ Language.translations = {
         auto_shoot_fov = "FOV del Disparo Auto",
 
         speed = "Velocidad",
+        speed_value = "Valor de Velocidad",
         air_jump = "Salto en el Aire",
+        fullbright = "Fullbright",
 
         esp = "ESP (Todo)",
         max_distance = "Distancia Maxima",
+
+        low_graphics = "Graficos Bajos",
+        no_shadows = "Sin Sombras",
+        no_fog = "Sin Niebla",
+        no_particles = "Sin Particulas",
 
         interface_label = "Interfaz",
         save_config = "Guardar Config",
@@ -183,7 +217,7 @@ Language.translations = {
         keybind_help1 = "Cada funcion tiene su propia tecla",
         keybind_help2 = "Haz clic en el boton de tecla para grabar",
         unload_script = "Descargar Script",
-        version_text = "Infinite Zen v1.0",
+        version_text = "Infinite Zen v1.3",
 
         on = "Encendido",
         off = "Apagado",
@@ -204,6 +238,8 @@ Language.translations = {
         error_title = "Error",
         load_title = "Cargar",
         unsupported_title = "Juego No Soportado",
+        unsupported_message_pt = "Este jogo nao e suportado pelo Infinite Zen.",
+        unsupported_message_en = "This game is not supported by Infinite Zen.",
     },
 }
 
