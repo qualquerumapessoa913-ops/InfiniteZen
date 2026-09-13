@@ -125,13 +125,16 @@ function MM2.Init(ctx)
         showWeaponESP = true, showDistanceESP = true, showTracerESP = false,
         murdererAlert = false, murdererAlertRange = 40,
         gunLocator = false, autoCoin = false,
+        autoCoinSpeed = 45,          -- studs/segundo (fly suave anti-detecção)
+        autoGrabGun = false,         -- NOVO
+        autoGrabGunRange = 300,      -- NOVO
         speed = false, speedValue = 30,
         airJump = false, autoBhop = false, fullbright = false,
         lowGraphics = false, noShadows = false, noFog = false, noParticles = false,
         keybinds = {
             sheriffSilentAim = "X", sheriffTriggerbot = nil, sheriffAutoShoot = nil,
             murdererSilentAim = nil, killAura = "G", autoBackstab = nil,
-            esp = "F", autoCoin = nil, speed = nil, airJump = nil,
+            esp = "F", autoCoin = nil, autoGrabGun = nil, speed = nil, airJump = nil,
         }
     }
 
@@ -208,7 +211,7 @@ function MM2.Init(ctx)
         end)
     end
 
-    -- FORWARD DECLARE (fix crítico)
+    -- FORWARD DECLARE
     local minimized = false
     local setMinimized
 
@@ -348,7 +351,7 @@ function MM2.Init(ctx)
     Content.BorderSizePixel = 0
     Instance.new("UICorner", Content).CornerRadius = UDim.new(0, 8)
 
-    -- FLOATING REOPEN (MOBILE) - agora setMinimized já existe (forward declared)
+    -- FLOATING REOPEN (MOBILE)
     local reopenBtn = nil
     if IS_MOBILE then
         reopenBtn = Instance.new("TextButton", GUI)
@@ -388,7 +391,6 @@ function MM2.Init(ctx)
         end)
     end
 
-    -- NOW define setMinimized (já foi forward declared antes)
     setMinimized = function(v)
         minimized = v
         Sidebar.Visible = not v
@@ -1099,7 +1101,7 @@ function MM2.Init(ctx)
         end
     end)
 
-    -- KILL AURA (FIX: Humanoid:EquipTool)
+    -- KILL AURA
     local killAuraActive = false
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.killAura then return end
@@ -1201,7 +1203,7 @@ function MM2.Init(ctx)
     -- ============================================================
     local InnocentTab = CreateTab("Innocent", "❓")
 
-    -- Murderer Alert (sound corrigido)
+    -- Murderer Alert
     local lastAlertTime = 0
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.murdererAlert then return end
@@ -1249,10 +1251,6 @@ function MM2.Init(ctx)
 
         gunScanTick = gunScanTick + 1
         if gunScanTick % 10 ~= 0 then
-            -- só desenha, não escaneia
-            if gunDrawing and gunDrawing.Visible and gunTextDrawing and gunTextDrawing.Visible then
-                -- nada
-            end
             return
         end
 
@@ -1305,9 +1303,12 @@ function MM2.Init(ctx)
         end
     end)
 
-    -- Auto Coin Farm (FIX: também procura em ReplicatedStorage.Coins)
+    -- ============================================================
+    -- AUTO COIN FARM (FLY SUAVE - anti-detecção)
+    -- ============================================================
     local coinDrawings = {}
-    local coinScanTick = 0
+    local coinCache = {}
+    local coinCacheTimer = 0
 
     local function findCoins()
         local coins = {}
@@ -1325,7 +1326,6 @@ function MM2.Init(ctx)
             end
         end
         if workspace then scan(workspace, 0) end
-        -- FIX: procura em ReplicatedStorage.Coins
         local rsCoins = ReplicatedStorage:FindFirstChild("Coins")
         if rsCoins then
             for _, sub in ipairs(rsCoins:GetChildren()) do
@@ -1335,32 +1335,50 @@ function MM2.Init(ctx)
         return coins
     end
 
-    RunService.Heartbeat:Connect(function()
-        if UNLOADED or not State.autoCoin then
+    RunService.Heartbeat:Connect(function(dt)
+        if UNLOADED then return end
+
+        -- Cleanup se desligado
+        if not State.autoCoin then
             for _, d in pairs(coinDrawings) do
                 if d.box then d.box:Remove() end
                 if d.text then d.text:Remove() end
             end
             coinDrawings = {}
+            coinCache = {}
             return
         end
 
-        coinScanTick = coinScanTick + 1
-        if coinScanTick % 15 ~= 0 then return end
+        local char = LocalPlayer.Character
+        if not char then return end
+        local hrp = getBasePart(char, "HumanoidRootPart")
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if not hrp or not hum then return end
 
-        local myHRP = getBasePart(LocalPlayer.Character, "HumanoidRootPart")
-        if not myHRP then return end
+        -- Cache de coins (rescan a cada ~0.4s para performance)
+        coinCacheTimer = coinCacheTimer + dt
+        if coinCacheTimer >= 0.4 or #coinCache == 0 then
+            coinCacheTimer = 0
+            coinCache = findCoins()
+        end
 
-        local coins = findCoins()
+        -- Achar moeda mais próxima (ainda existente)
+        local nearest, minDist = nil, math.huge
+        for _, c in ipairs(coinCache) do
+            if c and c.Parent then
+                local d = (c.Position - hrp.Position).Magnitude
+                if d < minDist then minDist = d; nearest = c end
+            end
+        end
+
+        -- Desenha TODAS as coins visíveis
         local activeSet = {}
-
-        for _, coin in ipairs(coins) do
-            if coin.Parent then
+        for _, coin in ipairs(coinCache) do
+            if coin and coin.Parent then
                 activeSet[coin] = true
-                local dist = (coin.Position - myHRP.Position).Magnitude
                 if not coinDrawings[coin] then
                     local box = Drawing.new("Circle")
-                    box.Radius = 12; box.NumSides = 20; box.Thickness = 1.5
+                    box.Radius = 10; box.NumSides = 20; box.Thickness = 1.5
                     box.Filled = false; box.Color = Color3.fromRGB(255, 220, 100)
                     local text = Drawing.new("Text")
                     text.Size = 10; text.Center = true; text.Outline = true
@@ -1372,27 +1390,24 @@ function MM2.Init(ctx)
                 if onScreen then
                     d.box.Position = Vector2.new(sp.X, sp.Y)
                     d.box.Visible = true
-                    d.text.Position = Vector2.new(sp.X, sp.Y - 20)
-                    d.text.Text = math.floor(dist) .. "m"
+                    d.text.Position = Vector2.new(sp.X, sp.Y - 18)
+                    local dist2 = (coin.Position - hrp.Position).Magnitude
+                    d.text.Text = math.floor(dist2) .. "m"
                     d.text.Visible = true
+                    -- destaca a moeda alvo
+                    if coin == nearest then
+                        d.box.Color = Color3.fromRGB(0, 255, 130)
+                        d.box.Radius = 14
+                    else
+                        d.box.Color = Color3.fromRGB(255, 220, 100)
+                        d.box.Radius = 10
+                    end
                 else
                     d.box.Visible = false
                     d.text.Visible = false
                 end
-
-                if dist < 15 then
-                    pcall(function()
-                        firetouchinterest(myHRP, coin, 0)
-                        firetouchinterest(myHRP, coin, 1)
-                    end)
-                elseif dist < 100 then
-                    pcall(function()
-                        myHRP.CFrame = CFrame.new(coin.Position + Vector3.new(0, 3, 0))
-                    end)
-                end
             end
         end
-
         for coin, d in pairs(coinDrawings) do
             if not activeSet[coin] then
                 if d.box then d.box:Remove() end
@@ -1400,6 +1415,124 @@ function MM2.Init(ctx)
                 coinDrawings[coin] = nil
             end
         end
+
+        if not nearest then return end
+
+        -- Movimento FLY suave (não teleporta!)
+        local targetPos = nearest.Position + Vector3.new(0, 2.2, 0)
+        local dir = targetPos - hrp.Position
+        local dist = dir.Magnitude
+
+        -- Desliga gravidade enquanto voa
+        hum.PlatformStand = true
+
+        if dist <= 3 then
+            -- Coleta por toque
+            pcall(function()
+                firetouchinterest(hrp, nearest, 0)
+                task.wait()
+                firetouchinterest(hrp, nearest, 1)
+            end)
+        else
+            local speed = tonumber(State.autoCoinSpeed) or 45
+            local step = math.min(speed * dt, dist)
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            hrp.CFrame = CFrame.new(hrp.Position + dir.Unit * step)
+        end
+
+        -- Se ficar muito tempo parado, cancela o PlatformStand
+        if dist <= 3 then
+            task.wait(0.05)
+            if hum and hum.Parent then hum.PlatformStand = false end
+        end
+    end)
+
+    -- ============================================================
+    -- AUTO GRAB GUN (Innocent) - pega gun do sheriff morto
+    -- ============================================================
+    local function playerHasGun()
+        local char = LocalPlayer.Character
+        local backpack = LocalPlayer:FindFirstChild("Backpack")
+        if char then
+            for _, t in ipairs(char:GetChildren()) do
+                if t:IsA("Tool") and t.Name:lower():find("gun") then return true end
+            end
+        end
+        if backpack then
+            for _, t in ipairs(backpack:GetChildren()) do
+                if t:IsA("Tool") and t.Name:lower():find("gun") then return true end
+            end
+        end
+        return false
+    end
+
+    local function findDroppedGun()
+        for _, obj in ipairs(workspace:GetChildren()) do
+            if obj:IsA("Tool") then
+                local n = obj.Name:lower()
+                if n == "gun" or n:find("gun") then
+                    local handle = obj:FindFirstChild("Handle")
+                    if handle and handle:IsA("BasePart") then
+                        return obj, handle
+                    end
+                end
+            end
+        end
+        return nil
+    end
+
+    local autoGrabCooldown = 0
+    RunService.Heartbeat:Connect(function()
+        if UNLOADED or not State.autoGrabGun then return end
+        if tick() < autoGrabCooldown then return end
+        if playerHasGun() then return end -- já tenho
+
+        local gun, handle = findDroppedGun()
+        if not gun or not handle then return end
+
+        local char = LocalPlayer.Character
+        if not char then return end
+        local hrp = getBasePart(char, "HumanoidRootPart")
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if not hrp or not hum then return end
+
+        local dist = (handle.Position - hrp.Position).Magnitude
+        if dist > (tonumber(State.autoGrabGunRange) or 300) then return end
+
+        autoGrabCooldown = tick() + 1.5 -- evita spam
+        local originalCF = hrp.CFrame
+
+        task.spawn(function()
+            local pulled = pcall(function()
+                gun.Parent = char
+            end)
+            task.wait(0.03)
+
+            if pulled and gun.Parent == char then
+                Notify("🔫 Auto Grab Gun", "Gun puxada pra mão!", 3)
+                return
+            end
+
+            -- Fallback: teleporta pra gun por 0.05s, pega e volta
+            if not hrp or not hrp.Parent then return end
+            hrp.CFrame = CFrame.new(handle.Position + Vector3.new(0, 1.5, 0))
+            task.wait(0.05)
+
+            pcall(function()
+                firetouchinterest(hrp, handle, 0)
+                task.wait()
+                firetouchinterest(hrp, handle, 1)
+            end)
+            task.wait(0.05)
+
+            if hrp and hrp.Parent then
+                hrp.CFrame = originalCF
+            end
+
+            if playerHasGun() then
+                Notify("🔫 Auto Grab Gun", "Gun pega com sucesso!", 3)
+            end
+        end)
     end)
 
     InnocentTab.CreateLabel("── ESP ──", Theme.Text)
@@ -1425,13 +1558,17 @@ function MM2.Init(ctx)
     InnocentTab.CreateLabel("── Utility ──", Theme.Text)
     InnocentTab.CreateToggle("gun_locator", "gunLocator")
     InnocentTab.CreateToggle("auto_coin_farm", "autoCoin")
+    InnocentTab.CreateSlider("auto_coin_speed", 15, 200, 45, "autoCoinSpeed")
+    InnocentTab.CreateLabel(" ")
+    InnocentTab.CreateLabel("── Auto Grab ──", Theme.Text)
+    InnocentTab.CreateToggle("auto_grab_gun", "autoGrabGun")
+    InnocentTab.CreateSlider("auto_grab_gun_range", 50, 1000, 300, "autoGrabGunRange")
 
     -- ============================================================
-    -- UTILS TAB (FIX: callbacks agora passados corretamente)
+    -- UTILS TAB
     -- ============================================================
     local UtilsTab = CreateTab("Utils", "🌑")
 
-    -- FULLBRIGHT (funções precisam existir antes dos toggles)
     local origBrightness = Lighting.Brightness
     local origAmbient = Lighting.Ambient
     local origOutdoorAmbient = Lighting.OutdoorAmbient
@@ -1473,7 +1610,6 @@ function MM2.Init(ctx)
         end
     end
 
-    -- OPTIMIZATION FUNCTIONS
     local function applyLowGraphics(v)
         if v then
             pcall(function() settings().Rendering.QualityLevel = Enum.QualityLevel.Level01 end)
@@ -1516,7 +1652,6 @@ function MM2.Init(ctx)
         end
     end)
 
-    -- Movement functions
     local airJumpConn = nil
     local function startAirJump()
         if airJumpConn then airJumpConn:Disconnect() end
@@ -1556,7 +1691,6 @@ function MM2.Init(ctx)
         end
     end)
 
-    -- NOW create toggles with callbacks
     UtilsTab.CreateLabel("── Movement ──", Theme.Text)
     UtilsTab.CreateToggle("speed", "speed")
     UtilsTab.CreateSlider("speed_value", 16, 200, 30, "speedValue")
@@ -1635,7 +1769,6 @@ function MM2.Init(ctx)
         for featId, handle in pairs(sliderHandles) do
             if State[featId] ~= nil then handle.SetValue(State[featId]) end
         end
-        -- Reapply functions
         if State.fullbright == false then disableFullbright() end
         if State.airJump then startAirJump() end
         Notify("📂 Load", "Loaded: " .. name, 3)
@@ -1841,7 +1974,6 @@ function MM2.Init(ctx)
     CreditsTab.CreateLabel("MM2 Role-Based Edition", Theme.Warning)
     CreditsTab.CreateLabel("© 2026 Sr Red", Theme.TextDim)
 
-    -- Version label
     local versionLabel = Instance.new("TextLabel", MainFrame)
     versionLabel.Size = UDim2.new(1, -20, 0, 16)
     versionLabel.Position = UDim2.new(0, 10, 1, -20)
