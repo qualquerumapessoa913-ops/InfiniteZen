@@ -1,5 +1,5 @@
 -- ============================================================
--- INFINITE ZEN - MÓDULO JAILBIRD v1.0
+-- INFINITE ZEN - MÓDULO JAILBIRD v1.1
 -- Jailbird (PlaceId 14939963714)
 -- ============================================================
 
@@ -9,7 +9,7 @@ function Jailbird.Init(ctx)
     local Language = ctx.Language
     local gameName = ctx.gameName
 
-    local GAME_VERSION = "1.0"
+    local GAME_VERSION = "1.1"
     local FULL_VERSION = "Infinite Zen V" .. GAME_VERSION .. " - " .. gameName
     local SHORT_VERSION = "V" .. GAME_VERSION .. " - " .. gameName
 
@@ -184,11 +184,13 @@ function Jailbird.Init(ctx)
             for i, n in ipairs(activeNotifs) do
                 if n == notif then table.remove(activeNotifs, i); break end
             end
-            TweenService:Create(notif, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-                Position = UDim2.new(1, 20, 0, notif.Position.Y.Offset)
-            }):Play()
-            task.wait(0.35)
-            if notif and notif.Parent then notif:Destroy() end
+            if notif and notif.Parent then
+                TweenService:Create(notif, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+                    Position = UDim2.new(1, 20, 0, notif.Position.Y.Offset)
+                }):Play()
+                task.wait(0.35)
+                if notif.Parent then notif:Destroy() end
+            end
         end)
     end
 
@@ -199,9 +201,10 @@ function Jailbird.Init(ctx)
         return nil
     end
 
-    -- HELPERS
+    -- HELPERS (com fix de BasePart)
     local function hasLineOfSight(fromPos, targetPart)
         if not targetPart or not targetPart.Parent then return false end
+        if not targetPart:IsA("BasePart") then return false end
         local params = RaycastParams.new()
         params.FilterType = Enum.RaycastFilterType.Exclude
         params.IgnoreWater = true
@@ -219,14 +222,29 @@ function Jailbird.Init(ctx)
         return workspace:Raycast(origin, unitDir * rayLength, params) == nil
     end
 
+    -- FIX: retorna APENAS BasePart
+    local function getBasePart(parent, ...)
+        if not parent then return nil end
+        for _, name in ipairs({...}) do
+            for _, child in ipairs(parent:GetChildren()) do
+                if child.Name == name and child:IsA("BasePart") then
+                    return child
+                end
+            end
+        end
+        return nil
+    end
+
     local function getTargetPart(p)
         if not p.Character then return nil end
         local mode = State.aimbotHitbox
-        if mode == 1 then return p.Character:FindFirstChild("Head")
-        elseif mode == 2 then return p.Character:FindFirstChild("Torso") or p.Character:FindFirstChild("UpperTorso")
+        if mode == 1 then
+            return getBasePart(p.Character, "Head")
+        elseif mode == 2 then
+            return getBasePart(p.Character, "Torso", "UpperTorso")
         else
-            local head = p.Character:FindFirstChild("Head")
-            local torso = p.Character:FindFirstChild("Torso") or p.Character:FindFirstChild("UpperTorso")
+            local head = getBasePart(p.Character, "Head")
+            local torso = getBasePart(p.Character, "Torso", "UpperTorso")
             if head and torso then
                 local camPos = Camera.CFrame.Position
                 local dHead = (head.Position - camPos).Magnitude
@@ -260,7 +278,7 @@ function Jailbird.Init(ctx)
     local mainStroke = Instance.new("UIStroke", MainFrame)
     mainStroke.Color = Theme.Primary; mainStroke.Thickness = 1.5; mainStroke.Transparency = 0.3
 
-    -- HEADER FLAT
+    -- HEADER
     local Header = Instance.new("Frame", MainFrame)
     Header.Size = UDim2.new(1, 0, 0, 48)
     Header.BackgroundColor3 = Theme.Surface
@@ -418,7 +436,7 @@ function Jailbird.Init(ctx)
     end)
     makeDraggable(Header); makeDraggable(Title); makeDraggable(Subtitle)
 
-    -- SIDEBAR + CONTENT FLAT
+    -- SIDEBAR + CONTENT
     local Sidebar = Instance.new("Frame", MainFrame)
     Sidebar.Size = UDim2.new(0, 140, 1, -65); Sidebar.Position = UDim2.new(0, 10, 0, 58)
     Sidebar.BackgroundColor3 = Theme.SidebarColor; Sidebar.BorderSizePixel = 0
@@ -575,8 +593,8 @@ function Jailbird.Init(ctx)
             local cur = defaultValue or min
             local rel = (cur - min) / (max - min)
             local fill = Instance.new("Frame", barBg)
-            fill.Size = UDim2.new(rel, 0, 1, 0)
-            fill.BackgroundColor3 = Theme.Primary; fill.BorderSizePixel = 0
+            fill.Size = UDim2.new(rel, 0, 1, 0); fill.BackgroundColor3 = Theme.Primary
+            fill.BorderSizePixel = 0
             Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
             local click = Instance.new("TextButton", holder)
             click.Size = UDim2.new(1, -24, 0, 22); click.Position = UDim2.new(0, 12, 0, 22)
@@ -733,9 +751,9 @@ function Jailbird.Init(ctx)
                 local part = getTargetPart(p)
                 if part then
                     local sp, onScreen, depth = Camera:WorldToViewportPoint(part.Position)
-                    if onScreen and depth > 0 then
+                    if onScreen and depth and depth > 0 then
                         local d = (Vector2.new(sp.X, sp.Y) - Vector2.new(mouse.X, mouse.Y)).Magnitude
-                        if d < minDist then
+                        if d and d < minDist then
                             if not State.aimbotWallCheck or hasLineOfSight(Camera.CFrame.Position, part) then
                                 minDist = d; closest = p
                             end
@@ -778,7 +796,7 @@ function Jailbird.Init(ctx)
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not silentHolding then return end
         if not silentTarget or not silentTarget.Character then silentHolding = false; return end
-        local head = silentTarget.Character:FindFirstChild("Head")
+        local head = getBasePart(silentTarget.Character, "Head")
         if not head then silentHolding = false; return end
         local newCF = CFrame.new(Camera.CFrame.Position, head.Position + Vector3.new(0, 0.15, 0))
         Camera.CFrame = newCF
@@ -792,7 +810,7 @@ function Jailbird.Init(ctx)
         if not target or not target.Character then return end
         silentTarget = target
         silentHolding = true
-        local head = target.Character:FindFirstChild("Head")
+        local head = getBasePart(target.Character, "Head")
         if head then
             local newCF = CFrame.new(Camera.CFrame.Position, head.Position + Vector3.new(0, 0.15, 0))
             Camera.CFrame = newCF
@@ -821,9 +839,9 @@ function Jailbird.Init(ctx)
             local part = getTargetPart(target)
             if part then
                 local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                if myRoot then
+                if myRoot and myRoot:IsA("BasePart") then
                     local dist3D = (part.Position - myRoot.Position).Magnitude
-                    if dist3D <= State.aimbotMaxDist then
+                    if dist3D and dist3D <= State.aimbotMaxDist then
                         local sp, onScreen = Camera:WorldToViewportPoint(part.Position)
                         if onScreen then
                             local mouse = UserInputService:GetMouseLocation()
@@ -849,9 +867,9 @@ function Jailbird.Init(ctx)
                 local part = getTargetPart(p)
                 if part then
                     local sp, onScreen, depth = Camera:WorldToViewportPoint(part.Position)
-                    if onScreen and depth > 0 then
+                    if onScreen and depth and depth > 0 then
                         local d = (Vector2.new(sp.X, sp.Y) - screenCenter).Magnitude
-                        if d < 20 and hasLineOfSight(Camera.CFrame.Position, part) then
+                        if d and d < 20 and hasLineOfSight(Camera.CFrame.Position, part) then
                             triggerLastFire = tick()
                             pcall(function() mouse1click() end)
                             pcall(function()
@@ -886,14 +904,14 @@ function Jailbird.Init(ctx)
     local backstabLock = {active = false, target = nil, endTime = 0}
     local function getClosestEnemyAnywhere()
         local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if not myHRP then return nil end
+        if not myHRP or not myHRP:IsA("BasePart") then return nil end
         local closest, closestDist = nil, math.huge
         for _, p in ipairs(Players:GetPlayers()) do
             if isEnemy(p) and p.Character then
                 local hrp = p.Character:FindFirstChild("HumanoidRootPart")
-                if hrp then
+                if hrp and hrp:IsA("BasePart") then
                     local d = (hrp.Position - myHRP.Position).Magnitude
-                    if d < closestDist then closestDist = d; closest = p end
+                    if d and d < closestDist then closestDist = d; closest = p end
                 end
             end
         end
@@ -908,7 +926,9 @@ function Jailbird.Init(ctx)
         if target and target.Character then
             local tHRP = target.Character:FindFirstChild("HumanoidRootPart")
             local mHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if tHRP and mHRP then Camera.CFrame = CFrame.new(mHRP.Position, tHRP.Position) end
+            if tHRP and mHRP and tHRP:IsA("BasePart") and mHRP:IsA("BasePart") then
+                Camera.CFrame = CFrame.new(mHRP.Position, tHRP.Position)
+            end
         end
     end)
     local function doBackstab()
@@ -921,6 +941,7 @@ function Jailbird.Init(ctx)
         local tHRP = target.Character:FindFirstChild("HumanoidRootPart")
         local mHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         if not tHRP or not mHRP then return end
+        if not tHRP:IsA("BasePart") or not mHRP:IsA("BasePart") then return end
         Notify("⚔️ Backstab", "Alvo: " .. target.Name, 2)
         mHRP.CFrame = tHRP.CFrame * CFrame.new(0, 0, 2)
         backstabLock.active = true; backstabLock.target = target; backstabLock.endTime = tick() + 0.5
@@ -934,52 +955,106 @@ function Jailbird.Init(ctx)
         end
     end
 
-    -- HEAD EXPANDER
+    -- ============================================================
+    -- HEAD EXPANDER (FIX v1.1 - à prova de Accessory)
+    -- ============================================================
     local hitboxSaved = {}
+
     local function saveOriginal(player, part)
         if not player or not part then return end
+        if not part:IsA("BasePart") then return end
         if not hitboxSaved[player] then hitboxSaved[player] = {} end
-        if not hitboxSaved[player][part] then hitboxSaved[player][part] = part.Size end
+        if not hitboxSaved[player][part] then
+            local ok, sz = pcall(function() return part.Size end)
+            if ok and sz then
+                hitboxSaved[player][part] = sz
+            end
+        end
     end
+
     local function restorePlayer(player)
         if not hitboxSaved[player] then return end
         for part, size in pairs(hitboxSaved[player]) do
-            if part and part.Parent then pcall(function() part.Size = size end) end
+            if part and part.Parent and part:IsA("BasePart") then
+                pcall(function() part.Size = size end)
+            end
         end
         hitboxSaved[player] = nil
     end
+
     local function restoreAllHitboxes()
         for player, _ in pairs(hitboxSaved) do restorePlayer(player) end
         hitboxSaved = {}
     end
+
     local function expandPlayer(p, size)
         if not p.Character then return end
-        local head = p.Character:FindFirstChild("Head")
+
+        -- Head
+        local head = getBasePart(p.Character, "Head")
         if head then
             saveOriginal(p, head)
-            local base = hitboxSaved[p][head]
-            head.Size = Vector3.new(base.X * size, base.Y * math.min(size, 4), base.Z * size)
-            head.Transparency = 0.7; head.CanCollide = false; head.Massless = true
-        end
-        local torso = p.Character:FindFirstChild("Torso") or p.Character:FindFirstChild("UpperTorso")
-        if torso then
-            saveOriginal(p, torso)
-            local base = hitboxSaved[p][torso]
-            local tMult = math.min(size * 0.7, 3)
-            torso.Size = Vector3.new(base.X * tMult, base.Y * tMult, base.Z * tMult)
-            torso.Transparency = 0.7; torso.CanCollide = false; torso.Massless = true
-        end
-    end
-    RunService.Heartbeat:Connect(function()
-        if UNLOADED or not State.headExpander then return end
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p == LocalPlayer then
-            elseif isEnemy(p) then
-                if p.Character then expandPlayer(p, State.headExpanderSize) end
-            else
-                if hitboxSaved[p] then restorePlayer(p) end
+            local base = hitboxSaved[p] and hitboxSaved[p][head]
+            if base then
+                pcall(function()
+                    head.Size = Vector3.new(base.X * size, base.Y * math.min(size, 4), base.Z * size)
+                    head.Transparency = 0.7
+                    head.CanCollide = false
+                    head.Massless = true
+                end)
             end
         end
+
+        -- HeadHB
+        local headHB = getBasePart(p.Character, "HeadHB")
+        if headHB then
+            saveOriginal(p, headHB)
+            local base = hitboxSaved[p] and hitboxSaved[p][headHB]
+            if base then
+                local hbMult = math.min(size * 1.5, 12)
+                pcall(function()
+                    headHB.Size = Vector3.new(base.X * hbMult, base.Y * hbMult, base.Z * hbMult)
+                    headHB.Transparency = 1
+                    headHB.CanCollide = false
+                    headHB.Massless = true
+                end)
+            end
+        end
+
+        -- Torso / UpperTorso
+        local torso = getBasePart(p.Character, "Torso", "UpperTorso")
+        if torso then
+            saveOriginal(p, torso)
+            local base = hitboxSaved[p] and hitboxSaved[p][torso]
+            if base then
+                local tMult = math.min(size * 0.7, 3)
+                pcall(function()
+                    torso.Size = Vector3.new(base.X * tMult, base.Y * tMult, base.Z * tMult)
+                    torso.Transparency = 0.7
+                    torso.CanCollide = false
+                    torso.Massless = true
+                end)
+            end
+        end
+    end
+
+    -- Loop com rate limit (20x/s)
+    local heTick = 0
+    RunService.Heartbeat:Connect(function()
+        if UNLOADED or not State.headExpander then return end
+        heTick = heTick + 1
+        if heTick % 3 ~= 0 then return end
+
+        pcall(function()
+            for _, p in ipairs(Players:GetPlayers()) do
+                if p == LocalPlayer then
+                elseif isEnemy(p) then
+                    if p.Character then expandPlayer(p, State.headExpanderSize) end
+                else
+                    if hitboxSaved[p] then restorePlayer(p) end
+                end
+            end
+        end)
     end)
 
     -- WEAPON HACKS
@@ -1216,11 +1291,11 @@ function Jailbird.Init(ctx)
         local now = tick()
         if now - lastDamageTime > 1.5 then dmgArrow.Visible = false; return end
         local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if not myHRP then dmgArrow.Visible = false; return end
+        if not myHRP or not myHRP:IsA("BasePart") then dmgArrow.Visible = false; return end
         local attackerPos = nil
         if lastAttacker and lastAttacker.Character then
             local hrp = lastAttacker.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then attackerPos = hrp.Position end
+            if hrp and hrp:IsA("BasePart") then attackerPos = hrp.Position end
         end
         if not attackerPos then dmgArrow.Visible = false; return end
         local direction = (attackerPos - myHRP.Position)
@@ -1265,44 +1340,46 @@ function Jailbird.Init(ctx)
     end
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.espGrenades then clearGrenadeDrawings(); return end
-        local activeObjects = {}
-        for _, obj in ipairs(workspace:GetChildren()) do
-            if isGrenade(obj) then
-                activeObjects[obj] = true
-                if not grenadeDrawings[obj] then
-                    local box = Drawing.new("Square")
-                    box.Thickness = 1.5
-                    box.Color = Color3.fromRGB(255, 150, 50)
-                    box.Filled = false
-                    box.Transparency = 1
-                    local name = Drawing.new("Text")
-                    name.Size = 12; name.Center = true; name.Outline = true
-                    name.Color = Color3.fromRGB(255, 200, 100)
-                    name.Text = obj.Name
-                    grenadeDrawings[obj] = {box = box, name = name}
-                end
-                local data = grenadeDrawings[obj]
-                local sp, onScreen = Camera:WorldToViewportPoint(obj.Position)
-                if onScreen then
-                    local size = math.clamp(300 / math.max((Camera.CFrame.Position - obj.Position).Magnitude, 1), 8, 100)
-                    data.box.Size = Vector2.new(size, size)
-                    data.box.Position = Vector2.new(sp.X - size / 2, sp.Y - size / 2)
-                    data.box.Visible = true
-                    data.name.Position = Vector2.new(sp.X, sp.Y - size / 2 - 12)
-                    data.name.Visible = true
-                else
-                    data.box.Visible = false
-                    data.name.Visible = false
+        pcall(function()
+            local activeObjects = {}
+            for _, obj in ipairs(workspace:GetChildren()) do
+                if isGrenade(obj) then
+                    activeObjects[obj] = true
+                    if not grenadeDrawings[obj] then
+                        local box = Drawing.new("Square")
+                        box.Thickness = 1.5
+                        box.Color = Color3.fromRGB(255, 150, 50)
+                        box.Filled = false
+                        box.Transparency = 1
+                        local name = Drawing.new("Text")
+                        name.Size = 12; name.Center = true; name.Outline = true
+                        name.Color = Color3.fromRGB(255, 200, 100)
+                        name.Text = obj.Name
+                        grenadeDrawings[obj] = {box = box, name = name}
+                    end
+                    local data = grenadeDrawings[obj]
+                    local sp, onScreen = Camera:WorldToViewportPoint(obj.Position)
+                    if onScreen then
+                        local size = math.clamp(300 / math.max((Camera.CFrame.Position - obj.Position).Magnitude, 1), 8, 100)
+                        data.box.Size = Vector2.new(size, size)
+                        data.box.Position = Vector2.new(sp.X - size / 2, sp.Y - size / 2)
+                        data.box.Visible = true
+                        data.name.Position = Vector2.new(sp.X, sp.Y - size / 2 - 12)
+                        data.name.Visible = true
+                    else
+                        data.box.Visible = false
+                        data.name.Visible = false
+                    end
                 end
             end
-        end
-        for obj, data in pairs(grenadeDrawings) do
-            if not activeObjects[obj] then
-                if data.box then data.box:Remove() end
-                if data.name then data.name:Remove() end
-                grenadeDrawings[obj] = nil
+            for obj, data in pairs(grenadeDrawings) do
+                if not activeObjects[obj] then
+                    if data.box then data.box:Remove() end
+                    if data.name then data.name:Remove() end
+                    grenadeDrawings[obj] = nil
+                end
             end
-        end
+        end)
     end)
 
     -- ESP
@@ -1368,6 +1445,7 @@ function Jailbird.Init(ctx)
         local head = char:FindFirstChild("Head")
         local hrp = char:FindFirstChild("HumanoidRootPart")
         if not head or not hrp then return end
+        if not head:IsA("BasePart") or not hrp:IsA("BasePart") then return end
         if d.chams then d.chams.Enabled = true end
         local headSp, headOn = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
         local hrpSp, hrpOn = Camera:WorldToViewportPoint(hrp.Position)
@@ -1409,11 +1487,10 @@ function Jailbird.Init(ctx)
                 else d.weapon.Visible = false end
             else d.weapon.Visible = false end
             if State.espArmor then
-                if hum.MaxHealth > 100 then
+                if hum.MaxHealth and hum.MaxHealth > 100 then
                     local armorVal = math.floor(hum.MaxHealth - 100)
                     d.armor.Position = Vector2.new(headSp.X, headSp.Y + 8)
                     d.armor.Text = "🛡 " .. armorVal
-                    d.armor.Color = Color3.fromRGB(100, 200, 255)
                     d.armor.Visible = true
                 else d.armor.Visible = false end
             else d.armor.Visible = false end
@@ -1424,9 +1501,14 @@ function Jailbird.Init(ctx)
             d.weapon.Visible = false
             d.armor.Visible = false
         end
+        -- FIX: HP
         if headOn and footOn then
             local h = math.abs(footSp.Y - headSp.Y)
-            local hr = hum.Health / hum.MaxHealth
+            local maxHP = hum.MaxHealth
+            local hr = 1
+            if maxHP and maxHP > 0 then
+                hr = math.clamp(hum.Health / maxHP, 0, 1)
+            end
             local bx = headSp.X + (h * 0.6) / 2 + 5
             local by = headSp.Y + h
             local fy = by - (h * hr)
@@ -1445,12 +1527,14 @@ function Jailbird.Init(ctx)
     end
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.esp then return end
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character then
-                if not ESP.data[p] then createESP(p) end
-                updateESP(p, p.Character)
+        pcall(function()
+            for _, p in ipairs(Players:GetPlayers()) do
+                if p ~= LocalPlayer and p.Character then
+                    if not ESP.data[p] then createESP(p) end
+                    updateESP(p, p.Character)
+                end
             end
-        end
+        end)
     end)
     Players.PlayerRemoving:Connect(function(p) removeESP(p) end)
 
@@ -1476,6 +1560,7 @@ function Jailbird.Init(ctx)
             local hrp = char:FindFirstChild("HumanoidRootPart")
             local hum = char:FindFirstChildOfClass("Humanoid")
             if not hrp or not hum then return end
+            if not hrp:IsA("BasePart") then return end
             if hum:GetState() == Enum.HumanoidStateType.Dead then return end
             hrp.Velocity = Vector3.new(hrp.Velocity.X, AIR_JUMP_POWER, hrp.Velocity.Z)
         end)
@@ -1888,14 +1973,12 @@ function Jailbird.Init(ctx)
         toggleHandles.noShadows.SetState(true)
         toggleHandles.noFog.SetState(true)
         toggleHandles.noParticles.SetState(true)
-        Notify("⚡ Boost", "Otimizações ativadas", 3)
     end)
     SettingsTab.CreateButton("🔄 Reset Optimizations", function()
         toggleHandles.lowGraphics.SetState(false)
         toggleHandles.noShadows.SetState(false)
         toggleHandles.noFog.SetState(false)
         toggleHandles.noParticles.SetState(false)
-        Notify("🔄 Reset", "Otimizações desativadas", 3)
     end)
     SettingsTab.CreateLabel(" ")
     SettingsTab.CreateLabel("── Security ──", Theme.Text)

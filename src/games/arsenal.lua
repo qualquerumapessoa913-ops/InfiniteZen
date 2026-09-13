@@ -1,5 +1,5 @@
 -- ============================================================
--- INFINITE ZEN - MÓDULO ARSENAL
+-- INFINITE ZEN - MÓDULO ARSENAL v1.2
 -- ============================================================
 
 local Arsenal = {}
@@ -8,7 +8,7 @@ function Arsenal.Init(ctx)
     local Language = ctx.Language
     local gameName = ctx.gameName
 
-    local GAME_VERSION = "1.1"
+    local GAME_VERSION = "1.2"
     local FULL_VERSION = "Infinite Zen V" .. GAME_VERSION .. " - " .. gameName
     local SHORT_VERSION = "V" .. GAME_VERSION .. " - " .. gameName
 
@@ -86,7 +86,7 @@ function Arsenal.Init(ctx)
     local Theme = {
         Bg = Color3.fromRGB(8, 4, 6), Surface = Color3.fromRGB(18, 8, 12), Surface2 = Color3.fromRGB(35, 12, 18),
         Border = Color3.fromRGB(80, 15, 20), SidebarColor = Color3.fromRGB(15, 6, 10), ContentColor = Color3.fromRGB(25, 10, 15),
-        Primary = Color3.fromRGB(255, 30, 40), PrimaryDark = Color3.fromRGB(180, 15, 25), TitleRed = Color3.fromRGB(255, 50, 50),
+        Primary = Color3.fromRGB(255, 30, 40), TitleRed = Color3.fromRGB(255, 50, 50),
         Success = Color3.fromRGB(0, 220, 130), Danger = Color3.fromRGB(255, 40, 40), Warning = Color3.fromRGB(255, 150, 50),
         Text = Color3.fromRGB(255, 245, 245), TextDim = Color3.fromRGB(160, 120, 130),
         Discord = Color3.fromRGB(88, 101, 242), Font = Enum.Font.GothamMedium, FontBold = Enum.Font.GothamBlack,
@@ -125,11 +125,13 @@ function Arsenal.Init(ctx)
             for i, n in ipairs(activeNotifs) do
                 if n == notif then table.remove(activeNotifs, i); break end
             end
-            TweenService:Create(notif, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-                Position = UDim2.new(1, 20, 0, notif.Position.Y.Offset)
-            }):Play()
-            task.wait(0.35)
-            if notif and notif.Parent then notif:Destroy() end
+            if notif and notif.Parent then
+                TweenService:Create(notif, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+                    Position = UDim2.new(1, 20, 0, notif.Position.Y.Offset)
+                }):Play()
+                task.wait(0.35)
+                if notif.Parent then notif:Destroy() end
+            end
         end)
     end
 
@@ -163,7 +165,7 @@ function Arsenal.Init(ctx)
     local mainStroke = Instance.new("UIStroke", MainFrame)
     mainStroke.Color = Theme.Primary; mainStroke.Thickness = 1.5; mainStroke.Transparency = 0.3
 
-    -- HEADER (FLAT como MM2)
+    -- HEADER
     local Header = Instance.new("Frame", MainFrame)
     Header.Name = "Header"
     Header.Size = UDim2.new(1, 0, 0, 48)
@@ -197,7 +199,7 @@ function Arsenal.Init(ctx)
     Subtitle.Text = SHORT_VERSION; Subtitle.TextColor3 = Color3.fromRGB(220, 180, 185)
     Subtitle.TextSize = 11; Subtitle.TextXAlignment = Enum.TextXAlignment.Left; Subtitle.ZIndex = 3
 
-    -- BOTÃO DE IDIOMA (RESTAURADO)
+    -- BOTÃO DE IDIOMA
     local LangBtn = Instance.new("TextButton", Header)
     LangBtn.Size = UDim2.new(0, 60, 0, 26); LangBtn.Position = UDim2.new(1, -110, 0.5, -13)
     LangBtn.BackgroundColor3 = Theme.Surface2; LangBtn.Text = "US"
@@ -247,12 +249,10 @@ function Arsenal.Init(ctx)
     MinBtn.Font = Theme.FontBold; MinBtn.TextSize = 18; MinBtn.TextColor3 = Theme.Text; MinBtn.ZIndex = 3
     Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0, 6)
 
-    -- ÍCONE FLUTUANTE (SÓ MOBILE)
+    -- ÍCONE FLUTUANTE (MOBILE)
     local reopenBtn = nil
-    local reopenDragging = false
-    local reopenDragStart = nil
-    local reopenStartPos = nil
-    local reopenMoved = false
+    local reopenDragging, reopenMoved = false, false
+    local reopenDragStart, reopenStartPos = nil, nil
 
     if IS_MOBILE then
         reopenBtn = Instance.new("TextButton", GUI)
@@ -324,7 +324,7 @@ function Arsenal.Init(ctx)
     end)
     makeDraggable(Header); makeDraggable(Title); makeDraggable(Subtitle)
 
-    -- SIDEBAR + CONTENT (FLAT)
+    -- SIDEBAR + CONTENT
     local Sidebar = Instance.new("Frame", MainFrame)
     Sidebar.Size = UDim2.new(0, 140, 1, -65); Sidebar.Position = UDim2.new(0, 10, 0, 58)
     Sidebar.BackgroundColor3 = Theme.SidebarColor; Sidebar.BorderSizePixel = 0
@@ -332,7 +332,8 @@ function Arsenal.Init(ctx)
 
     local Content = Instance.new("Frame", MainFrame)
     Content.Size = UDim2.new(1, -170, 1, -70); Content.Position = UDim2.new(0, 160, 0, 58)
-    Content.BackgroundColor3 = Theme.ContentColor; Content.BackgroundTransparency = 0.3; Content.BorderSizePixel = 0
+    Content.BackgroundColor3 = Theme.ContentColor; Content.BackgroundTransparency = 0.3
+    Content.BorderSizePixel = 0
     Instance.new("UICorner", Content).CornerRadius = UDim.new(0, 8)
 
     local minimized = false
@@ -358,7 +359,11 @@ function Arsenal.Init(ctx)
         btn.TextXAlignment = Enum.TextXAlignment.Left; btn.AutoButtonColor = false
         Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
 
-        registerRefresh(function() btn.Text = "  " .. icon .. "   " .. Language.get(nameKey) end)
+        registerRefresh(function()
+            local t = Language.get(nameKey)
+            btn.Text = "  " .. icon .. "   " .. ((t and t ~= nameKey) and t or nameKey)
+        end)
+
         btn.MouseEnter:Connect(function()
             if btn.BackgroundColor3 == Theme.Surface then btn.BackgroundColor3 = Theme.Surface2 end
         end)
@@ -645,18 +650,20 @@ function Arsenal.Init(ctx)
         for _, p in ipairs(Players:GetPlayers()) do
             if isEnemy(p) and p.Character then
                 local head = p.Character:FindFirstChild("Head")
-                if head then
+                if head and head:IsA("BasePart") then
                     local sp, onScreen, depth = Camera:WorldToViewportPoint(head.Position)
-                    if onScreen and depth > 0 then
+                    if onScreen and depth and depth > 0 then
                         local d = (Vector2.new(sp.X, sp.Y) - Vector2.new(mouse.X, mouse.Y)).Magnitude
-                        if d < minDist then minDist = d; closest = p end
+                        if d and d < minDist then minDist = d; closest = p end
                     end
                 end
             end
         end
         if closest and closest.Character then
             local head = closest.Character:FindFirstChild("Head")
-            if head then Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position) end
+            if head and head:IsA("BasePart") then
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position)
+            end
         end
     end)
 
@@ -667,11 +674,11 @@ function Arsenal.Init(ctx)
         for _, p in ipairs(Players:GetPlayers()) do
             if isEnemy(p) and p.Character then
                 local head = p.Character:FindFirstChild("Head")
-                if head then
+                if head and head:IsA("BasePart") then
                     local sp, onScreen, depth = Camera:WorldToViewportPoint(head.Position)
-                    if onScreen and depth > 0 then
+                    if onScreen and depth and depth > 0 then
                         local d = (Vector2.new(sp.X, sp.Y) - Vector2.new(mouse.X, mouse.Y)).Magnitude
-                        if d < minDist then minDist = d; closest = p end
+                        if d and d < minDist then minDist = d; closest = p end
                     end
                 end
             end
@@ -683,7 +690,7 @@ function Arsenal.Init(ctx)
         if UNLOADED or not silentHolding then return end
         if not silentTarget or not silentTarget.Character then silentHolding = false; return end
         local head = silentTarget.Character:FindFirstChild("Head")
-        if not head then silentHolding = false; return end
+        if not head or not head:IsA("BasePart") then silentHolding = false; return end
         Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position + Vector3.new(0, 0.15, 0))
     end)
 
@@ -696,7 +703,9 @@ function Arsenal.Init(ctx)
         silentTarget = target
         silentHolding = true
         local head = target.Character:FindFirstChild("Head")
-        if head then Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position + Vector3.new(0, 0.15, 0)) end
+        if head and head:IsA("BasePart") then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position + Vector3.new(0, 0.15, 0))
+        end
     end)
 
     UserInputService.InputEnded:Connect(function(input, gp)
@@ -737,11 +746,11 @@ function Arsenal.Init(ctx)
         for _, p in ipairs(Players:GetPlayers()) do
             if isEnemy(p) and p.Character then
                 local head = p.Character:FindFirstChild("Head")
-                if head then
+                if head and head:IsA("BasePart") then
                     local sp, onScreen, depth = Camera:WorldToViewportPoint(head.Position)
-                    if onScreen and depth > 0 then
+                    if onScreen and depth and depth > 0 then
                         local d = (Vector2.new(sp.X, sp.Y) - Vector2.new(mouse.X, mouse.Y)).Magnitude
-                        if d < State.autoShootFov and hasLineOfSight(Camera.CFrame.Position, head) then
+                        if d and d < State.autoShootFov and hasLineOfSight(Camera.CFrame.Position, head) then
                             targetInFov = true; break
                         end
                     end
@@ -758,61 +767,123 @@ function Arsenal.Init(ctx)
         end
     end)
 
+    -- ============================================================
+    -- HEAD EXPANDER (FIX v1.2 - à prova de Accessory + Rate Limit)
+    -- ============================================================
     local hitboxSaved = {}
+
+    -- Helper: retorna APENAS BasePart (ignora Accessory/MeshPart)
+    local function getBasePart(parent, ...)
+        if not parent then return nil end
+        for _, name in ipairs({...}) do
+            for _, child in ipairs(parent:GetChildren()) do
+                if child.Name == name and child:IsA("BasePart") then
+                    return child
+                end
+            end
+        end
+        return nil
+    end
+
     local function saveOriginal(player, part)
         if not player or not part then return end
+        if not part:IsA("BasePart") then return end  -- FIX: bloqueia Accessory
         if not hitboxSaved[player] then hitboxSaved[player] = {} end
-        if not hitboxSaved[player][part] then hitboxSaved[player][part] = part.Size end
+        if not hitboxSaved[player][part] then
+            local ok, sz = pcall(function() return part.Size end)
+            if ok and sz then
+                hitboxSaved[player][part] = sz
+            end
+        end
     end
+
     local function restorePlayer(player)
         if not hitboxSaved[player] then return end
         for part, size in pairs(hitboxSaved[player]) do
-            if part and part.Parent then pcall(function() part.Size = size end) end
+            if part and part.Parent and part:IsA("BasePart") then
+                pcall(function() part.Size = size end)
+            end
         end
         hitboxSaved[player] = nil
     end
+
     local function restoreAll()
         for player, _ in pairs(hitboxSaved) do restorePlayer(player) end
         hitboxSaved = {}
     end
+
     local function expandPlayer(p, size)
         if not p.Character then return end
-        local head = p.Character:FindFirstChild("Head")
+
+        -- Head (só aceita BasePart)
+        local head = getBasePart(p.Character, "Head")
         if head then
             saveOriginal(p, head)
-            local baseSize = hitboxSaved[p][head]
-            head.Size = Vector3.new(baseSize.X * size, baseSize.Y * math.min(size, 4), baseSize.Z * size)
-            head.Transparency = 0.7; head.CanCollide = false; head.Massless = true
-        end
-        local headHB = p.Character:FindFirstChild("HeadHB")
-        if headHB and headHB:IsA("BasePart") then
-            saveOriginal(p, headHB)
-            local baseHB = hitboxSaved[p][headHB]
-            local hbMult = math.min(size * 1.5, 12)
-            headHB.Size = Vector3.new(baseHB.X * hbMult, baseHB.Y * hbMult, baseHB.Z * hbMult)
-            headHB.Transparency = 1; headHB.CanCollide = false; headHB.Massless = true
-        end
-        local torso = p.Character:FindFirstChild("Torso") or p.Character:FindFirstChild("UpperTorso")
-        if torso then
-            saveOriginal(p, torso)
-            local baseT = hitboxSaved[p][torso]
-            local tMult = math.min(size * 0.8, 4)
-            torso.Size = Vector3.new(baseT.X * tMult, baseT.Y * tMult, baseT.Z * tMult)
-            torso.CanCollide = false; torso.Massless = true
-        end
-    end
-    RunService.Heartbeat:Connect(function()
-        if UNLOADED or not State.headExpander then return end
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p == LocalPlayer then
-            elseif isEnemy(p) then
-                if p.Character then expandPlayer(p, State.headExpanderSize) end
-            else
-                if hitboxSaved[p] then restorePlayer(p) end
+            local base = hitboxSaved[p] and hitboxSaved[p][head]
+            if base then
+                pcall(function()
+                    head.Size = Vector3.new(base.X * size, base.Y * math.min(size, 4), base.Z * size)
+                    head.Transparency = 0.7
+                    head.CanCollide = false
+                    head.Massless = true
+                end)
             end
         end
+
+        -- HeadHB (alguns jogos têm hitbox extra)
+        local headHB = getBasePart(p.Character, "HeadHB")
+        if headHB then
+            saveOriginal(p, headHB)
+            local base = hitboxSaved[p] and hitboxSaved[p][headHB]
+            if base then
+                local hbMult = math.min(size * 1.5, 12)
+                pcall(function()
+                    headHB.Size = Vector3.new(base.X * hbMult, base.Y * hbMult, base.Z * hbMult)
+                    headHB.Transparency = 1
+                    headHB.CanCollide = false
+                    headHB.Massless = true
+                end)
+            end
+        end
+
+        -- Torso / UpperTorso (só BasePart)
+        local torso = getBasePart(p.Character, "Torso", "UpperTorso")
+        if torso then
+            saveOriginal(p, torso)
+            local base = hitboxSaved[p] and hitboxSaved[p][torso]
+            if base then
+                local tMult = math.min(size * 0.7, 3)
+                pcall(function()
+                    torso.Size = Vector3.new(base.X * tMult, base.Y * tMult, base.Z * tMult)
+                    torso.Transparency = 0.7
+                    torso.CanCollide = false
+                    torso.Massless = true
+                end)
+            end
+        end
+    end
+
+    -- Loop com rate limit: roda a cada 3 frames (20x/s em vez de 60x/s)
+    local heTick = 0
+    RunService.Heartbeat:Connect(function()
+        if UNLOADED or not State.headExpander then return end
+        heTick = heTick + 1
+        if heTick % 3 ~= 0 then return end  -- roda 20x/s
+
+        pcall(function()
+            for _, p in ipairs(Players:GetPlayers()) do
+                if p == LocalPlayer then
+                    -- nada
+                elseif isEnemy(p) then
+                    if p.Character then expandPlayer(p, State.headExpanderSize) end
+                else
+                    if hitboxSaved[p] then restorePlayer(p) end
+                end
+            end
+        end)
     end)
 
+    -- ESP
     local ESP = {data = {}}
     local function createESP(p)
         if ESP.data[p] or not p.Character then return end
@@ -869,6 +940,7 @@ function Arsenal.Init(ctx)
         local head = char:FindFirstChild("Head")
         local hrp = char:FindFirstChild("HumanoidRootPart")
         if not head or not hrp then return end
+        if not head:IsA("BasePart") or not hrp:IsA("BasePart") then return end
         if d.chams then d.chams.Enabled = true end
         local headSp, headOn = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
         local hrpSp, hrpOn = Camera:WorldToViewportPoint(hrp.Position)
@@ -900,13 +972,19 @@ function Arsenal.Init(ctx)
         else
             d.name.Visible = false; d.distance.Visible = false
         end
+        -- FIX: HP só calcula se MaxHealth > 0
         if headOn and footOn then
             local h = math.abs(footSp.Y - headSp.Y)
-            local hr = hum.Health / hum.MaxHealth
+            local maxHP = hum.MaxHealth
+            local hr = 1
+            if maxHP and maxHP > 0 then
+                hr = math.clamp(hum.Health / maxHP, 0, 1)
+            end
             local bx = headSp.X + (h * 0.6) / 2 + 5
             local by = headSp.Y + h
             local fy = by - (h * hr)
-            d.health.From = Vector2.new(bx, fy); d.health.To = Vector2.new(bx, by)
+            d.health.From = Vector2.new(bx, fy)
+            d.health.To = Vector2.new(bx, by)
             if hr > 0.6 then d.health.Color = Color3.fromRGB(0, 255, 0)
             elseif hr > 0.3 then d.health.Color = Color3.fromRGB(255, 200, 0)
             else d.health.Color = Color3.fromRGB(255, 40, 40) end
@@ -924,12 +1002,14 @@ function Arsenal.Init(ctx)
     end
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.esp then return end
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character then
-                if not ESP.data[p] then createESP(p) end
-                updateESP(p, p.Character)
+        pcall(function()
+            for _, p in ipairs(Players:GetPlayers()) do
+                if p ~= LocalPlayer and p.Character then
+                    if not ESP.data[p] then createESP(p) end
+                    updateESP(p, p.Character)
+                end
             end
-        end
+        end)
     end)
     Players.PlayerRemoving:Connect(function(p) removeESP(p) end)
 
@@ -1054,9 +1134,9 @@ function Arsenal.Init(ctx)
         for _, p in ipairs(Players:GetPlayers()) do
             if isEnemy(p) and p.Character then
                 local hrp = p.Character:FindFirstChild("HumanoidRootPart")
-                if hrp then
+                if hrp and hrp:IsA("BasePart") then
                     local d = (hrp.Position - myHRP.Position).Magnitude
-                    if d < closestDist then closestDist = d; closest = p end
+                    if d and d < closestDist then closestDist = d; closest = p end
                 end
             end
         end
@@ -1071,7 +1151,9 @@ function Arsenal.Init(ctx)
         if target and target.Character then
             local tHRP = target.Character:FindFirstChild("HumanoidRootPart")
             local mHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if tHRP and mHRP then Camera.CFrame = CFrame.new(mHRP.Position, tHRP.Position) end
+            if tHRP and mHRP and tHRP:IsA("BasePart") and mHRP:IsA("BasePart") then
+                Camera.CFrame = CFrame.new(mHRP.Position, tHRP.Position)
+            end
         end
     end)
     local function doBackstab()
@@ -1081,6 +1163,7 @@ function Arsenal.Init(ctx)
         local tHRP = target.Character:FindFirstChild("HumanoidRootPart")
         local mHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         if not tHRP or not mHRP then return end
+        if not tHRP:IsA("BasePart") or not mHRP:IsA("BasePart") then return end
         mHRP.CFrame = tHRP.CFrame * CFrame.new(0, 0, 2)
         backstabLock.active = true; backstabLock.target = target; backstabLock.endTime = tick() + 0.5
         Camera.CFrame = CFrame.new(mHRP.Position, tHRP.Position)
@@ -1223,7 +1306,8 @@ function Arsenal.Init(ctx)
         local path = getConfigPath(name)
         if isfile and isfile(path) then
             pcall(function() delfile(path) end)
-            Notify("🗑️ Delete", "Deleted", 3); return true
+            Notify("🗑️ Delete", "Deleted: " .. name, 3)
+            return true
         end
         return false
     end
@@ -1242,11 +1326,14 @@ function Arsenal.Init(ctx)
     local function setAutoload(name)
         ensureFolder()
         local ok = pcall(function() writefile(getAutoloadPath(), name) end)
-        if ok then Notify("⚡ Autoload", "Set: " .. name, 3) end
+        if ok then Notify("⚡ Autoload", "Set: " .. name, 3)
+        else Notify("⚠️ Error", "Failed autoload", 4, true) end
     end
     local function clearAutoload()
-        pcall(function() if isfile(getAutoloadPath()) then delfile(getAutoloadPath()) end end)
-        Notify("🚫 Autoload", "Disabled", 3)
+        local ok = pcall(function()
+            if isfile(getAutoloadPath()) then delfile(getAutoloadPath()) end
+        end)
+        if ok then Notify("🚫 Autoload", "Disabled", 3) end
     end
     local function getAutoload()
         local ok, content = pcall(function() return readfile(getAutoloadPath()) end)
