@@ -8,7 +8,6 @@ function Arsenal.Init(ctx)
     local Language = ctx.Language
     local gameName = ctx.gameName
 
-    -- ⚙️ VERSÃO SÓ DO ARSENAL - Muda aqui quando atualizar este jogo
     local GAME_VERSION = "1.1"
     local FULL_VERSION = "Infinite Zen V" .. GAME_VERSION .. " - " .. gameName
     local SHORT_VERSION = "V" .. GAME_VERSION .. " - " .. gameName
@@ -28,13 +27,10 @@ function Arsenal.Init(ctx)
     local Camera = workspace.CurrentCamera
 
     local UNLOADED = false
-
-    -- MOBILE DETECTION
     local IS_MOBILE = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
     local MOBILE_SCALE = 0.72
     print("[Infinite Zen] Mobile:", IS_MOBILE, "| Scale:", MOBILE_SCALE)
 
-    -- TRADUÇÃO
     local langRefresh = {}
     local function registerRefresh(fn)
         table.insert(langRefresh, fn)
@@ -56,26 +52,12 @@ function Arsenal.Init(ctx)
     end
 
     local State = {
-        silentHeadshot = false,
-        aimbot = false,
-        headExpander = false,
-        headExpanderSize = 3,
-        silentFov = 120,
-        backstab = false,
-        noRecoil = false,
-        rapidFire = false,
-        fastReload = false,
-        instaReload = false,
-        autoShoot = false,
-        autoShootFov = 100,
-        speed = false,
-        airJump = false,
-        esp = false,
-        espMaxDistance = 500,
-        lowGraphics = false,
-        noShadows = false,
-        noFog = false,
-        noParticles = false,
+        silentHeadshot = false, aimbot = false, headExpander = false,
+        headExpanderSize = 3, silentFov = 120, backstab = false,
+        noRecoil = false, rapidFire = false, fastReload = false, instaReload = false,
+        autoShoot = false, autoShootFov = 100, speed = false, airJump = false,
+        esp = false, espMaxDistance = 500,
+        lowGraphics = false, noShadows = false, noFog = false, noParticles = false,
         keybinds = {
             silentHeadshot = "X", aimbot = nil, headExpander = nil, backstab = "E",
             noRecoil = nil, rapidFire = nil, fastReload = nil, instaReload = nil,
@@ -84,7 +66,6 @@ function Arsenal.Init(ctx)
     }
 
     local recordingKeyFor = nil
-
     local FeatureLabels = {
         silentHeadshot = "Silent Headshot", aimbot = "Aimbot", headExpander = "Head Expander",
         backstab = "Backstab", noRecoil = "No-Recoil", rapidFire = "Rapid Fire",
@@ -182,15 +163,7 @@ function Arsenal.Init(ctx)
     local mainStroke = Instance.new("UIStroke", MainFrame)
     mainStroke.Color = Theme.Primary; mainStroke.Thickness = 1.5; mainStroke.Transparency = 0.3
 
-    local shadow = Instance.new("ImageLabel", MainFrame)
-    shadow.Image = "rbxassetid://1316045217"
-    shadow.Size = UDim2.new(1, 40, 1, 40)
-    shadow.Position = UDim2.new(0, -20, 0, -20)
-    shadow.BackgroundTransparency = 1
-    shadow.ImageTransparency = 0.55
-    shadow.ZIndex = 0
-
-    -- HEADER
+    -- HEADER (FLAT como MM2)
     local Header = Instance.new("Frame", MainFrame)
     Header.Name = "Header"
     Header.Size = UDim2.new(1, 0, 0, 48)
@@ -204,42 +177,27 @@ function Arsenal.Init(ctx)
         ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 30, 40)),
         ColorSequenceKeypoint.new(1, Color3.fromRGB(100, 5, 15))
     })
-    headerGradient.Transparency = NumberSequence.new({
-        NumberSequenceKeypoint.new(0, 0.75), NumberSequenceKeypoint.new(0.5, 0.9), NumberSequenceKeypoint.new(1, 0.95)
-    })
     headerGradient.Rotation = 15
     headerGradient.Parent = Header
 
-    local headerFix = Instance.new("Frame", Header)
-    headerFix.Size = UDim2.new(1, 0, 0, 12); headerFix.Position = UDim2.new(0, 0, 1, -12)
-    headerFix.BackgroundColor3 = Theme.Surface; headerFix.BorderSizePixel = 0
-
     local headerBar = Instance.new("Frame", Header)
-    headerBar.Size = UDim2.new(1, 0, 0, 2); headerBar.BackgroundColor3 = Theme.Primary
+    headerBar.Size = UDim2.new(1, 0, 0, 2)
+    headerBar.BackgroundColor3 = Theme.Primary
     headerBar.BorderSizePixel = 0; headerBar.ZIndex = 2
-    local hbg = Instance.new("UIGradient")
-    hbg.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 5, 15)),
-        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 50, 50)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(100, 5, 15))
-    })
-    hbg.Parent = headerBar
 
     local Title = Instance.new("TextLabel", Header)
     Title.Size = UDim2.new(0, 250, 0, 22); Title.Position = UDim2.new(0, 20, 0, 6)
     Title.BackgroundTransparency = 1; Title.Font = Theme.FontBold
     Title.Text = "∞ INFINITE ZEN"; Title.TextColor3 = Theme.TitleRed; Title.TextSize = 17
     Title.TextXAlignment = Enum.TextXAlignment.Left; Title.ZIndex = 3
-    local titleStroke = Instance.new("UIStroke", Title)
-    titleStroke.Color = Color3.fromRGB(255, 100, 100); titleStroke.Thickness = 1; titleStroke.Transparency = 0.7
 
     local Subtitle = Instance.new("TextLabel", Header)
     Subtitle.Size = UDim2.new(0, 250, 0, 18); Subtitle.Position = UDim2.new(0, 20, 0, 25)
     Subtitle.BackgroundTransparency = 1; Subtitle.Font = Theme.Font
-    Subtitle.Text = SHORT_VERSION  -- "V1.1 - Arsenal"
-    Subtitle.TextColor3 = Color3.fromRGB(220, 180, 185); Subtitle.TextSize = 11
-    Subtitle.TextXAlignment = Enum.TextXAlignment.Left; Subtitle.ZIndex = 3
+    Subtitle.Text = SHORT_VERSION; Subtitle.TextColor3 = Color3.fromRGB(220, 180, 185)
+    Subtitle.TextSize = 11; Subtitle.TextXAlignment = Enum.TextXAlignment.Left; Subtitle.ZIndex = 3
 
+    -- BOTÃO DE IDIOMA (RESTAURADO)
     local LangBtn = Instance.new("TextButton", Header)
     LangBtn.Size = UDim2.new(0, 60, 0, 26); LangBtn.Position = UDim2.new(1, -110, 0.5, -13)
     LangBtn.BackgroundColor3 = Theme.Surface2; LangBtn.Text = "US"
@@ -252,13 +210,12 @@ function Arsenal.Init(ctx)
     LangDropdown.BackgroundColor3 = Theme.Surface2; LangDropdown.BorderSizePixel = 0
     LangDropdown.Visible = false; LangDropdown.ZIndex = 10; LangDropdown.ClipsDescendants = true
     Instance.new("UICorner", LangDropdown).CornerRadius = UDim.new(0, 8)
-    local dropdownStroke = Instance.new("UIStroke", LangDropdown)
-    dropdownStroke.Color = Theme.Primary; dropdownStroke.Thickness = 1; dropdownStroke.Transparency = 0.3
-    local dropdownLayout = Instance.new("UIListLayout", LangDropdown)
-    dropdownLayout.Padding = UDim.new(0, 2)
+    local dStroke = Instance.new("UIStroke", LangDropdown)
+    dStroke.Color = Theme.Primary; dStroke.Thickness = 1; dStroke.Transparency = 0.3
+    local dLayout = Instance.new("UIListLayout", LangDropdown)
+    dLayout.Padding = UDim.new(0, 2)
 
-    local availableLangs = Language.getAvailable()
-    for i, langData in ipairs(availableLangs) do
+    for _, langData in ipairs(Language.getAvailable()) do
         local optBtn = Instance.new("TextButton", LangDropdown)
         optBtn.Size = UDim2.new(1, -8, 0, 30); optBtn.BackgroundColor3 = Theme.Surface
         optBtn.Text = "  [" .. langData.shortCode .. "]  " .. langData.displayName
@@ -272,7 +229,7 @@ function Arsenal.Init(ctx)
             LangDropdown.Visible = false
         end)
     end
-    LangDropdown.Size = UDim2.new(0, 140, 0, #availableLangs * 32 + 8)
+    LangDropdown.Size = UDim2.new(0, 140, 0, #Language.getAvailable() * 32 + 8)
 
     local dropdownOpen = false
     LangBtn.MouseButton1Click:Connect(function()
@@ -306,10 +263,6 @@ function Arsenal.Init(ctx)
         Instance.new("UICorner", reopenBtn).CornerRadius = UDim.new(1, 0)
         local reopenStroke = Instance.new("UIStroke", reopenBtn)
         reopenStroke.Color = Theme.TitleRed; reopenStroke.Thickness = 2; reopenStroke.Transparency = 0.3
-        local reopenShadow = Instance.new("ImageLabel", reopenBtn)
-        reopenShadow.Image = "rbxassetid://1316045217"
-        reopenShadow.Size = UDim2.new(1, 20, 1, 20); reopenShadow.Position = UDim2.new(0, -10, 0, -10)
-        reopenShadow.BackgroundTransparency = 1; reopenShadow.ImageTransparency = 0.4; reopenShadow.ZIndex = 0
 
         reopenBtn.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -371,19 +324,16 @@ function Arsenal.Init(ctx)
     end)
     makeDraggable(Header); makeDraggable(Title); makeDraggable(Subtitle)
 
+    -- SIDEBAR + CONTENT (FLAT)
     local Sidebar = Instance.new("Frame", MainFrame)
     Sidebar.Size = UDim2.new(0, 140, 1, -65); Sidebar.Position = UDim2.new(0, 10, 0, 58)
     Sidebar.BackgroundColor3 = Theme.SidebarColor; Sidebar.BorderSizePixel = 0
     Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 8)
-    local sbStroke = Instance.new("UIStroke", Sidebar)
-    sbStroke.Color = Theme.Border; sbStroke.Thickness = 1; sbStroke.Transparency = 0.5
 
     local Content = Instance.new("Frame", MainFrame)
     Content.Size = UDim2.new(1, -170, 1, -70); Content.Position = UDim2.new(0, 160, 0, 58)
     Content.BackgroundColor3 = Theme.ContentColor; Content.BackgroundTransparency = 0.3; Content.BorderSizePixel = 0
     Instance.new("UICorner", Content).CornerRadius = UDim.new(0, 8)
-    local cStroke = Instance.new("UIStroke", Content)
-    cStroke.Color = Theme.Border; cStroke.Thickness = 1; cStroke.Transparency = 0.5
 
     local minimized = false
     local function setMinimized(v)
@@ -409,7 +359,6 @@ function Arsenal.Init(ctx)
         Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
 
         registerRefresh(function() btn.Text = "  " .. icon .. "   " .. Language.get(nameKey) end)
-
         btn.MouseEnter:Connect(function()
             if btn.BackgroundColor3 == Theme.Surface then btn.BackgroundColor3 = Theme.Surface2 end
         end)
@@ -1242,26 +1191,15 @@ function Arsenal.Init(ctx)
         end
         local json = HttpService:JSONEncode(data)
         local ok, err = pcall(function() writefile(getConfigPath(name), json) end)
-        if ok then
-            Notify("💾 Config", "Saved: " .. name, 3)
-            return true
-        else
-            Notify("⚠️ Error", "Failed: " .. tostring(err), 4, true)
-            return false
-        end
+        if ok then Notify("💾 Config", "Saved: " .. name, 3); return true
+        else Notify("⚠️ Error", "Failed: " .. tostring(err), 4, true); return false end
     end
 
     local function loadConfigNamed(name)
         local ok, content = pcall(function() return readfile(getConfigPath(name)) end)
-        if not ok or not content then
-            Notify("⚠️ Error", "Config not found: " .. name, 4, true)
-            return false
-        end
+        if not ok or not content then Notify("⚠️ Error", "Config not found", 4, true); return false end
         local success, data = pcall(function() return HttpService:JSONDecode(content) end)
-        if not success or not data then
-            Notify("⚠️ Error", "Corrupted: " .. name, 4, true)
-            return false
-        end
+        if not success or not data then Notify("⚠️ Error", "Corrupted", 4, true); return false end
         if data.language then Language.setLanguage(data.language) end
         if data.state then for k, v in pairs(data.state) do State[k] = v end end
         if data.keybinds then for k, v in pairs(data.keybinds) do State.keybinds[k] = v end end
@@ -1285,8 +1223,7 @@ function Arsenal.Init(ctx)
         local path = getConfigPath(name)
         if isfile and isfile(path) then
             pcall(function() delfile(path) end)
-            Notify("🗑️ Delete", "Deleted: " .. name, 3)
-            return true
+            Notify("🗑️ Delete", "Deleted", 3); return true
         end
         return false
     end
@@ -1305,14 +1242,11 @@ function Arsenal.Init(ctx)
     local function setAutoload(name)
         ensureFolder()
         local ok = pcall(function() writefile(getAutoloadPath(), name) end)
-        if ok then Notify("⚡ Autoload", "Set: " .. name, 3)
-        else Notify("⚠️ Error", "Failed autoload", 4, true) end
+        if ok then Notify("⚡ Autoload", "Set: " .. name, 3) end
     end
     local function clearAutoload()
-        local ok = pcall(function()
-            if isfile(getAutoloadPath()) then delfile(getAutoloadPath()) end
-        end)
-        if ok then Notify("🚫 Autoload", "Disabled", 3) end
+        pcall(function() if isfile(getAutoloadPath()) then delfile(getAutoloadPath()) end end)
+        Notify("🚫 Autoload", "Disabled", 3)
     end
     local function getAutoload()
         local ok, content = pcall(function() return readfile(getAutoloadPath()) end)
@@ -1370,19 +1304,14 @@ function Arsenal.Init(ctx)
     end)
     VisualsTab.CreateSlider("max_distance", 100, 10000, 500, "espMaxDistance")
 
-    -- SETTINGS
     local SettingsTab = CreateTab("tab_settings", "⚙️")
-
     SettingsTab.CreateLabel("── Configs ──", Theme.Text)
     SettingsTab.CreateLabel("Type name and press Enter", Theme.TextDim)
 
     local refreshConfigListRef = nil
     SettingsTab.CreateTextBox("Config name...", function(name)
-        if saveConfigNamed(name) and refreshConfigListRef then
-            refreshConfigListRef()
-        end
+        if saveConfigNamed(name) and refreshConfigListRef then refreshConfigListRef() end
     end)
-
     SettingsTab.CreateLabel(" ")
     SettingsTab.CreateLabel("── Loaded Configs ──", Theme.Text)
     SettingsTab.CreateLabel("Load • ⚡ Autoload • × Delete", Theme.TextDim)
@@ -1467,7 +1396,6 @@ function Arsenal.Init(ctx)
         refreshConfigList()
         Notify("🔄 Refresh", "Config list updated", 2)
     end)
-
     SettingsTab.CreateLabel(" ")
     local autoloadLabel = SettingsTab.CreateLabel("", Theme.Text)
     registerRefresh(function()
@@ -1484,32 +1412,26 @@ function Arsenal.Init(ctx)
     SettingsTab.CreateButton("🚫 Disable Autoload", function()
         clearAutoload(); refreshConfigList()
     end)
-
     SettingsTab.CreateLabel(" ")
     SettingsTab.CreateLabel("── Optimizations ──", Theme.Text)
     SettingsTab.CreateLabel("Boost FPS / Reduce lag", Theme.TextDim)
-
     SettingsTab.CreateToggle("low_graphics", "lowGraphics", function(v) applyLowGraphics(v) end)
     SettingsTab.CreateToggle("no_shadows", "noShadows", function(v) applyNoShadows(v) end)
     SettingsTab.CreateToggle("no_fog", "noFog", function(v) applyNoFog(v) end)
     SettingsTab.CreateToggle("no_particles", "noParticles", function(v) applyNoParticles(v) end)
-
     SettingsTab.CreateLabel(" ")
     SettingsTab.CreateButton("⚡ Max FPS Boost", function()
         toggleHandles.lowGraphics.SetState(true)
         toggleHandles.noShadows.SetState(true)
         toggleHandles.noFog.SetState(true)
         toggleHandles.noParticles.SetState(true)
-        Notify("⚡ Boost", "Otimizações ativadas", 3)
     end)
     SettingsTab.CreateButton("🔄 Reset Optimizations", function()
         toggleHandles.lowGraphics.SetState(false)
         toggleHandles.noShadows.SetState(false)
         toggleHandles.noFog.SetState(false)
         toggleHandles.noParticles.SetState(false)
-        Notify("🔄 Reset", "Otimizações desativadas", 3)
     end)
-
     SettingsTab.CreateLabel(" ")
     SettingsTab.CreateLabel("info_label")
     SettingsTab.CreateLabel("key_minimize")
@@ -1528,29 +1450,21 @@ function Arsenal.Init(ctx)
         applyNoFog(false)
         applyNoParticles(false)
         GUI:Destroy()
-        print("[Infinite Zen] Arsenal unloaded")
     end, "danger")
 
-    -- CREDITS
     local CreditsTab = CreateTab("tab_credits", "➕")
     CreditsTab.CreateCredit("FOUNDER & DEVELOPER", "Sr Red", Theme.TitleRed)
     CreditsTab.CreateLabel(" ")
     CreditsTab.CreateLabel("── Join our Discord ──", Theme.Text)
     CreditsTab.CreateLabel("https://discord.gg/ScZfU2mAGm", Theme.TextDim)
     local discordBtn = CreditsTab.CreateButton("💬 Join Discord Server", function()
-        if setclipboard then
-            setclipboard("https://discord.gg/ScZfU2mAGm")
-            Notify("📋 Copied", "Discord link copied!", 3)
-        else
-            Notify("ℹ️ Discord", "discord.gg/ScZfU2mAGm", 5)
-        end
+        if setclipboard then setclipboard("https://discord.gg/ScZfU2mAGm"); Notify("📋 Copied", "Discord link copied!", 3) end
     end)
     discordBtn.BackgroundColor3 = Theme.Discord
     CreditsTab.CreateLabel(" ")
     CreditsTab.CreateLabel(FULL_VERSION, Theme.TextDim)
     CreditsTab.CreateLabel("© 2026 Sr Red", Theme.TextDim)
 
-    -- Version label (rodapé)
     local versionLabel = Instance.new("TextLabel", MainFrame)
     versionLabel.Size = UDim2.new(1, -20, 0, 16); versionLabel.Position = UDim2.new(0, 10, 1, -20)
     versionLabel.BackgroundTransparency = 1; versionLabel.Font = Theme.Font
@@ -1558,22 +1472,15 @@ function Arsenal.Init(ctx)
     versionLabel.TextXAlignment = Enum.TextXAlignment.Right
     versionLabel.Text = FULL_VERSION
 
-    -- Autoload
     task.defer(function()
         local autoloadName = getAutoload()
-        if autoloadName then
-            task.wait(1)
-            loadConfigNamed(autoloadName)
-        end
+        if autoloadName then task.wait(1); loadConfigNamed(autoloadName) end
     end)
 
-    -- KEYBIND SYSTEM
     local MINIMIZE_KEY = Enum.KeyCode.K
-
     UserInputService.InputBegan:Connect(function(input, gp)
         if UNLOADED or gp then return end
         if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
-
         if recordingKeyFor then
             local featId = recordingKeyFor
             if input.KeyCode == Enum.KeyCode.Escape then
@@ -1584,7 +1491,7 @@ function Arsenal.Init(ctx)
             end
             local newKey = input.KeyCode.Name
             if newKey == "K" then
-                Notify("🚫 Blocked", "K reserved for Minimize", 4, true)
+                Notify("🚫 Blocked", "K reserved", 4, true)
                 recordingKeyFor = nil
                 local handle = toggleHandles[featId]
                 if handle then handle.SetKeybind(State.keybinds[featId]) end
@@ -1604,12 +1511,7 @@ function Arsenal.Init(ctx)
             if handle then handle.SetKeybind(State.keybinds[featId]) end
             return
         end
-
-        if input.KeyCode == MINIMIZE_KEY then
-            setMinimized(not minimized)
-            return
-        end
-
+        if input.KeyCode == MINIMIZE_KEY then setMinimized(not minimized); return end
         local keyName = input.KeyCode.Name
         for featId, key in pairs(State.keybinds) do
             if key and key == keyName then

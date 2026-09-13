@@ -29,11 +29,9 @@ function Jailbird.Init(ctx)
 
     local UNLOADED = false
     local IS_JAILBIRD = game.PlaceId == 14939963714
-
     local IS_MOBILE = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
     local MOBILE_SCALE = 0.72
 
-    -- TRADUÇÃO
     local langRefresh = {}
     local function registerRefresh(fn)
         table.insert(langRefresh, fn)
@@ -43,7 +41,6 @@ function Jailbird.Init(ctx)
         for _, fn in ipairs(langRefresh) do pcall(fn) end
     end
 
-    -- ✅ AUTO-FORMATTER: trigger_bot → "Trigger Bot"
     local function getLabel(labelKey)
         local t = Language.get(labelKey)
         if t and t ~= labelKey then return t end
@@ -68,8 +65,7 @@ function Jailbird.Init(ctx)
         Stance = GameEvents and GameEvents:FindFirstChild("Stance"),
         HitFromServer = GameEvents and GameEvents:FindFirstChild("HitFromServer"),
     }
-    print("[Infinite Zen] Remotes:", Remotes.LookRotation and "LookRotation✓" or "LookRotation✗",
-          Remotes.Reload and "Reload✓" or "Reload✗")
+    print("[Infinite Zen] Remotes carregados")
 
     local function isEnemy(player)
         if player == LocalPlayer then return false end
@@ -88,7 +84,6 @@ function Jailbird.Init(ctx)
         return player.Team ~= myTeam
     end
 
-    -- STATE
     local State = {
         silentHeadshot = false, silentFov = 120,
         aimbot = false, aimbotFov = 100, aimbotSmoothness = 0.3,
@@ -116,7 +111,6 @@ function Jailbird.Init(ctx)
     }
 
     local recordingKeyFor = nil
-
     local FeatureLabels = {
         silentHeadshot = "Silent Headshot", aimbot = "Aimbot",
         triggerbot = "Triggerbot", headExpander = "Head Expander",
@@ -228,10 +222,8 @@ function Jailbird.Init(ctx)
     local function getTargetPart(p)
         if not p.Character then return nil end
         local mode = State.aimbotHitbox
-        if mode == 1 then
-            return p.Character:FindFirstChild("Head")
-        elseif mode == 2 then
-            return p.Character:FindFirstChild("Torso") or p.Character:FindFirstChild("UpperTorso")
+        if mode == 1 then return p.Character:FindFirstChild("Head")
+        elseif mode == 2 then return p.Character:FindFirstChild("Torso") or p.Character:FindFirstChild("UpperTorso")
         else
             local head = p.Character:FindFirstChild("Head")
             local torso = p.Character:FindFirstChild("Torso") or p.Character:FindFirstChild("UpperTorso")
@@ -268,12 +260,7 @@ function Jailbird.Init(ctx)
     local mainStroke = Instance.new("UIStroke", MainFrame)
     mainStroke.Color = Theme.Primary; mainStroke.Thickness = 1.5; mainStroke.Transparency = 0.3
 
-    local shadow = Instance.new("ImageLabel", MainFrame)
-    shadow.Image = "rbxassetid://1316045217"
-    shadow.Size = UDim2.new(1, 40, 1, 40); shadow.Position = UDim2.new(0, -20, 0, -20)
-    shadow.BackgroundTransparency = 1; shadow.ImageTransparency = 0.55; shadow.ZIndex = 0
-
-    -- HEADER
+    -- HEADER FLAT
     local Header = Instance.new("Frame", MainFrame)
     Header.Size = UDim2.new(1, 0, 0, 48)
     Header.BackgroundColor3 = Theme.Surface
@@ -286,37 +273,19 @@ function Jailbird.Init(ctx)
         ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 30, 40)),
         ColorSequenceKeypoint.new(1, Color3.fromRGB(100, 5, 15))
     })
-    headerGradient.Transparency = NumberSequence.new({
-        NumberSequenceKeypoint.new(0, 0.75),
-        NumberSequenceKeypoint.new(0.5, 0.9),
-        NumberSequenceKeypoint.new(1, 0.95)
-    })
     headerGradient.Rotation = 15
     headerGradient.Parent = Header
-
-    local headerFix = Instance.new("Frame", Header)
-    headerFix.Size = UDim2.new(1, 0, 0, 12); headerFix.Position = UDim2.new(0, 0, 1, -12)
-    headerFix.BackgroundColor3 = Theme.Surface; headerFix.BorderSizePixel = 0
 
     local headerBar = Instance.new("Frame", Header)
     headerBar.Size = UDim2.new(1, 0, 0, 2)
     headerBar.BackgroundColor3 = Theme.Primary
     headerBar.BorderSizePixel = 0; headerBar.ZIndex = 2
-    local hbg = Instance.new("UIGradient")
-    hbg.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 5, 15)),
-        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 50, 50)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(100, 5, 15))
-    })
-    hbg.Parent = headerBar
 
     local Title = Instance.new("TextLabel", Header)
     Title.Size = UDim2.new(0, 250, 0, 22); Title.Position = UDim2.new(0, 20, 0, 6)
     Title.BackgroundTransparency = 1; Title.Font = Theme.FontBold
     Title.Text = "∞ INFINITE ZEN"; Title.TextColor3 = Theme.TitleRed; Title.TextSize = 17
     Title.TextXAlignment = Enum.TextXAlignment.Left; Title.ZIndex = 3
-    local titleStroke = Instance.new("UIStroke", Title)
-    titleStroke.Color = Color3.fromRGB(255, 100, 100); titleStroke.Thickness = 1; titleStroke.Transparency = 0.7
 
     local Subtitle = Instance.new("TextLabel", Header)
     Subtitle.Size = UDim2.new(0, 250, 0, 18); Subtitle.Position = UDim2.new(0, 20, 0, 25)
@@ -324,6 +293,7 @@ function Jailbird.Init(ctx)
     Subtitle.Text = SHORT_VERSION; Subtitle.TextColor3 = Color3.fromRGB(220, 180, 185)
     Subtitle.TextSize = 11; Subtitle.TextXAlignment = Enum.TextXAlignment.Left; Subtitle.ZIndex = 3
 
+    -- BOTÃO DE IDIOMA
     local LangBtn = Instance.new("TextButton", Header)
     LangBtn.Size = UDim2.new(0, 60, 0, 26); LangBtn.Position = UDim2.new(1, -110, 0.5, -13)
     LangBtn.BackgroundColor3 = Theme.Surface2; LangBtn.Text = "US"
@@ -388,22 +358,16 @@ function Jailbird.Init(ctx)
         Instance.new("UICorner", reopenBtn).CornerRadius = UDim.new(1, 0)
         local reopenStroke = Instance.new("UIStroke", reopenBtn)
         reopenStroke.Color = Theme.TitleRed; reopenStroke.Thickness = 2; reopenStroke.Transparency = 0.3
-        local reopenShadow = Instance.new("ImageLabel", reopenBtn)
-        reopenShadow.Image = "rbxassetid://1316045217"
-        reopenShadow.Size = UDim2.new(1, 20, 1, 20); reopenShadow.Position = UDim2.new(0, -10, 0, -10)
-        reopenShadow.BackgroundTransparency = 1; reopenShadow.ImageTransparency = 0.4; reopenShadow.ZIndex = 0
 
         reopenBtn.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1
-                or input.UserInputType == Enum.UserInputType.Touch then
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 reopenDragging = true; reopenMoved = false
                 reopenDragStart = input.Position; reopenStartPos = reopenBtn.Position
             end
         end)
         reopenBtn.InputChanged:Connect(function(input)
             if not reopenDragging then return end
-            if input.UserInputType == Enum.UserInputType.MouseMovement
-                or input.UserInputType == Enum.UserInputType.Touch then
+            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
                 local delta = input.Position - reopenDragStart
                 if math.abs(delta.X) > 5 or math.abs(delta.Y) > 5 then reopenMoved = true end
                 reopenBtn.Position = UDim2.new(
@@ -413,11 +377,8 @@ function Jailbird.Init(ctx)
             end
         end)
         UserInputService.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1
-                or input.UserInputType == Enum.UserInputType.Touch then
-                if reopenDragging then
-                    reopenDragging = false; task.wait(0.1); reopenMoved = false
-                end
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                if reopenDragging then reopenDragging = false; task.wait(0.1); reopenMoved = false end
             end
         end)
         reopenBtn.MouseButton1Click:Connect(function()
@@ -437,8 +398,7 @@ function Jailbird.Init(ctx)
     local function makeDraggable(element)
         element.InputBegan:Connect(function(input)
             if UNLOADED then return end
-            if input.UserInputType == Enum.UserInputType.MouseButton1
-                or input.UserInputType == Enum.UserInputType.Touch then
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 dragging = true; dragStart = input.Position; startPos = MainFrame.Position
                 input.Changed:Connect(function()
                     if input.UserInputState == Enum.UserInputState.End then dragging = false end
@@ -447,8 +407,9 @@ function Jailbird.Init(ctx)
         end)
         element.InputChanged:Connect(function(input)
             if UNLOADED then return end
-            if input.UserInputType == Enum.UserInputType.MouseMovement
-                or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
+            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                dragInput = input
+            end
         end)
     end
     UserInputService.InputChanged:Connect(function(input)
@@ -457,20 +418,17 @@ function Jailbird.Init(ctx)
     end)
     makeDraggable(Header); makeDraggable(Title); makeDraggable(Subtitle)
 
+    -- SIDEBAR + CONTENT FLAT
     local Sidebar = Instance.new("Frame", MainFrame)
     Sidebar.Size = UDim2.new(0, 140, 1, -65); Sidebar.Position = UDim2.new(0, 10, 0, 58)
     Sidebar.BackgroundColor3 = Theme.SidebarColor; Sidebar.BorderSizePixel = 0
     Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 8)
-    local sbStroke = Instance.new("UIStroke", Sidebar)
-    sbStroke.Color = Theme.Border; sbStroke.Thickness = 1; sbStroke.Transparency = 0.5
 
     local Content = Instance.new("Frame", MainFrame)
     Content.Size = UDim2.new(1, -170, 1, -70); Content.Position = UDim2.new(0, 160, 0, 58)
     Content.BackgroundColor3 = Theme.ContentColor; Content.BackgroundTransparency = 0.3
     Content.BorderSizePixel = 0
     Instance.new("UICorner", Content).CornerRadius = UDim.new(0, 8)
-    local cStroke = Instance.new("UIStroke", Content)
-    cStroke.Color = Theme.Border; cStroke.Thickness = 1; cStroke.Transparency = 0.5
 
     local minimized = false
     local function setMinimized(v)
@@ -511,7 +469,7 @@ function Jailbird.Init(ctx)
         container.BackgroundTransparency = 1; container.BorderSizePixel = 0
         container.CanvasSize = UDim2.new(0, 0, 0, 0); container.AutomaticCanvasSize = Enum.AutomaticSize.Y
         container.ScrollBarThickness = 4; container.ScrollBarImageColor3 = Theme.Primary
-        container.ScrollBarImageTransparency = 0.4; container.Visible = false
+        container.Visible = false
 
         local layout = Instance.new("UIListLayout", container)
         layout.Padding = UDim.new(0, 6)
@@ -542,15 +500,11 @@ function Jailbird.Init(ctx)
             Instance.new("UICorner", holder).CornerRadius = UDim.new(0, 6)
             local hs = Instance.new("UIStroke", holder)
             hs.Color = Theme.Border; hs.Thickness = 1; hs.Transparency = 0.7
-
             local lbl = Instance.new("TextLabel", holder)
             lbl.Size = UDim2.new(0.5, 0, 1, 0); lbl.Position = UDim2.new(0, 12, 0, 0)
             lbl.BackgroundTransparency = 1; lbl.Font = Theme.Font; lbl.TextSize = 12
             lbl.TextColor3 = Theme.Text; lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Text = ""
-            registerRefresh(function()
-                lbl.Text = getLabel(labelKey)
-            end)
-
+            registerRefresh(function() lbl.Text = getLabel(labelKey) end)
             local keyBtn = Instance.new("TextButton", holder)
             keyBtn.Size = UDim2.new(0, 50, 0, 22); keyBtn.Position = UDim2.new(0.55, 0, 0.5, -11)
             keyBtn.BackgroundColor3 = State.keybinds[featureId] and Theme.Primary or Theme.Surface2
@@ -559,7 +513,6 @@ function Jailbird.Init(ctx)
             keyBtn.TextColor3 = State.keybinds[featureId] and Theme.Text or Theme.TextDim
             keyBtn.AutoButtonColor = false
             Instance.new("UICorner", keyBtn).CornerRadius = UDim.new(0, 6)
-
             local toggleBtn = Instance.new("TextButton", holder)
             toggleBtn.Size = UDim2.new(0, 50, 0, 22); toggleBtn.Position = UDim2.new(1, -58, 0.5, -11)
             toggleBtn.BackgroundColor3 = State[featureId] and Theme.Success or Theme.Surface2
@@ -567,7 +520,6 @@ function Jailbird.Init(ctx)
             toggleBtn.Text = State[featureId] and "ON" or "OFF"
             toggleBtn.AutoButtonColor = false
             Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 6)
-
             local function setState(v, silent)
                 State[featureId] = v
                 toggleBtn.Text = v and "ON" or "OFF"
@@ -576,7 +528,6 @@ function Jailbird.Init(ctx)
             end
             local function toggle() setState(not State[featureId]) end
             toggleBtn.MouseButton1Click:Connect(toggle)
-
             keyBtn.MouseButton1Click:Connect(function()
                 if recordingKeyFor then return end
                 recordingKeyFor = featureId
@@ -584,7 +535,6 @@ function Jailbird.Init(ctx)
                 keyBtn.BackgroundColor3 = Theme.Warning
                 keyBtn.TextColor3 = Theme.Text
             end)
-
             local handle = {
                 SetState = setState, Toggle = toggle,
                 SetKeybind = function(key)
@@ -608,37 +558,29 @@ function Jailbird.Init(ctx)
             Instance.new("UICorner", holder).CornerRadius = UDim.new(0, 6)
             local hs = Instance.new("UIStroke", holder)
             hs.Color = Theme.Border; hs.Thickness = 1; hs.Transparency = 0.7
-
             local lbl = Instance.new("TextLabel", holder)
             lbl.Size = UDim2.new(0.6, 0, 0, 18); lbl.Position = UDim2.new(0, 12, 0, 4)
             lbl.BackgroundTransparency = 1; lbl.Font = Theme.Font; lbl.TextSize = 11
             lbl.TextColor3 = Theme.Text; lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Text = ""
-            registerRefresh(function()
-                lbl.Text = getLabel(labelKey)
-            end)
-
+            registerRefresh(function() lbl.Text = getLabel(labelKey) end)
             local valLbl = Instance.new("TextLabel", holder)
             valLbl.Size = UDim2.new(0.35, 0, 0, 18); valLbl.Position = UDim2.new(0.6, 0, 0, 4)
             valLbl.BackgroundTransparency = 1; valLbl.Font = Theme.FontBold; valLbl.TextSize = 11
             valLbl.TextColor3 = Theme.Primary; valLbl.Text = tostring(defaultValue or min)
             valLbl.TextXAlignment = Enum.TextXAlignment.Right
-
             local barBg = Instance.new("Frame", holder)
             barBg.Size = UDim2.new(1, -24, 0, 5); barBg.Position = UDim2.new(0, 12, 0, 30)
             barBg.BackgroundColor3 = Theme.Surface2; barBg.BorderSizePixel = 0
             Instance.new("UICorner", barBg).CornerRadius = UDim.new(1, 0)
-
             local cur = defaultValue or min
             local rel = (cur - min) / (max - min)
             local fill = Instance.new("Frame", barBg)
             fill.Size = UDim2.new(rel, 0, 1, 0)
             fill.BackgroundColor3 = Theme.Primary; fill.BorderSizePixel = 0
             Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
-
             local click = Instance.new("TextButton", holder)
             click.Size = UDim2.new(1, -24, 0, 22); click.Position = UDim2.new(0, 12, 0, 22)
             click.BackgroundTransparency = 1; click.Text = ""; click.AutoButtonColor = false; click.ZIndex = 5
-
             local activeInput = nil
             local function update(posX)
                 local p = barBg.AbsolutePosition
@@ -654,16 +596,14 @@ function Jailbird.Init(ctx)
             end
             click.InputBegan:Connect(function(input)
                 if UNLOADED or activeInput then return end
-                if input.UserInputType == Enum.UserInputType.MouseButton1
-                    or input.UserInputType == Enum.UserInputType.Touch then
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                     activeInput = input
                     update(input.Position.X)
                 end
             end)
             UserInputService.InputChanged:Connect(function(input)
                 if UNLOADED or activeInput ~= input then return end
-                if input.UserInputType == Enum.UserInputType.MouseMovement
-                    or input.UserInputType == Enum.UserInputType.Touch then
+                if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
                     update(input.Position.X)
                 end
             end)
@@ -671,7 +611,6 @@ function Jailbird.Init(ctx)
                 if UNLOADED then return end
                 if input == activeInput then activeInput = nil end
             end)
-
             local handle = {
                 SetValue = function(v)
                     cur = math.clamp(v, min, max)
@@ -696,9 +635,7 @@ function Jailbird.Init(ctx)
             Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
             local bs = Instance.new("UIStroke", btn)
             bs.Color = Theme.Border; bs.Thickness = 1; bs.Transparency = 0.7
-            registerRefresh(function()
-                btn.Text = getLabel(labelKey)
-            end)
+            registerRefresh(function() btn.Text = getLabel(labelKey) end)
             btn.MouseEnter:Connect(function()
                 btn.BackgroundColor3 = style == "danger" and Color3.fromRGB(80, 20, 25) or Theme.Primary
             end)
@@ -714,9 +651,7 @@ function Jailbird.Init(ctx)
             lbl.Size = UDim2.new(1, -10, 0, 18)
             lbl.BackgroundTransparency = 1; lbl.Font = Theme.Font; lbl.TextSize = 11
             lbl.TextColor3 = color or Theme.TextDim; lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Text = ""
-            registerRefresh(function()
-                lbl.Text = getLabel(textKey)
-            end)
+            registerRefresh(function() lbl.Text = getLabel(textKey) end)
             return lbl
         end
 
@@ -812,7 +747,7 @@ function Jailbird.Init(ctx)
         return closest
     end
 
-    -- FIRE WEAPON helper
+    -- FIRE WEAPON
     local function fireWeapon()
         local char = LocalPlayer.Character
         if not char then return false end
@@ -828,9 +763,7 @@ function Jailbird.Init(ctx)
             VirtualInput:SendMouseButtonEvent(0, 0, 0, false, game, 0)
         end)
         pcall(function() tool:Activate() end)
-        if Remotes.Shoot then
-            pcall(function() Remotes.Shoot:FireServer() end)
-        end
+        if Remotes.Shoot then pcall(function() Remotes.Shoot:FireServer() end) end
         return true
     end
 
@@ -853,8 +786,7 @@ function Jailbird.Init(ctx)
     end)
     UserInputService.InputBegan:Connect(function(input, gp)
         if UNLOADED or gp or not State.silentHeadshot then return end
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1
-            and input.UserInputType ~= Enum.UserInputType.Touch then return end
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
         silentOriginalCF = Camera.CFrame
         local target = getClosestEnemyInFov(State.silentFov)
         if not target or not target.Character then return end
@@ -869,8 +801,7 @@ function Jailbird.Init(ctx)
     end)
     UserInputService.InputEnded:Connect(function(input, gp)
         if UNLOADED or gp then return end
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1
-            and input.UserInputType ~= Enum.UserInputType.Touch then return end
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
         if silentHolding then
             silentHolding = false
             silentTarget = nil
@@ -899,9 +830,7 @@ function Jailbird.Init(ctx)
                             local dx = sp.X - mouse.X
                             local dy = sp.Y - mouse.Y
                             local s = State.aimbotSmoothness
-                            if mousemoverel then
-                                pcall(function() mousemoverel(dx * s, dy * s) end)
-                            end
+                            if mousemoverel then pcall(function() mousemoverel(dx * s, dy * s) end) end
                         end
                     end
                 end
@@ -1060,11 +989,9 @@ function Jailbird.Init(ctx)
         if not (State.rapidFire or State.noRecoil or State.fastReload or State.instaReload or State.noSpread or State.infiniteAmmo) then return end
         local char = LocalPlayer.Character
         if not char then return end
-
         local containers = {char}
         local backpack = LocalPlayer:FindFirstChild("Backpack")
         if backpack then table.insert(containers, backpack) end
-
         for _, container in ipairs(containers) do
             for _, tool in ipairs(container:GetChildren()) do
                 if tool:IsA("Tool") then
@@ -1072,11 +999,8 @@ function Jailbird.Init(ctx)
                         pcall(function()
                             for _, name in ipairs({"FireRate", "BFireRate", "RateOfFire", "ShootCooldown", "FireDelay", "Cooldown", "EquipTime"}) do
                                 local f = tool:FindFirstChild(name)
-                                if f and (f:IsA("NumberValue") or f:IsA("IntValue")) then
-                                    f.Value = 0.01
-                                elseif typeof(tool[name]) == "number" then
-                                    tool[name] = 0.01
-                                end
+                                if f and (f:IsA("NumberValue") or f:IsA("IntValue")) then f.Value = 0.01
+                                elseif typeof(tool[name]) == "number" then tool[name] = 0.01 end
                             end
                         end)
                     end
@@ -1085,12 +1009,8 @@ function Jailbird.Init(ctx)
                             for _, d in ipairs(tool:GetDescendants()) do
                                 if d:IsA("NumberValue") or d:IsA("IntValue") then
                                     local n = d.Name:lower()
-                                    if State.noRecoil and (n:find("recoil") or n:find("kick") or n:find("camera")) then
-                                        d.Value = 0
-                                    end
-                                    if State.noSpread and (n:find("spread") or n:find("accuracy")) then
-                                        d.Value = 0
-                                    end
+                                    if State.noRecoil and (n:find("recoil") or n:find("kick") or n:find("camera")) then d.Value = 0 end
+                                    if State.noSpread and (n:find("spread") or n:find("accuracy")) then d.Value = 0 end
                                 end
                             end
                         end)
@@ -1135,9 +1055,7 @@ function Jailbird.Init(ctx)
                                 end
                             end
                         end)
-                        if Remotes.Reload then
-                            pcall(function() Remotes.Reload:FireServer() end)
-                        end
+                        if Remotes.Reload then pcall(function() Remotes.Reload:FireServer() end) end
                     end
                 end
             end
@@ -1152,12 +1070,9 @@ function Jailbird.Init(ctx)
                         for _, d in ipairs(ReplicatedStorage.Weapons:GetDescendants()) do
                             if d:IsA("NumberValue") or d:IsA("IntValue") then
                                 local n = d.Name:lower()
-                                if State.rapidFire and (n == "firerate" or n == "bfirerate" or n == "rateoffire" or n == "firedelay") then
-                                    d.Value = 0.01
-                                elseif State.noRecoil and n:find("recoil") then
-                                    d.Value = 0
-                                elseif State.noSpread and (n:find("spread") or n:find("accuracy")) then
-                                    d.Value = 0
+                                if State.rapidFire and (n == "firerate" or n == "bfirerate" or n == "rateoffire" or n == "firedelay") then d.Value = 0.01
+                                elseif State.noRecoil and n:find("recoil") then d.Value = 0
+                                elseif State.noSpread and (n:find("spread") or n:find("accuracy")) then d.Value = 0
                                 elseif State.fastReload and not State.instaReload and n:find("reload") and not n:find("reloading") then
                                     if not reloadOriginals[d] then reloadOriginals[d] = d.Value end
                                     d.Value = reloadOriginals[d] * 0.1
@@ -1183,9 +1098,7 @@ function Jailbird.Init(ctx)
         if not hum then return end
         local state = hum:GetState()
         if state == Enum.HumanoidStateType.Landed or state == Enum.HumanoidStateType.Running then
-            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-                hum.Jump = true
-            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then hum.Jump = true end
         end
     end)
 
@@ -1193,9 +1106,7 @@ function Jailbird.Init(ctx)
     local flashKeywords = {"flash", "blind", "whiteout", "whitescreen", "flashbang"}
     local function isFlashName(name)
         local lower = name:lower()
-        for _, kw in ipairs(flashKeywords) do
-            if lower:find(kw) then return true end
-        end
+        for _, kw in ipairs(flashKeywords) do if lower:find(kw) then return true end end
         return false
     end
     local function checkFlash()
@@ -1203,17 +1114,13 @@ function Jailbird.Init(ctx)
         if pg then
             for _, child in ipairs(pg:GetChildren()) do
                 if child:IsA("ScreenGui") or child:IsA("Frame") then
-                    if isFlashName(child.Name) then
-                        pcall(function() child:Destroy() end)
-                    end
+                    if isFlashName(child.Name) then pcall(function() child:Destroy() end) end
                 end
             end
         end
         for _, child in ipairs(Lighting:GetChildren()) do
             if child:IsA("ColorCorrectionEffect") or child:IsA("BlurEffect") then
-                if isFlashName(child.Name) then
-                    pcall(function() child:Destroy() end)
-                end
+                if isFlashName(child.Name) then pcall(function() child:Destroy() end) end
             end
         end
     end
@@ -1305,15 +1212,9 @@ function Jailbird.Init(ctx)
     end)
 
     RunService.RenderStepped:Connect(function()
-        if UNLOADED or not State.damageIndicator then
-            dmgArrow.Visible = false
-            return
-        end
+        if UNLOADED or not State.damageIndicator then dmgArrow.Visible = false; return end
         local now = tick()
-        if now - lastDamageTime > 1.5 then
-            dmgArrow.Visible = false
-            return
-        end
+        if now - lastDamageTime > 1.5 then dmgArrow.Visible = false; return end
         local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         if not myHRP then dmgArrow.Visible = false; return end
         local attackerPos = nil
@@ -1352,9 +1253,7 @@ function Jailbird.Init(ctx)
         if not obj or not obj.Parent then return false end
         if not obj:IsA("BasePart") then return false end
         local lower = obj.Name:lower()
-        for _, kw in ipairs(grenadeKeywords) do
-            if lower:find(kw) then return true end
-        end
+        for _, kw in ipairs(grenadeKeywords) do if lower:find(kw) then return true end end
         return false
     end
     local function clearGrenadeDrawings()
@@ -1365,10 +1264,7 @@ function Jailbird.Init(ctx)
         grenadeDrawings = {}
     end
     RunService.RenderStepped:Connect(function()
-        if UNLOADED or not State.espGrenades then
-            clearGrenadeDrawings()
-            return
-        end
+        if UNLOADED or not State.espGrenades then clearGrenadeDrawings(); return end
         local activeObjects = {}
         for _, obj in ipairs(workspace:GetChildren()) do
             if isGrenade(obj) then
@@ -1411,7 +1307,6 @@ function Jailbird.Init(ctx)
 
     -- ESP
     local ESP = {data = {}}
-
     local function createESP(p)
         if ESP.data[p] then return end
         if not p.Character then return end
@@ -1440,7 +1335,6 @@ function Jailbird.Init(ctx)
         data.armor = newDrawing("Text", {Size = 11, Center = true, Outline = true, Color = Color3.fromRGB(100, 200, 255)})
         ESP.data[p] = data
     end
-
     local function removeESP(p)
         local d = ESP.data[p]
         if not d then return end
@@ -1450,11 +1344,9 @@ function Jailbird.Init(ctx)
         end
         ESP.data[p] = nil
     end
-
     local function clearAllESP()
         for p, _ in pairs(ESP.data) do removeESP(p) end
     end
-
     local function updateESP(p, char)
         local d = ESP.data[p]
         if not d then return end
@@ -1477,23 +1369,19 @@ function Jailbird.Init(ctx)
         local hrp = char:FindFirstChild("HumanoidRootPart")
         if not head or not hrp then return end
         if d.chams then d.chams.Enabled = true end
-
         local headSp, headOn = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
         local hrpSp, hrpOn = Camera:WorldToViewportPoint(hrp.Position)
         local footPos = hrp.Position - Vector3.new(0, 3, 0)
         local footSp, footOn = Camera:WorldToViewportPoint(footPos)
-
         local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         if not myHRP then return end
         local dist = math.floor((head.Position - myHRP.Position).Magnitude)
-
         if dist > State.espMaxDistance then
             for _, key in ipairs({"box", "name", "distance", "health", "tracer", "headDot", "weapon", "armor"}) do
                 if d[key] then d[key].Visible = false end
             end
             return
         end
-
         if headOn and footOn then
             local h = math.abs(footSp.Y - headSp.Y)
             local w = h * 0.6
@@ -1503,7 +1391,6 @@ function Jailbird.Init(ctx)
             d.box.Size = Vector2.new(w, h)
             d.box.Visible = true
         else d.box.Visible = false end
-
         if headOn then
             d.name.Position = Vector2.new(headSp.X, headSp.Y - 20)
             d.name.Text = p.Name
@@ -1513,7 +1400,6 @@ function Jailbird.Init(ctx)
             d.distance.Visible = true
             d.headDot.Position = Vector2.new(headSp.X, headSp.Y)
             d.headDot.Visible = true
-
             if State.espWeapon then
                 local tool = char:FindFirstChildOfClass("Tool")
                 if tool then
@@ -1522,7 +1408,6 @@ function Jailbird.Init(ctx)
                     d.weapon.Visible = true
                 else d.weapon.Visible = false end
             else d.weapon.Visible = false end
-
             if State.espArmor then
                 if hum.MaxHealth > 100 then
                     local armorVal = math.floor(hum.MaxHealth - 100)
@@ -1539,7 +1424,6 @@ function Jailbird.Init(ctx)
             d.weapon.Visible = false
             d.armor.Visible = false
         end
-
         if headOn and footOn then
             local h = math.abs(footSp.Y - headSp.Y)
             local hr = hum.Health / hum.MaxHealth
@@ -1553,14 +1437,12 @@ function Jailbird.Init(ctx)
             else d.health.Color = Color3.fromRGB(255, 40, 40) end
             d.health.Visible = true
         else d.health.Visible = false end
-
         if hrpOn then
             d.tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
             d.tracer.To = Vector2.new(hrpSp.X, hrpSp.Y)
             d.tracer.Visible = true
         else d.tracer.Visible = false end
     end
-
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.esp then return end
         for _, p in ipairs(Players:GetPlayers()) do
@@ -1578,9 +1460,7 @@ function Jailbird.Init(ctx)
         local char = LocalPlayer.Character
         if char then
             local hum = char:FindFirstChildOfClass("Humanoid")
-            if hum and hum.WalkSpeed ~= State.speedValue then
-                hum.WalkSpeed = State.speedValue
-            end
+            if hum and hum.WalkSpeed ~= State.speedValue then hum.WalkSpeed = State.speedValue end
         end
     end)
 
@@ -1736,26 +1616,15 @@ function Jailbird.Init(ctx)
         end
         local json = HttpService:JSONEncode(data)
         local ok, err = pcall(function() writefile(getConfigPath(name), json) end)
-        if ok then
-            Notify("💾 Config", "Saved: " .. name, 3)
-            return true
-        else
-            Notify("⚠️ Error", "Failed: " .. tostring(err), 4, true)
-            return false
-        end
+        if ok then Notify("💾 Config", "Saved: " .. name, 3); return true
+        else Notify("⚠️ Error", "Failed: " .. tostring(err), 4, true); return false end
     end
 
     local function loadConfigNamed(name)
         local ok, content = pcall(function() return readfile(getConfigPath(name)) end)
-        if not ok or not content then
-            Notify("⚠️ Error", "Config not found: " .. name, 4, true)
-            return false
-        end
+        if not ok or not content then Notify("⚠️ Error", "Config not found", 4, true); return false end
         local success, data = pcall(function() return HttpService:JSONDecode(content) end)
-        if not success or not data then
-            Notify("⚠️ Error", "Corrupted: " .. name, 4, true)
-            return false
-        end
+        if not success or not data then Notify("⚠️ Error", "Corrupted", 4, true); return false end
         if data.language then Language.setLanguage(data.language) end
         if data.state then for k, v in pairs(data.state) do State[k] = v end end
         if data.keybinds then for k, v in pairs(data.keybinds) do State.keybinds[k] = v end end
@@ -1781,8 +1650,7 @@ function Jailbird.Init(ctx)
         local path = getConfigPath(name)
         if isfile and isfile(path) then
             pcall(function() delfile(path) end)
-            Notify("🗑️ Delete", "Deleted: " .. name, 3)
-            return true
+            Notify("🗑️ Delete", "Deleted", 3); return true
         end
         return false
     end
@@ -1801,14 +1669,11 @@ function Jailbird.Init(ctx)
     local function setAutoload(name)
         ensureFolder()
         local ok = pcall(function() writefile(getAutoloadPath(), name) end)
-        if ok then Notify("⚡ Autoload", "Set: " .. name, 3)
-        else Notify("⚠️ Error", "Failed autoload", 4, true) end
+        if ok then Notify("⚡ Autoload", "Set: " .. name, 3) end
     end
     local function clearAutoload()
-        local ok = pcall(function()
-            if isfile(getAutoloadPath()) then delfile(getAutoloadPath()) end
-        end)
-        if ok then Notify("🚫 Autoload", "Disabled", 3) end
+        pcall(function() if isfile(getAutoloadPath()) then delfile(getAutoloadPath()) end end)
+        Notify("🚫 Autoload", "Disabled", 3)
     end
     local function getAutoload()
         local ok, content = pcall(function() return readfile(getAutoloadPath()) end)
@@ -1879,17 +1744,12 @@ function Jailbird.Init(ctx)
     VisualsTab.CreateToggle("damage_indicator", "damageIndicator")
 
     local SettingsTab = CreateTab("tab_settings", "⚙️")
-
     SettingsTab.CreateLabel("── Configs ──", Theme.Text)
     SettingsTab.CreateLabel("Type name and press Enter", Theme.TextDim)
-
     local refreshConfigListRef = nil
     SettingsTab.CreateTextBox("Config name...", function(name)
-        if saveConfigNamed(name) and refreshConfigListRef then
-            refreshConfigListRef()
-        end
+        if saveConfigNamed(name) and refreshConfigListRef then refreshConfigListRef() end
     end)
-
     SettingsTab.CreateLabel(" ")
     SettingsTab.CreateLabel("── Loaded Configs ──", Theme.Text)
     SettingsTab.CreateLabel("Load • ⚡ Autoload • × Delete", Theme.TextDim)
@@ -1936,7 +1796,6 @@ function Jailbird.Init(ctx)
             entry.BackgroundColor3 = Theme.Surface2
             entry.BorderSizePixel = 0
             Instance.new("UICorner", entry).CornerRadius = UDim.new(0, 4)
-
             local nameLbl = Instance.new("TextLabel", entry)
             nameLbl.Size = UDim2.new(0.5, 0, 1, 0)
             nameLbl.Position = UDim2.new(0, 8, 0, 0)
@@ -1950,7 +1809,6 @@ function Jailbird.Init(ctx)
                 nameLbl.Text = "⚡ " .. configName
                 nameLbl.TextColor3 = Theme.Warning
             end
-
             local loadBtn = Instance.new("TextButton", entry)
             loadBtn.Size = UDim2.new(0, 50, 0, 22)
             loadBtn.Position = UDim2.new(1, -110, 0.5, -11)
@@ -1962,10 +1820,8 @@ function Jailbird.Init(ctx)
             loadBtn.AutoButtonColor = false
             Instance.new("UICorner", loadBtn).CornerRadius = UDim.new(0, 4)
             loadBtn.MouseButton1Click:Connect(function()
-                loadConfigNamed(configName)
-                refreshConfigList()
+                loadConfigNamed(configName); refreshConfigList()
             end)
-
             local autoBtn = Instance.new("TextButton", entry)
             autoBtn.Size = UDim2.new(0, 22, 0, 22)
             autoBtn.Position = UDim2.new(1, -55, 0.5, -11)
@@ -1981,7 +1837,6 @@ function Jailbird.Init(ctx)
                 else setAutoload(configName) end
                 refreshConfigList()
             end)
-
             local delBtn = Instance.new("TextButton", entry)
             delBtn.Size = UDim2.new(0, 22, 0, 22)
             delBtn.Position = UDim2.new(1, -28, 0.5, -11)
@@ -1993,8 +1848,7 @@ function Jailbird.Init(ctx)
             delBtn.AutoButtonColor = false
             Instance.new("UICorner", delBtn).CornerRadius = UDim.new(0, 4)
             delBtn.MouseButton1Click:Connect(function()
-                deleteConfigNamed(configName)
-                refreshConfigList()
+                deleteConfigNamed(configName); refreshConfigList()
             end)
         end
     end
@@ -2005,7 +1859,6 @@ function Jailbird.Init(ctx)
         refreshConfigList()
         Notify("🔄 Refresh", "Config list updated", 2)
     end)
-
     SettingsTab.CreateLabel(" ")
     local autoloadLabel = SettingsTab.CreateLabel("", Theme.Text)
     registerRefresh(function()
@@ -2020,10 +1873,8 @@ function Jailbird.Init(ctx)
     end)
     SettingsTab.CreateLabel(" ")
     SettingsTab.CreateButton("🚫 Disable Autoload", function()
-        clearAutoload()
-        refreshConfigList()
+        clearAutoload(); refreshConfigList()
     end)
-
     SettingsTab.CreateLabel(" ")
     SettingsTab.CreateLabel("── Optimizations ──", Theme.Text)
     SettingsTab.CreateLabel("Boost FPS / Reduce lag", Theme.TextDim)
@@ -2046,13 +1897,11 @@ function Jailbird.Init(ctx)
         toggleHandles.noParticles.SetState(false)
         Notify("🔄 Reset", "Otimizações desativadas", 3)
     end)
-
     SettingsTab.CreateLabel(" ")
     SettingsTab.CreateLabel("── Security ──", Theme.Text)
     SettingsTab.CreateLabel("Anti-detection", Theme.TextDim)
     SettingsTab.CreateToggle("anti_flash", "antiFlash")
     SettingsTab.CreateToggle("anti_votekick", "antiVK")
-
     SettingsTab.CreateLabel(" ")
     SettingsTab.CreateLabel(" ")
     SettingsTab.CreateButton("unload_script", function()
@@ -2070,7 +1919,6 @@ function Jailbird.Init(ctx)
         if fovCircle then fovCircle:Remove() end
         if dmgArrow then dmgArrow:Remove() end
         GUI:Destroy()
-        print("[Infinite Zen] Jailbird unloaded")
     end, "danger")
 
     local CreditsTab = CreateTab("tab_credits", "➕")
@@ -2079,12 +1927,7 @@ function Jailbird.Init(ctx)
     CreditsTab.CreateLabel("── Join our Discord ──", Theme.Text)
     CreditsTab.CreateLabel("https://discord.gg/ScZfU2mAGm", Theme.TextDim)
     local discordBtn = CreditsTab.CreateButton("💬 Join Discord Server", function()
-        if setclipboard then
-            setclipboard("https://discord.gg/ScZfU2mAGm")
-            Notify("📋 Copied", "Discord link copied!", 3)
-        else
-            Notify("ℹ️ Discord", "discord.gg/ScZfU2mAGm", 5)
-        end
+        if setclipboard then setclipboard("https://discord.gg/ScZfU2mAGm"); Notify("📋 Copied", "Discord link copied!", 3) end
     end)
     discordBtn.BackgroundColor3 = Theme.Discord
     CreditsTab.CreateLabel(" ")
@@ -2104,17 +1947,13 @@ function Jailbird.Init(ctx)
 
     task.defer(function()
         local autoloadName = getAutoload()
-        if autoloadName then
-            task.wait(1)
-            loadConfigNamed(autoloadName)
-        end
+        if autoloadName then task.wait(1); loadConfigNamed(autoloadName) end
     end)
 
     local MINIMIZE_KEY = Enum.KeyCode.K
     UserInputService.InputBegan:Connect(function(input, gp)
         if UNLOADED or gp then return end
         if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
-
         if recordingKeyFor then
             local featId = recordingKeyFor
             if input.KeyCode == Enum.KeyCode.Escape then
@@ -2125,7 +1964,7 @@ function Jailbird.Init(ctx)
             end
             local newKey = input.KeyCode.Name
             if newKey == "K" then
-                Notify("🚫 Blocked", "K reserved for Minimize", 4, true)
+                Notify("🚫 Blocked", "K reserved", 4, true)
                 recordingKeyFor = nil
                 local handle = toggleHandles[featId]
                 if handle then handle.SetKeybind(State.keybinds[featId]) end
@@ -2145,12 +1984,7 @@ function Jailbird.Init(ctx)
             if handle then handle.SetKeybind(State.keybinds[featId]) end
             return
         end
-
-        if input.KeyCode == MINIMIZE_KEY then
-            setMinimized(not minimized)
-            return
-        end
-
+        if input.KeyCode == MINIMIZE_KEY then setMinimized(not minimized); return end
         local keyName = input.KeyCode.Name
         for featId, key in pairs(State.keybinds) do
             if key and key == keyName then
@@ -2170,7 +2004,6 @@ function Jailbird.Init(ctx)
     end
 
     print("[Infinite Zen] ✅ " .. FULL_VERSION .. " carregado!")
-    print("[Infinite Zen] K = Minimize | E = Backstab | X = Silent Headshot")
     print("[Infinite Zen] Configs em: InfiniteZen_Configs/Jailbird")
 end
 
