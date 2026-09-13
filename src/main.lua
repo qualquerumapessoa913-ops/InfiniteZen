@@ -22,6 +22,7 @@ local CONFIG = {
     SUPPORTED_GAMES = {
         [286090429] = {name = "Arsenal", module = "arsenal"},
         [14939963714] = {name = "Jailbird", module = "jailbird"},
+        [142823291] = {name = "Murder Mystery 2", module = "mm2"}
     }
 }
 
