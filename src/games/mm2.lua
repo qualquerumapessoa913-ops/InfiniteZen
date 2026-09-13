@@ -1,5 +1,5 @@
 -- ============================================================
--- INFINITE ZEN - MÓDULO MM2 v1.1 (ROLE-BASED)
+-- INFINITE ZEN - MÓDULO MM2 v1.0 (ROLE-BASED)
 -- Murder Mystery 2 (PlaceId 142823291)
 -- ============================================================
 
@@ -9,7 +9,7 @@ function MM2.Init(ctx)
     local Language = ctx.Language
     local gameName = ctx.gameName
 
-    local GAME_VERSION = "1.1"
+    local GAME_VERSION = "1.0"
     local FULL_VERSION = "Infinite Zen V" .. GAME_VERSION .. " - " .. gameName
     local SHORT_VERSION = "V" .. GAME_VERSION .. " - " .. gameName
 
@@ -1082,7 +1082,6 @@ function MM2.Init(ctx)
     -- ============================================================
     local MurdererTab = CreateTab("Murderer", "🔪")
 
-    -- Silent Aim (corrigido: bind com prioridade alta)
     local murdererSilentTarget = nil
     local murdererSilentHolding = false
 
@@ -1124,7 +1123,6 @@ function MM2.Init(ctx)
         end
     end)
 
-    -- Helper: pegar/equipar knife
     local function getKnife()
         local char = LocalPlayer.Character
         if not char then return nil end
@@ -1157,7 +1155,6 @@ function MM2.Init(ctx)
         return nil
     end
 
-    -- Kill Aura (corrigido: equipar antes + teleport com step back)
     local killAuraActive = false
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.killAura then return end
@@ -1183,7 +1180,6 @@ function MM2.Init(ctx)
                     if tHRP then
                         local dist = (tHRP.Position - originalCF.Position).Magnitude
                         if dist <= State.killAuraRange then
-                            -- Teleporta pra trás do alvo (posição de backstab natural)
                             local behindCF = tHRP.CFrame * CFrame.new(0, 0, 2.5)
                             myHRP.CFrame = behindCF
                             task.wait(0.03)
@@ -1207,7 +1203,6 @@ function MM2.Init(ctx)
         end)
     end)
 
-    -- Auto Backstab (corrigido: verifica se estamos atrás do alvo)
     local backstabLast = 0
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.autoBackstab then return end
@@ -1228,9 +1223,7 @@ function MM2.Init(ctx)
                     if dist < 12 and dist > 0.1 then
                         local toUs = delta.Unit
                         local theirLook = tHRP.CFrame.LookVector
-                        -- Se o alvo está "de costas" para nós (dot < 0), estamos atrás
                         if toUs:Dot(theirLook) < 0 then
-                            -- Reposiciona atrás pra garantir
                             myHRP.CFrame = tHRP.CFrame * CFrame.new(0, 0, 2)
                             task.wait(0.03)
                             pcall(function() knife:Activate() end)
@@ -1258,7 +1251,6 @@ function MM2.Init(ctx)
     -- ============================================================
     local InnocentTab = CreateTab("Innocent", "❓")
 
-    -- Murderer Alert
     local lastAlertTime = 0
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.murdererAlert then return end
@@ -1357,7 +1349,7 @@ function MM2.Init(ctx)
     end)
 
     -- ============================================================
-    -- AUTO COIN FARM (CORRIGIDO - fly suave, coleta com cooldown)
+    -- AUTO COIN FARM (fly suave, coleta com cooldown)
     -- ============================================================
     local coinDrawings = {}
     local coinCache = {}
@@ -1417,14 +1409,12 @@ function MM2.Init(ctx)
         local hum = char:FindFirstChildOfClass("Humanoid")
         if not hrp or not hum or hum.Health <= 0 then return end
 
-        -- Rescan periódico
         coinCacheTimer = coinCacheTimer + dt
         if coinCacheTimer >= 0.5 or #coinCache == 0 then
             coinCacheTimer = 0
             coinCache = findCoins()
         end
 
-        -- Achar mais próxima (ignorando as em cooldown de coleta)
         local nearest, minDist = nil, math.huge
         local now = tick()
         for _, c in ipairs(coinCache) do
@@ -1437,7 +1427,6 @@ function MM2.Init(ctx)
             end
         end
 
-        -- Desenhar moedas
         local activeSet = {}
         for _, coin in ipairs(coinCache) do
             if coin and coin.Parent then
@@ -1493,7 +1482,6 @@ function MM2.Init(ctx)
         local delta = targetPos - hrp.Position
         local dist = delta.Magnitude
 
-        -- Se está perto: coleta
         if dist <= 4 then
             if coinMoveActive then
                 coinMoveActive = false
@@ -1504,7 +1492,6 @@ function MM2.Init(ctx)
             local last = coinCollectCooldown[nearest] or 0
             if tick() - last > 0.4 then
                 coinCollectCooldown[nearest] = tick()
-                -- Toca com HRP e todos os membros
                 local parts = {hrp}
                 for _, n in ipairs({"RightHand", "LeftHand", "Right Arm", "Left Arm", "Torso", "UpperTorso", "LowerTorso"}) do
                     local bp = char:FindFirstChild(n)
@@ -1520,7 +1507,6 @@ function MM2.Init(ctx)
             return
         end
 
-        -- Fly suave (lerp de CFrame, sem teleporte)
         if not coinMoveActive then
             coinMoveActive = true
             hum.PlatformStand = true
@@ -1534,7 +1520,7 @@ function MM2.Init(ctx)
     end)
 
     -- ============================================================
-    -- AUTO GRAB GUN (CORRIGIDO - touch com múltiplos membros + tempo maior)
+    -- AUTO GRAB GUN
     -- ============================================================
     local function playerHasGun()
         local char = LocalPlayer.Character
@@ -1593,7 +1579,6 @@ function MM2.Init(ctx)
         local originalPlatform = hum.PlatformStand
 
         task.spawn(function()
-            -- Tentativa 1: parent direto (só funciona em alguns casos)
             local pulled = pcall(function() gun.Parent = char end)
             task.wait(0.05)
             if pulled and gun.Parent == char then
@@ -1602,16 +1587,13 @@ function MM2.Init(ctx)
                 return
             end
 
-            -- Tentativa 2: teleporta o char pra gun e fica 0.25s
             hum.PlatformStand = true
             hrp.AssemblyLinearVelocity = Vector3.zero
             local grabCF = CFrame.new(handle.Position + Vector3.new(0, 1, 0))
             hrp.CFrame = grabCF
 
-            -- Move todos os membros pra cima da gun também
             task.wait(0.03)
 
-            -- Touch com todos os membros (loop)
             for i = 1, 5 do
                 if not hrp or not hrp.Parent then break end
                 if not handle or not handle.Parent then break end
@@ -1633,7 +1615,6 @@ function MM2.Init(ctx)
 
             task.wait(0.1)
 
-            -- Volta pra posição original
             if hrp and hrp.Parent then
                 hrp.CFrame = originalCF
                 hum.PlatformStand = originalPlatform
