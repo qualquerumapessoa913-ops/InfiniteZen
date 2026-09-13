@@ -61,7 +61,7 @@ Language.translations = {
         keybind_help1 = "Cada feature tem sua propria keybind",
         keybind_help2 = "Clique no botao de keybind pra gravar",
         unload_script = "Descarregar Script",
-        version_text = "Infinite Zen v1.3",
+        version_text = "Infinite Zen v1.1",
 
         on = "Ligado",
         off = "Desligado",
@@ -139,7 +139,7 @@ Language.translations = {
         keybind_help1 = "Each feature has its own keybind",
         keybind_help2 = "Click the keybind button to record",
         unload_script = "Unload Script",
-        version_text = "Infinite Zen v1.3",
+        version_text = "Infinite Zen v1.1",
 
         on = "ON",
         off = "OFF",
@@ -217,7 +217,7 @@ Language.translations = {
         keybind_help1 = "Cada funcion tiene su propia tecla",
         keybind_help2 = "Haz clic en el boton de tecla para grabar",
         unload_script = "Descargar Script",
-        version_text = "Infinite Zen v1.3",
+        version_text = "Infinite Zen v1.1",
 
         on = "Encendido",
         off = "Apagado",

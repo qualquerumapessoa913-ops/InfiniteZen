@@ -5,7 +5,7 @@
 
 print("============================================")
 print("  🌌 INFINITE ZEN HUB")
-print("  Versão: 1.0")
+print("  Versão: 1.1")
 print("============================================")
 
 local Players = game:GetService("Players")

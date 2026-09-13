@@ -1,5 +1,5 @@
 -- ============================================================
--- INFINITE ZEN - MÓDULO JAILBIRD v1.3 (MOBILE + OPTIMIZATIONS + CREDITS)
+-- INFINITE ZEN - MÓDULO JAILBIRD v1.0
 -- Jailbird (PlaceId 14939963714)
 -- ============================================================
 
@@ -9,7 +9,12 @@ function Jailbird.Init(ctx)
     local Language = ctx.Language
     local gameName = ctx.gameName
 
-    print("[Infinite Zen] Inicializando Jailbird v1.3...")
+    -- ⚙️ VERSÃO SÓ DO JAILBIRD - Muda aqui quando atualizar este jogo
+    local GAME_VERSION = "1.0"
+    local FULL_VERSION = "Infinite Zen V" .. GAME_VERSION .. " - " .. gameName
+    local SHORT_VERSION = "V" .. GAME_VERSION .. " - " .. gameName
+
+    print("[Infinite Zen] Inicializando " .. FULL_VERSION .. "...")
 
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -275,7 +280,6 @@ function Jailbird.Init(ctx)
     MainFrame.BorderSizePixel = 0
     Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
 
-    -- MOBILE: UIScale + recentralização
     local guiScale = Instance.new("UIScale")
     guiScale.Scale = IS_MOBILE and MOBILE_SCALE or 1
     guiScale.Parent = MainFrame
@@ -358,7 +362,7 @@ function Jailbird.Init(ctx)
     Subtitle.Position = UDim2.new(0, 20, 0, 25)
     Subtitle.BackgroundTransparency = 1
     Subtitle.Font = Theme.Font
-    Subtitle.Text = "Jailbird v1.3"
+    Subtitle.Text = SHORT_VERSION
     Subtitle.TextColor3 = Color3.fromRGB(220, 180, 185)
     Subtitle.TextSize = 11
     Subtitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -1006,7 +1010,7 @@ function Jailbird.Init(ctx)
     end
 
     -- ============================================================
-    -- SILENT HEADSHOT (with remote LookRotation)
+    -- SILENT HEADSHOT
     -- ============================================================
     local silentHolding, silentTarget, silentOriginalCF = false, nil, nil
 
@@ -1088,7 +1092,7 @@ function Jailbird.Init(ctx)
     end)
 
     -- ============================================================
-    -- AUTO SHOOT (tool:Activate + VirtualInput + mouse1click)
+    -- AUTO SHOOT
     -- ============================================================
     local lastAutoShoot = 0
 
@@ -1198,7 +1202,7 @@ function Jailbird.Init(ctx)
     end
 
     -- ============================================================
-    -- HEAD EXPANDER (Head + Torso + HeadHB)
+    -- HEAD EXPANDER
     -- ============================================================
     local hitboxSaved = {}
 
@@ -1533,7 +1537,7 @@ function Jailbird.Init(ctx)
     end)
 
     -- ============================================================
-    -- AIR JUMP (velocity-based)
+    -- AIR JUMP
     -- ============================================================
     local airJumpConn = nil
     local AIR_JUMP_POWER = 55
@@ -1714,7 +1718,7 @@ function Jailbird.Init(ctx)
 
     local function saveConfigNamed(name)
         ensureFolder()
-        local data = {version = "1.3", language = Language.getCurrent(), state = {}, keybinds = State.keybinds}
+        local data = {version = GAME_VERSION, language = Language.getCurrent(), state = {}, keybinds = State.keybinds}
         for k, v in pairs(State) do
             if k ~= "keybinds" then data.state[k] = v end
         end
@@ -2053,8 +2057,7 @@ function Jailbird.Init(ctx)
 
     -- CREDITS
     local CreditsTab = CreateTab("tab_credits", "➕")
-    CreditsTab.CreateCredit("FOUNDER", "Sr Red", Theme.TitleRed)
-    CreditsTab.CreateCredit("DEVELOPER", "Eclipse Dev", Theme.Primary)
+    CreditsTab.CreateCredit("FOUNDER & DEVELOPER", "Sr Red", Theme.TitleRed)
     CreditsTab.CreateLabel(" ")
     CreditsTab.CreateLabel("── Join our Discord ──", Theme.Text)
     CreditsTab.CreateLabel("https://discord.gg/ScZfU2mAGm", Theme.TextDim)
@@ -2068,11 +2071,11 @@ function Jailbird.Init(ctx)
     end)
     discordBtn.BackgroundColor3 = Theme.Discord
     CreditsTab.CreateLabel(" ")
-    CreditsTab.CreateLabel("Infinite Zen v1.3", Theme.TextDim)
+    CreditsTab.CreateLabel(FULL_VERSION, Theme.TextDim)
     CreditsTab.CreateLabel("Jailbird Edition", Theme.Warning)
-    CreditsTab.CreateLabel("© 2026 Eclipse Dev", Theme.TextDim)
+    CreditsTab.CreateLabel("© 2026 Sr Red", Theme.TextDim)
 
-    -- Version label
+    -- Version label (rodapé)
     local versionLabel = Instance.new("TextLabel", MainFrame)
     versionLabel.Size = UDim2.new(1, -20, 0, 16)
     versionLabel.Position = UDim2.new(0, 10, 1, -20)
@@ -2081,7 +2084,7 @@ function Jailbird.Init(ctx)
     versionLabel.TextSize = 10
     versionLabel.TextColor3 = Theme.TextDim
     versionLabel.TextXAlignment = Enum.TextXAlignment.Right
-    versionLabel.Text = "Infinite Zen v1.3"
+    versionLabel.Text = FULL_VERSION
 
     -- AUTOLOAD
     task.defer(function()
@@ -2152,10 +2155,10 @@ function Jailbird.Init(ctx)
 
     task.wait(0.5)
     if IS_JAILBIRD then
-        Notify("🎯 Jailbird v1.3", "Carregado!", 4)
+        Notify("🎯 " .. SHORT_VERSION, "Carregado!", 4)
     end
 
-    print("[Infinite Zen] ✅ Jailbird v1.3 carregado!")
+    print("[Infinite Zen] ✅ " .. FULL_VERSION .. " carregado!")
     print("[Infinite Zen] K = Minimize | E = Backstab | X = Silent Headshot")
     print("[Infinite Zen] Configs em: InfiniteZen_Configs/Jailbird")
 end

@@ -1,5 +1,5 @@
 -- ============================================================
--- INFINITE ZEN - MÓDULO ARSENAL v1.3 (MOBILE + OPTIMIZATIONS)
+-- INFINITE ZEN - MÓDULO ARSENAL
 -- ============================================================
 
 local Arsenal = {}
@@ -8,7 +8,12 @@ function Arsenal.Init(ctx)
     local Language = ctx.Language
     local gameName = ctx.gameName
 
-    print("[Infinite Zen] Inicializando Arsenal v1.3...")
+    -- ⚙️ VERSÃO SÓ DO ARSENAL - Muda aqui quando atualizar este jogo
+    local GAME_VERSION = "1.1"
+    local FULL_VERSION = "Infinite Zen V" .. GAME_VERSION .. " - " .. gameName
+    local SHORT_VERSION = "V" .. GAME_VERSION .. " - " .. gameName
+
+    print("[Infinite Zen] Inicializando " .. FULL_VERSION .. "...")
 
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -24,16 +29,12 @@ function Arsenal.Init(ctx)
 
     local UNLOADED = false
 
-    -- ============================================================
     -- MOBILE DETECTION
-    -- ============================================================
     local IS_MOBILE = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
     local MOBILE_SCALE = 0.72
     print("[Infinite Zen] Mobile:", IS_MOBILE, "| Scale:", MOBILE_SCALE)
 
-    -- ============================================================
     -- TRADUÇÃO
-    -- ============================================================
     local langRefresh = {}
     local function registerRefresh(fn)
         table.insert(langRefresh, fn)
@@ -71,46 +72,25 @@ function Arsenal.Init(ctx)
         airJump = false,
         esp = false,
         espMaxDistance = 500,
-        -- Optimizations
         lowGraphics = false,
         noShadows = false,
         noFog = false,
         noParticles = false,
         keybinds = {
-            silentHeadshot = "X",
-            aimbot = nil,
-            headExpander = nil,
-            backstab = "E",
-            noRecoil = nil,
-            rapidFire = nil,
-            fastReload = nil,
-            instaReload = nil,
-            autoShoot = nil,
-            speed = nil,
-            airJump = nil,
-            esp = nil,
+            silentHeadshot = "X", aimbot = nil, headExpander = nil, backstab = "E",
+            noRecoil = nil, rapidFire = nil, fastReload = nil, instaReload = nil,
+            autoShoot = nil, speed = nil, airJump = nil, esp = nil,
         },
     }
 
     local recordingKeyFor = nil
 
     local FeatureLabels = {
-        silentHeadshot = "Silent Headshot",
-        aimbot = "Aimbot",
-        headExpander = "Head Expander",
-        backstab = "Backstab",
-        noRecoil = "No-Recoil",
-        rapidFire = "Rapid Fire",
-        fastReload = "Fast Reload",
-        instaReload = "Insta-Reload",
-        autoShoot = "Auto Shoot",
-        speed = "Speed",
-        airJump = "Air Jump",
-        esp = "ESP",
-        lowGraphics = "Low Graphics",
-        noShadows = "No Shadows",
-        noFog = "No Fog",
-        noParticles = "No Particles",
+        silentHeadshot = "Silent Headshot", aimbot = "Aimbot", headExpander = "Head Expander",
+        backstab = "Backstab", noRecoil = "No-Recoil", rapidFire = "Rapid Fire",
+        fastReload = "Fast Reload", instaReload = "Insta-Reload", autoShoot = "Auto Shoot",
+        speed = "Speed", airJump = "Air Jump", esp = "ESP",
+        lowGraphics = "Low Graphics", noShadows = "No Shadows", noFog = "No Fog", noParticles = "No Particles",
     }
 
     local oldMenu = PlayerGui:FindFirstChild("InfiniteZen")
@@ -123,23 +103,12 @@ function Arsenal.Init(ctx)
     GUI.Parent = PlayerGui
 
     local Theme = {
-        Bg = Color3.fromRGB(8, 4, 6),
-        Surface = Color3.fromRGB(18, 8, 12),
-        Surface2 = Color3.fromRGB(35, 12, 18),
-        Border = Color3.fromRGB(80, 15, 20),
-        SidebarColor = Color3.fromRGB(15, 6, 10),
-        ContentColor = Color3.fromRGB(25, 10, 15),
-        Primary = Color3.fromRGB(255, 30, 40),
-        PrimaryDark = Color3.fromRGB(180, 15, 25),
-        TitleRed = Color3.fromRGB(255, 50, 50),
-        Success = Color3.fromRGB(0, 220, 130),
-        Danger = Color3.fromRGB(255, 40, 40),
-        Warning = Color3.fromRGB(255, 150, 50),
-        Text = Color3.fromRGB(255, 245, 245),
-        TextDim = Color3.fromRGB(160, 120, 130),
-        Discord = Color3.fromRGB(88, 101, 242),
-        Font = Enum.Font.GothamMedium,
-        FontBold = Enum.Font.GothamBlack,
+        Bg = Color3.fromRGB(8, 4, 6), Surface = Color3.fromRGB(18, 8, 12), Surface2 = Color3.fromRGB(35, 12, 18),
+        Border = Color3.fromRGB(80, 15, 20), SidebarColor = Color3.fromRGB(15, 6, 10), ContentColor = Color3.fromRGB(25, 10, 15),
+        Primary = Color3.fromRGB(255, 30, 40), PrimaryDark = Color3.fromRGB(180, 15, 25), TitleRed = Color3.fromRGB(255, 50, 50),
+        Success = Color3.fromRGB(0, 220, 130), Danger = Color3.fromRGB(255, 40, 40), Warning = Color3.fromRGB(255, 150, 50),
+        Text = Color3.fromRGB(255, 245, 245), TextDim = Color3.fromRGB(160, 120, 130),
+        Discord = Color3.fromRGB(88, 101, 242), Font = Enum.Font.GothamMedium, FontBold = Enum.Font.GothamBlack,
     }
 
     local activeNotifs = {}
@@ -154,41 +123,23 @@ function Arsenal.Init(ctx)
         notif.Parent = GUI
         notif.ZIndex = 999
         Instance.new("UICorner", notif).CornerRadius = UDim.new(0, 10)
-
         local strokeColor = isError and Theme.Danger or Theme.Warning
         local s = Instance.new("UIStroke", notif)
-        s.Color = strokeColor
-        s.Thickness = 1.5
-        s.Transparency = 0.2
-
+        s.Color = strokeColor; s.Thickness = 1.5; s.Transparency = 0.2
         local titleL = Instance.new("TextLabel", notif)
-        titleL.Size = UDim2.new(1, -20, 0, 22)
-        titleL.Position = UDim2.new(0, 12, 0, 8)
-        titleL.BackgroundTransparency = 1
-        titleL.Font = Theme.FontBold
-        titleL.TextSize = 12
-        titleL.TextColor3 = strokeColor
-        titleL.TextXAlignment = Enum.TextXAlignment.Left
-        titleL.Text = title
-        titleL.ZIndex = 1000
-
+        titleL.Size = UDim2.new(1, -20, 0, 22); titleL.Position = UDim2.new(0, 12, 0, 8)
+        titleL.BackgroundTransparency = 1; titleL.Font = Theme.FontBold; titleL.TextSize = 12
+        titleL.TextColor3 = strokeColor; titleL.TextXAlignment = Enum.TextXAlignment.Left
+        titleL.Text = title; titleL.ZIndex = 1000
         local contentL = Instance.new("TextLabel", notif)
-        contentL.Size = UDim2.new(1, -20, 0, 30)
-        contentL.Position = UDim2.new(0, 12, 0, 28)
-        contentL.BackgroundTransparency = 1
-        contentL.Font = Theme.Font
-        contentL.TextSize = 11
-        contentL.TextColor3 = Theme.Text
-        contentL.TextXAlignment = Enum.TextXAlignment.Left
-        contentL.TextWrapped = true
-        contentL.Text = content
-        contentL.ZIndex = 1000
-
+        contentL.Size = UDim2.new(1, -20, 0, 30); contentL.Position = UDim2.new(0, 12, 0, 28)
+        contentL.BackgroundTransparency = 1; contentL.Font = Theme.Font; contentL.TextSize = 11
+        contentL.TextColor3 = Theme.Text; contentL.TextXAlignment = Enum.TextXAlignment.Left
+        contentL.TextWrapped = true; contentL.Text = content; contentL.ZIndex = 1000
         table.insert(activeNotifs, notif)
         TweenService:Create(notif, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
             Position = UDim2.new(1, -280, 0, 80 + stackIndex * 72)
         }):Play()
-
         task.delay(duration, function()
             for i, n in ipairs(activeNotifs) do
                 if n == notif then table.remove(activeNotifs, i); break end
@@ -208,9 +159,7 @@ function Arsenal.Init(ctx)
         return nil
     end
 
-    -- ============================================================
     -- MAIN WINDOW
-    -- ============================================================
     local MainFrame = Instance.new("Frame", GUI)
     MainFrame.Name = "MainFrame"
     MainFrame.Size = UDim2.new(0, 620, 0, 480)
@@ -231,9 +180,7 @@ function Arsenal.Init(ctx)
     end
 
     local mainStroke = Instance.new("UIStroke", MainFrame)
-    mainStroke.Color = Theme.Primary
-    mainStroke.Thickness = 1.5
-    mainStroke.Transparency = 0.3
+    mainStroke.Color = Theme.Primary; mainStroke.Thickness = 1.5; mainStroke.Transparency = 0.3
 
     local shadow = Instance.new("ImageLabel", MainFrame)
     shadow.Image = "rbxassetid://1316045217"
@@ -258,24 +205,18 @@ function Arsenal.Init(ctx)
         ColorSequenceKeypoint.new(1, Color3.fromRGB(100, 5, 15))
     })
     headerGradient.Transparency = NumberSequence.new({
-        NumberSequenceKeypoint.new(0, 0.75),
-        NumberSequenceKeypoint.new(0.5, 0.9),
-        NumberSequenceKeypoint.new(1, 0.95)
+        NumberSequenceKeypoint.new(0, 0.75), NumberSequenceKeypoint.new(0.5, 0.9), NumberSequenceKeypoint.new(1, 0.95)
     })
     headerGradient.Rotation = 15
     headerGradient.Parent = Header
 
     local headerFix = Instance.new("Frame", Header)
-    headerFix.Size = UDim2.new(1, 0, 0, 12)
-    headerFix.Position = UDim2.new(0, 0, 1, -12)
-    headerFix.BackgroundColor3 = Theme.Surface
-    headerFix.BorderSizePixel = 0
+    headerFix.Size = UDim2.new(1, 0, 0, 12); headerFix.Position = UDim2.new(0, 0, 1, -12)
+    headerFix.BackgroundColor3 = Theme.Surface; headerFix.BorderSizePixel = 0
 
     local headerBar = Instance.new("Frame", Header)
-    headerBar.Size = UDim2.new(1, 0, 0, 2)
-    headerBar.BackgroundColor3 = Theme.Primary
-    headerBar.BorderSizePixel = 0
-    headerBar.ZIndex = 2
+    headerBar.Size = UDim2.new(1, 0, 0, 2); headerBar.BackgroundColor3 = Theme.Primary
+    headerBar.BorderSizePixel = 0; headerBar.ZIndex = 2
     local hbg = Instance.new("UIGradient")
     hbg.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 5, 15)),
@@ -285,74 +226,44 @@ function Arsenal.Init(ctx)
     hbg.Parent = headerBar
 
     local Title = Instance.new("TextLabel", Header)
-    Title.Size = UDim2.new(0, 250, 0, 22)
-    Title.Position = UDim2.new(0, 20, 0, 6)
-    Title.BackgroundTransparency = 1
-    Title.Font = Theme.FontBold
-    Title.Text = "∞ INFINITE ZEN"
-    Title.TextColor3 = Theme.TitleRed
-    Title.TextSize = 17
-    Title.TextXAlignment = Enum.TextXAlignment.Left
-    Title.ZIndex = 3
-
+    Title.Size = UDim2.new(0, 250, 0, 22); Title.Position = UDim2.new(0, 20, 0, 6)
+    Title.BackgroundTransparency = 1; Title.Font = Theme.FontBold
+    Title.Text = "∞ INFINITE ZEN"; Title.TextColor3 = Theme.TitleRed; Title.TextSize = 17
+    Title.TextXAlignment = Enum.TextXAlignment.Left; Title.ZIndex = 3
     local titleStroke = Instance.new("UIStroke", Title)
-    titleStroke.Color = Color3.fromRGB(255, 100, 100)
-    titleStroke.Thickness = 1
-    titleStroke.Transparency = 0.7
+    titleStroke.Color = Color3.fromRGB(255, 100, 100); titleStroke.Thickness = 1; titleStroke.Transparency = 0.7
 
     local Subtitle = Instance.new("TextLabel", Header)
-    Subtitle.Size = UDim2.new(0, 200, 0, 18)
-    Subtitle.Position = UDim2.new(0, 20, 0, 25)
-    Subtitle.BackgroundTransparency = 1
-    Subtitle.Font = Theme.Font
-    Subtitle.Text = "Arsenal v1.3"
-    Subtitle.TextColor3 = Color3.fromRGB(220, 180, 185)
-    Subtitle.TextSize = 11
-    Subtitle.TextXAlignment = Enum.TextXAlignment.Left
-    Subtitle.ZIndex = 3
+    Subtitle.Size = UDim2.new(0, 250, 0, 18); Subtitle.Position = UDim2.new(0, 20, 0, 25)
+    Subtitle.BackgroundTransparency = 1; Subtitle.Font = Theme.Font
+    Subtitle.Text = SHORT_VERSION  -- "V1.1 - Arsenal"
+    Subtitle.TextColor3 = Color3.fromRGB(220, 180, 185); Subtitle.TextSize = 11
+    Subtitle.TextXAlignment = Enum.TextXAlignment.Left; Subtitle.ZIndex = 3
 
     local LangBtn = Instance.new("TextButton", Header)
-    LangBtn.Size = UDim2.new(0, 60, 0, 26)
-    LangBtn.Position = UDim2.new(1, -110, 0.5, -13)
-    LangBtn.BackgroundColor3 = Theme.Surface2
-    LangBtn.Text = "US"
-    LangBtn.Font = Theme.FontBold
-    LangBtn.TextSize = 12
-    LangBtn.TextColor3 = Theme.Text
-    LangBtn.AutoButtonColor = false
-    LangBtn.ZIndex = 3
+    LangBtn.Size = UDim2.new(0, 60, 0, 26); LangBtn.Position = UDim2.new(1, -110, 0.5, -13)
+    LangBtn.BackgroundColor3 = Theme.Surface2; LangBtn.Text = "US"
+    LangBtn.Font = Theme.FontBold; LangBtn.TextSize = 12; LangBtn.TextColor3 = Theme.Text
+    LangBtn.AutoButtonColor = false; LangBtn.ZIndex = 3
     Instance.new("UICorner", LangBtn).CornerRadius = UDim.new(0, 6)
 
     local LangDropdown = Instance.new("Frame", Header)
-    LangDropdown.Size = UDim2.new(0, 140, 0, 0)
-    LangDropdown.Position = UDim2.new(1, -110, 1, 4)
-    LangDropdown.BackgroundColor3 = Theme.Surface2
-    LangDropdown.BorderSizePixel = 0
-    LangDropdown.Visible = false
-    LangDropdown.ZIndex = 10
-    LangDropdown.ClipsDescendants = true
+    LangDropdown.Size = UDim2.new(0, 140, 0, 0); LangDropdown.Position = UDim2.new(1, -110, 1, 4)
+    LangDropdown.BackgroundColor3 = Theme.Surface2; LangDropdown.BorderSizePixel = 0
+    LangDropdown.Visible = false; LangDropdown.ZIndex = 10; LangDropdown.ClipsDescendants = true
     Instance.new("UICorner", LangDropdown).CornerRadius = UDim.new(0, 8)
-
     local dropdownStroke = Instance.new("UIStroke", LangDropdown)
-    dropdownStroke.Color = Theme.Primary
-    dropdownStroke.Thickness = 1
-    dropdownStroke.Transparency = 0.3
-
+    dropdownStroke.Color = Theme.Primary; dropdownStroke.Thickness = 1; dropdownStroke.Transparency = 0.3
     local dropdownLayout = Instance.new("UIListLayout", LangDropdown)
     dropdownLayout.Padding = UDim.new(0, 2)
 
     local availableLangs = Language.getAvailable()
     for i, langData in ipairs(availableLangs) do
         local optBtn = Instance.new("TextButton", LangDropdown)
-        optBtn.Size = UDim2.new(1, -8, 0, 30)
-        optBtn.BackgroundColor3 = Theme.Surface
+        optBtn.Size = UDim2.new(1, -8, 0, 30); optBtn.BackgroundColor3 = Theme.Surface
         optBtn.Text = "  [" .. langData.shortCode .. "]  " .. langData.displayName
-        optBtn.Font = Theme.Font
-        optBtn.TextSize = 12
-        optBtn.TextColor3 = Theme.Text
-        optBtn.TextXAlignment = Enum.TextXAlignment.Left
-        optBtn.AutoButtonColor = false
-        optBtn.ZIndex = 11
+        optBtn.Font = Theme.Font; optBtn.TextSize = 12; optBtn.TextColor3 = Theme.Text
+        optBtn.TextXAlignment = Enum.TextXAlignment.Left; optBtn.AutoButtonColor = false; optBtn.ZIndex = 11
         Instance.new("UICorner", optBtn).CornerRadius = UDim.new(0, 6)
         optBtn.MouseEnter:Connect(function() optBtn.BackgroundColor3 = Theme.Surface2 end)
         optBtn.MouseLeave:Connect(function() optBtn.BackgroundColor3 = Theme.Surface end)
@@ -368,26 +279,18 @@ function Arsenal.Init(ctx)
         dropdownOpen = not dropdownOpen
         LangDropdown.Visible = dropdownOpen
     end)
-
     registerRefresh(function()
         local data = Language.getCurrentData()
         LangBtn.Text = "[" .. data.shortCode .. "]"
     end)
 
     local MinBtn = Instance.new("TextButton", Header)
-    MinBtn.Size = UDim2.new(0, 30, 0, 30)
-    MinBtn.Position = UDim2.new(1, -40, 0.5, -15)
-    MinBtn.BackgroundColor3 = Theme.Surface2
-    MinBtn.Text = "−"
-    MinBtn.Font = Theme.FontBold
-    MinBtn.TextSize = 18
-    MinBtn.TextColor3 = Theme.Text
-    MinBtn.ZIndex = 3
+    MinBtn.Size = UDim2.new(0, 30, 0, 30); MinBtn.Position = UDim2.new(1, -40, 0.5, -15)
+    MinBtn.BackgroundColor3 = Theme.Surface2; MinBtn.Text = "−"
+    MinBtn.Font = Theme.FontBold; MinBtn.TextSize = 18; MinBtn.TextColor3 = Theme.Text; MinBtn.ZIndex = 3
     Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0, 6)
 
-    -- ============================================================
     -- ÍCONE FLUTUANTE (SÓ MOBILE)
-    -- ============================================================
     local reopenBtn = nil
     local reopenDragging = false
     local reopenDragStart = nil
@@ -396,67 +299,40 @@ function Arsenal.Init(ctx)
 
     if IS_MOBILE then
         reopenBtn = Instance.new("TextButton", GUI)
-        reopenBtn.Size = UDim2.new(0, 55, 0, 55)
-        reopenBtn.Position = UDim2.new(0, 20, 0, 100)
-        reopenBtn.BackgroundColor3 = Theme.Primary
-        reopenBtn.Text = "∞"
-        reopenBtn.Font = Theme.FontBold
-        reopenBtn.TextSize = 26
-        reopenBtn.TextColor3 = Theme.Text
-        reopenBtn.AutoButtonColor = false
-        reopenBtn.Visible = false
-        reopenBtn.ZIndex = 500
+        reopenBtn.Size = UDim2.new(0, 55, 0, 55); reopenBtn.Position = UDim2.new(0, 20, 0, 100)
+        reopenBtn.BackgroundColor3 = Theme.Primary; reopenBtn.Text = "∞"
+        reopenBtn.Font = Theme.FontBold; reopenBtn.TextSize = 26; reopenBtn.TextColor3 = Theme.Text
+        reopenBtn.AutoButtonColor = false; reopenBtn.Visible = false; reopenBtn.ZIndex = 500
         Instance.new("UICorner", reopenBtn).CornerRadius = UDim.new(1, 0)
-
         local reopenStroke = Instance.new("UIStroke", reopenBtn)
-        reopenStroke.Color = Theme.TitleRed
-        reopenStroke.Thickness = 2
-        reopenStroke.Transparency = 0.3
-
+        reopenStroke.Color = Theme.TitleRed; reopenStroke.Thickness = 2; reopenStroke.Transparency = 0.3
         local reopenShadow = Instance.new("ImageLabel", reopenBtn)
         reopenShadow.Image = "rbxassetid://1316045217"
-        reopenShadow.Size = UDim2.new(1, 20, 1, 20)
-        reopenShadow.Position = UDim2.new(0, -10, 0, -10)
-        reopenShadow.BackgroundTransparency = 1
-        reopenShadow.ImageTransparency = 0.4
-        reopenShadow.ZIndex = 0
+        reopenShadow.Size = UDim2.new(1, 20, 1, 20); reopenShadow.Position = UDim2.new(0, -10, 0, -10)
+        reopenShadow.BackgroundTransparency = 1; reopenShadow.ImageTransparency = 0.4; reopenShadow.ZIndex = 0
 
         reopenBtn.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1
-                or input.UserInputType == Enum.UserInputType.Touch then
-                reopenDragging = true
-                reopenMoved = false
-                reopenDragStart = input.Position
-                reopenStartPos = reopenBtn.Position
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                reopenDragging = true; reopenMoved = false
+                reopenDragStart = input.Position; reopenStartPos = reopenBtn.Position
             end
         end)
-
         reopenBtn.InputChanged:Connect(function(input)
             if not reopenDragging then return end
-            if input.UserInputType == Enum.UserInputType.MouseMovement
-                or input.UserInputType == Enum.UserInputType.Touch then
+            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
                 local delta = input.Position - reopenDragStart
-                if math.abs(delta.X) > 5 or math.abs(delta.Y) > 5 then
-                    reopenMoved = true
-                end
+                if math.abs(delta.X) > 5 or math.abs(delta.Y) > 5 then reopenMoved = true end
                 reopenBtn.Position = UDim2.new(
                     reopenStartPos.X.Scale, reopenStartPos.X.Offset + delta.X,
                     reopenStartPos.Y.Scale, reopenStartPos.Y.Offset + delta.Y
                 )
             end
         end)
-
         UserInputService.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1
-                or input.UserInputType == Enum.UserInputType.Touch then
-                if reopenDragging then
-                    reopenDragging = false
-                    task.wait(0.1)
-                    reopenMoved = false
-                end
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                if reopenDragging then reopenDragging = false; task.wait(0.1); reopenMoved = false end
             end
         end)
-
         reopenBtn.MouseButton1Click:Connect(function()
             if reopenMoved then return end
             setMinimized(false)
@@ -475,11 +351,8 @@ function Arsenal.Init(ctx)
     local function makeDraggable(element)
         element.InputBegan:Connect(function(input)
             if UNLOADED then return end
-            if input.UserInputType == Enum.UserInputType.MouseButton1
-                or input.UserInputType == Enum.UserInputType.Touch then
-                dragging = true
-                dragStart = input.Position
-                startPos = MainFrame.Position
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true; dragStart = input.Position; startPos = MainFrame.Position
                 input.Changed:Connect(function()
                     if input.UserInputState == Enum.UserInputState.End then dragging = false end
                 end)
@@ -487,8 +360,9 @@ function Arsenal.Init(ctx)
         end)
         element.InputChanged:Connect(function(input)
             if UNLOADED then return end
-            if input.UserInputType == Enum.UserInputType.MouseMovement
-                or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
+            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                dragInput = input
+            end
         end)
     end
     UserInputService.InputChanged:Connect(function(input)
@@ -497,60 +371,41 @@ function Arsenal.Init(ctx)
     end)
     makeDraggable(Header); makeDraggable(Title); makeDraggable(Subtitle)
 
-    -- SIDEBAR
     local Sidebar = Instance.new("Frame", MainFrame)
-    Sidebar.Size = UDim2.new(0, 140, 1, -65)
-    Sidebar.Position = UDim2.new(0, 10, 0, 58)
-    Sidebar.BackgroundColor3 = Theme.SidebarColor
-    Sidebar.BorderSizePixel = 0
+    Sidebar.Size = UDim2.new(0, 140, 1, -65); Sidebar.Position = UDim2.new(0, 10, 0, 58)
+    Sidebar.BackgroundColor3 = Theme.SidebarColor; Sidebar.BorderSizePixel = 0
     Instance.new("UICorner", Sidebar).CornerRadius = UDim.new(0, 8)
     local sbStroke = Instance.new("UIStroke", Sidebar)
     sbStroke.Color = Theme.Border; sbStroke.Thickness = 1; sbStroke.Transparency = 0.5
 
-    -- CONTENT
     local Content = Instance.new("Frame", MainFrame)
-    Content.Size = UDim2.new(1, -170, 1, -70)
-    Content.Position = UDim2.new(0, 160, 0, 58)
-    Content.BackgroundColor3 = Theme.ContentColor
-    Content.BackgroundTransparency = 0.3
-    Content.BorderSizePixel = 0
+    Content.Size = UDim2.new(1, -170, 1, -70); Content.Position = UDim2.new(0, 160, 0, 58)
+    Content.BackgroundColor3 = Theme.ContentColor; Content.BackgroundTransparency = 0.3; Content.BorderSizePixel = 0
     Instance.new("UICorner", Content).CornerRadius = UDim.new(0, 8)
     local cStroke = Instance.new("UIStroke", Content)
     cStroke.Color = Theme.Border; cStroke.Thickness = 1; cStroke.Transparency = 0.5
 
-    -- MINIMIZE
     local minimized = false
     local function setMinimized(v)
         minimized = v
         Sidebar.Visible = not v
         Content.Visible = not v
         MainFrame.Size = v and UDim2.new(0, 620, 0, 48) or UDim2.new(0, 620, 0, 480)
-        -- ÍCONE SÓ MOBILE
-        if reopenBtn and IS_MOBILE then
-            reopenBtn.Visible = v
-        end
+        if reopenBtn and IS_MOBILE then reopenBtn.Visible = v end
     end
-
     MinBtn.MouseButton1Click:Connect(function() setMinimized(not minimized) end)
 
-    -- ============================================================
     -- TABS
-    -- ============================================================
     local tabs, toggleHandles, sliderHandles = {}, {}, {}
 
     local function CreateTab(nameKey, icon)
         local tab = {}
         local btn = Instance.new("TextButton", Sidebar)
-        btn.Size = UDim2.new(1, -16, 0, 38)
-        btn.Position = UDim2.new(0, 8, 0, 8 + #tabs * 44)
-        btn.BackgroundColor3 = Theme.Surface
-        btn.BorderSizePixel = 0
-        btn.Text = "  " .. icon .. "   "
-        btn.Font = Theme.Font
-        btn.TextColor3 = Theme.TextDim
-        btn.TextSize = 12
-        btn.TextXAlignment = Enum.TextXAlignment.Left
-        btn.AutoButtonColor = false
+        btn.Size = UDim2.new(1, -16, 0, 38); btn.Position = UDim2.new(0, 8, 0, 8 + #tabs * 44)
+        btn.BackgroundColor3 = Theme.Surface; btn.BorderSizePixel = 0
+        btn.Text = "  " .. icon .. "   "; btn.Font = Theme.Font
+        btn.TextColor3 = Theme.TextDim; btn.TextSize = 12
+        btn.TextXAlignment = Enum.TextXAlignment.Left; btn.AutoButtonColor = false
         Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
 
         registerRefresh(function() btn.Text = "  " .. icon .. "   " .. Language.get(nameKey) end)
@@ -563,16 +418,11 @@ function Arsenal.Init(ctx)
         end)
 
         local container = Instance.new("ScrollingFrame", Content)
-        container.Size = UDim2.new(1, -10, 1, -10)
-        container.Position = UDim2.new(0, 5, 0, 5)
-        container.BackgroundTransparency = 1
-        container.BorderSizePixel = 0
-        container.CanvasSize = UDim2.new(0, 0, 0, 0)
-        container.AutomaticCanvasSize = Enum.AutomaticSize.Y
-        container.ScrollBarThickness = 4
-        container.ScrollBarImageColor3 = Theme.Primary
-        container.ScrollBarImageTransparency = 0.4
-        container.Visible = false
+        container.Size = UDim2.new(1, -10, 1, -10); container.Position = UDim2.new(0, 5, 0, 5)
+        container.BackgroundTransparency = 1; container.BorderSizePixel = 0
+        container.CanvasSize = UDim2.new(0, 0, 0, 0); container.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        container.ScrollBarThickness = 4; container.ScrollBarImageColor3 = Theme.Primary
+        container.ScrollBarImageTransparency = 0.4; container.Visible = false
 
         local layout = Instance.new("UIListLayout", container)
         layout.Padding = UDim.new(0, 6)
@@ -599,49 +449,33 @@ function Arsenal.Init(ctx)
         tab.CreateToggle = function(labelKey, featureId, callback)
             local holder = Instance.new("Frame", container)
             holder.Size = UDim2.new(1, -10, 0, 36)
-            holder.BackgroundColor3 = Theme.Surface
-            holder.BorderSizePixel = 0
+            holder.BackgroundColor3 = Theme.Surface; holder.BorderSizePixel = 0
             Instance.new("UICorner", holder).CornerRadius = UDim.new(0, 6)
             local hs = Instance.new("UIStroke", holder)
             hs.Color = Theme.Border; hs.Thickness = 1; hs.Transparency = 0.7
-
             local lbl = Instance.new("TextLabel", holder)
-            lbl.Size = UDim2.new(0.5, 0, 1, 0)
-            lbl.Position = UDim2.new(0, 12, 0, 0)
-            lbl.BackgroundTransparency = 1
-            lbl.Font = Theme.Font
-            lbl.TextSize = 12
-            lbl.TextColor3 = Theme.Text
-            lbl.TextXAlignment = Enum.TextXAlignment.Left
-            lbl.Text = ""
-
+            lbl.Size = UDim2.new(0.5, 0, 1, 0); lbl.Position = UDim2.new(0, 12, 0, 0)
+            lbl.BackgroundTransparency = 1; lbl.Font = Theme.Font; lbl.TextSize = 12
+            lbl.TextColor3 = Theme.Text; lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Text = ""
             registerRefresh(function()
                 local t = Language.get(labelKey)
                 lbl.Text = (t and t ~= labelKey) and t or labelKey
             end)
-
             local keyBtn = Instance.new("TextButton", holder)
-            keyBtn.Size = UDim2.new(0, 50, 0, 22)
-            keyBtn.Position = UDim2.new(0.55, 0, 0.5, -11)
+            keyBtn.Size = UDim2.new(0, 50, 0, 22); keyBtn.Position = UDim2.new(0.55, 0, 0.5, -11)
             keyBtn.BackgroundColor3 = State.keybinds[featureId] and Theme.Primary or Theme.Surface2
             keyBtn.Text = State.keybinds[featureId] or "KEY"
-            keyBtn.Font = Theme.FontBold
-            keyBtn.TextSize = 11
+            keyBtn.Font = Theme.FontBold; keyBtn.TextSize = 11
             keyBtn.TextColor3 = State.keybinds[featureId] and Theme.Text or Theme.TextDim
             keyBtn.AutoButtonColor = false
             Instance.new("UICorner", keyBtn).CornerRadius = UDim.new(0, 6)
-
             local toggleBtn = Instance.new("TextButton", holder)
-            toggleBtn.Size = UDim2.new(0, 50, 0, 22)
-            toggleBtn.Position = UDim2.new(1, -58, 0.5, -11)
+            toggleBtn.Size = UDim2.new(0, 50, 0, 22); toggleBtn.Position = UDim2.new(1, -58, 0.5, -11)
             toggleBtn.BackgroundColor3 = State[featureId] and Theme.Success or Theme.Surface2
-            toggleBtn.Font = Theme.FontBold
-            toggleBtn.TextSize = 11
-            toggleBtn.TextColor3 = Theme.Text
+            toggleBtn.Font = Theme.FontBold; toggleBtn.TextSize = 11; toggleBtn.TextColor3 = Theme.Text
             toggleBtn.Text = State[featureId] and "ON" or "OFF"
             toggleBtn.AutoButtonColor = false
             Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 6)
-
             local function setState(v, silent)
                 State[featureId] = v
                 toggleBtn.Text = v and "ON" or "OFF"
@@ -650,7 +484,6 @@ function Arsenal.Init(ctx)
             end
             local function toggle() setState(not State[featureId]) end
             toggleBtn.MouseButton1Click:Connect(toggle)
-
             keyBtn.MouseButton1Click:Connect(function()
                 if recordingKeyFor then return end
                 recordingKeyFor = featureId
@@ -658,20 +491,14 @@ function Arsenal.Init(ctx)
                 keyBtn.BackgroundColor3 = Theme.Warning
                 keyBtn.TextColor3 = Theme.Text
             end)
-
             local handle = {
-                SetState = setState,
-                Toggle = toggle,
+                SetState = setState, Toggle = toggle,
                 SetKeybind = function(key)
                     State.keybinds[featureId] = key
                     if key then
-                        keyBtn.Text = key
-                        keyBtn.BackgroundColor3 = Theme.Primary
-                        keyBtn.TextColor3 = Theme.Text
+                        keyBtn.Text = key; keyBtn.BackgroundColor3 = Theme.Primary; keyBtn.TextColor3 = Theme.Text
                     else
-                        keyBtn.Text = "KEY"
-                        keyBtn.BackgroundColor3 = Theme.Surface2
-                        keyBtn.TextColor3 = Theme.TextDim
+                        keyBtn.Text = "KEY"; keyBtn.BackgroundColor3 = Theme.Surface2; keyBtn.TextColor3 = Theme.TextDim
                     end
                 end,
                 keyBtn = keyBtn,
@@ -683,60 +510,36 @@ function Arsenal.Init(ctx)
         tab.CreateSlider = function(labelKey, min, max, defaultValue, featureId, callback)
             local holder = Instance.new("Frame", container)
             holder.Size = UDim2.new(1, -10, 0, 44)
-            holder.BackgroundColor3 = Theme.Surface
-            holder.BorderSizePixel = 0
+            holder.BackgroundColor3 = Theme.Surface; holder.BorderSizePixel = 0
             Instance.new("UICorner", holder).CornerRadius = UDim.new(0, 6)
             local hs = Instance.new("UIStroke", holder)
             hs.Color = Theme.Border; hs.Thickness = 1; hs.Transparency = 0.7
-
             local lbl = Instance.new("TextLabel", holder)
-            lbl.Size = UDim2.new(0.6, 0, 0, 18)
-            lbl.Position = UDim2.new(0, 12, 0, 4)
-            lbl.BackgroundTransparency = 1
-            lbl.Font = Theme.Font
-            lbl.TextSize = 11
-            lbl.TextColor3 = Theme.Text
-            lbl.TextXAlignment = Enum.TextXAlignment.Left
-            lbl.Text = ""
-
+            lbl.Size = UDim2.new(0.6, 0, 0, 18); lbl.Position = UDim2.new(0, 12, 0, 4)
+            lbl.BackgroundTransparency = 1; lbl.Font = Theme.Font; lbl.TextSize = 11
+            lbl.TextColor3 = Theme.Text; lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Text = ""
             registerRefresh(function()
                 local t = Language.get(labelKey)
                 lbl.Text = (t and t ~= labelKey) and t or labelKey
             end)
-
             local valLbl = Instance.new("TextLabel", holder)
-            valLbl.Size = UDim2.new(0.35, 0, 0, 18)
-            valLbl.Position = UDim2.new(0.6, 0, 0, 4)
-            valLbl.BackgroundTransparency = 1
-            valLbl.Font = Theme.FontBold
-            valLbl.TextSize = 11
-            valLbl.TextColor3 = Theme.Primary
-            valLbl.Text = tostring(defaultValue or min)
+            valLbl.Size = UDim2.new(0.35, 0, 0, 18); valLbl.Position = UDim2.new(0.6, 0, 0, 4)
+            valLbl.BackgroundTransparency = 1; valLbl.Font = Theme.FontBold; valLbl.TextSize = 11
+            valLbl.TextColor3 = Theme.Primary; valLbl.Text = tostring(defaultValue or min)
             valLbl.TextXAlignment = Enum.TextXAlignment.Right
-
             local barBg = Instance.new("Frame", holder)
-            barBg.Size = UDim2.new(1, -24, 0, 5)
-            barBg.Position = UDim2.new(0, 12, 0, 30)
-            barBg.BackgroundColor3 = Theme.Surface2
-            barBg.BorderSizePixel = 0
+            barBg.Size = UDim2.new(1, -24, 0, 5); barBg.Position = UDim2.new(0, 12, 0, 30)
+            barBg.BackgroundColor3 = Theme.Surface2; barBg.BorderSizePixel = 0
             Instance.new("UICorner", barBg).CornerRadius = UDim.new(1, 0)
-
             local cur = defaultValue or min
             local rel = (cur - min) / (max - min)
             local fill = Instance.new("Frame", barBg)
-            fill.Size = UDim2.new(rel, 0, 1, 0)
-            fill.BackgroundColor3 = Theme.Primary
+            fill.Size = UDim2.new(rel, 0, 1, 0); fill.BackgroundColor3 = Theme.Primary
             fill.BorderSizePixel = 0
             Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
-
             local click = Instance.new("TextButton", holder)
-            click.Size = UDim2.new(1, -24, 0, 22)
-            click.Position = UDim2.new(0, 12, 0, 22)
-            click.BackgroundTransparency = 1
-            click.Text = ""
-            click.AutoButtonColor = false
-            click.ZIndex = 5
-
+            click.Size = UDim2.new(1, -24, 0, 22); click.Position = UDim2.new(0, 12, 0, 22)
+            click.BackgroundTransparency = 1; click.Text = ""; click.AutoButtonColor = false; click.ZIndex = 5
             local activeInput = nil
             local function update(posX)
                 local p = barBg.AbsolutePosition
@@ -750,19 +553,16 @@ function Arsenal.Init(ctx)
                 State[featureId] = v
                 if callback then callback(v) end
             end
-
             click.InputBegan:Connect(function(input)
                 if UNLOADED or activeInput then return end
-                if input.UserInputType == Enum.UserInputType.MouseButton1
-                    or input.UserInputType == Enum.UserInputType.Touch then
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                     activeInput = input
                     update(input.Position.X)
                 end
             end)
             UserInputService.InputChanged:Connect(function(input)
                 if UNLOADED or activeInput ~= input then return end
-                if input.UserInputType == Enum.UserInputType.MouseMovement
-                    or input.UserInputType == Enum.UserInputType.Touch then
+                if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
                     update(input.Position.X)
                 end
             end)
@@ -770,7 +570,6 @@ function Arsenal.Init(ctx)
                 if UNLOADED then return end
                 if input == activeInput then activeInput = nil end
             end)
-
             local handle = {
                 SetValue = function(v)
                     cur = math.clamp(v, min, max)
@@ -789,21 +588,16 @@ function Arsenal.Init(ctx)
             local btn = Instance.new("TextButton", container)
             btn.Size = UDim2.new(1, -10, 0, 34)
             btn.BackgroundColor3 = style == "danger" and Color3.fromRGB(60, 15, 20) or Theme.Surface
-            btn.BorderSizePixel = 0
-            btn.Text = ""
-            btn.Font = Theme.Font
-            btn.TextColor3 = style == "danger" and Theme.Danger or Theme.Text
-            btn.TextSize = 12
-            btn.AutoButtonColor = false
+            btn.BorderSizePixel = 0; btn.Text = ""
+            btn.Font = Theme.Font; btn.TextColor3 = style == "danger" and Theme.Danger or Theme.Text
+            btn.TextSize = 12; btn.AutoButtonColor = false
             Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
             local bs = Instance.new("UIStroke", btn)
             bs.Color = Theme.Border; bs.Thickness = 1; bs.Transparency = 0.7
-
             registerRefresh(function()
                 local t = Language.get(labelKey)
                 btn.Text = (t and t ~= labelKey) and t or labelKey
             end)
-
             btn.MouseEnter:Connect(function()
                 btn.BackgroundColor3 = style == "danger" and Color3.fromRGB(80, 20, 25) or Theme.Primary
             end)
@@ -819,13 +613,8 @@ function Arsenal.Init(ctx)
         tab.CreateLabel = function(textKey, color)
             local lbl = Instance.new("TextLabel", container)
             lbl.Size = UDim2.new(1, -10, 0, 18)
-            lbl.BackgroundTransparency = 1
-            lbl.Font = Theme.Font
-            lbl.TextSize = 11
-            lbl.TextColor3 = color or Theme.TextDim
-            lbl.TextXAlignment = Enum.TextXAlignment.Left
-            lbl.Text = ""
-
+            lbl.BackgroundTransparency = 1; lbl.Font = Theme.Font; lbl.TextSize = 11
+            lbl.TextColor3 = color or Theme.TextDim; lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.Text = ""
             registerRefresh(function()
                 local t = Language.get(textKey)
                 lbl.Text = (t and t ~= textKey) and t or textKey
@@ -836,24 +625,16 @@ function Arsenal.Init(ctx)
         tab.CreateTextBox = function(placeholder, callback)
             local holder = Instance.new("Frame", container)
             holder.Size = UDim2.new(1, -10, 0, 36)
-            holder.BackgroundColor3 = Theme.Surface
-            holder.BorderSizePixel = 0
+            holder.BackgroundColor3 = Theme.Surface; holder.BorderSizePixel = 0
             Instance.new("UICorner", holder).CornerRadius = UDim.new(0, 6)
             local hs = Instance.new("UIStroke", holder)
             hs.Color = Theme.Border; hs.Thickness = 1; hs.Transparency = 0.7
-
             local box = Instance.new("TextBox", holder)
-            box.Size = UDim2.new(1, -20, 1, -10)
-            box.Position = UDim2.new(0, 10, 0, 5)
-            box.BackgroundTransparency = 1
-            box.Font = Theme.Font
-            box.TextSize = 12
-            box.TextColor3 = Theme.Text
-            box.PlaceholderText = placeholder or "Type..."
-            box.PlaceholderColor3 = Theme.TextDim
-            box.Text = ""
-            box.ClearTextOnFocus = false
-            box.TextXAlignment = Enum.TextXAlignment.Left
+            box.Size = UDim2.new(1, -20, 1, -10); box.Position = UDim2.new(0, 10, 0, 5)
+            box.BackgroundTransparency = 1; box.Font = Theme.Font; box.TextSize = 12
+            box.TextColor3 = Theme.Text; box.PlaceholderText = placeholder or "Type..."
+            box.PlaceholderColor3 = Theme.TextDim; box.Text = ""
+            box.ClearTextOnFocus = false; box.TextXAlignment = Enum.TextXAlignment.Left
             box.FocusLost:Connect(function(enterPressed)
                 if enterPressed and box.Text ~= "" then
                     local text = box.Text
@@ -867,30 +648,19 @@ function Arsenal.Init(ctx)
         tab.CreateCredit = function(role, name, color)
             local holder = Instance.new("Frame", container)
             holder.Size = UDim2.new(1, -10, 0, 50)
-            holder.BackgroundColor3 = Theme.Surface
-            holder.BorderSizePixel = 0
+            holder.BackgroundColor3 = Theme.Surface; holder.BorderSizePixel = 0
             Instance.new("UICorner", holder).CornerRadius = UDim.new(0, 6)
             local hs = Instance.new("UIStroke", holder)
             hs.Color = Theme.Border; hs.Thickness = 1; hs.Transparency = 0.7
-
             local roleLbl = Instance.new("TextLabel", holder)
-            roleLbl.Size = UDim2.new(1, -20, 0, 16)
-            roleLbl.Position = UDim2.new(0, 12, 0, 6)
-            roleLbl.BackgroundTransparency = 1
-            roleLbl.Font = Theme.Font
-            roleLbl.TextSize = 10
-            roleLbl.TextColor3 = Theme.TextDim
-            roleLbl.Text = role
+            roleLbl.Size = UDim2.new(1, -20, 0, 16); roleLbl.Position = UDim2.new(0, 12, 0, 6)
+            roleLbl.BackgroundTransparency = 1; roleLbl.Font = Theme.Font; roleLbl.TextSize = 10
+            roleLbl.TextColor3 = Theme.TextDim; roleLbl.Text = role
             roleLbl.TextXAlignment = Enum.TextXAlignment.Left
-
             local nameLbl = Instance.new("TextLabel", holder)
-            nameLbl.Size = UDim2.new(1, -20, 0, 20)
-            nameLbl.Position = UDim2.new(0, 12, 0, 22)
-            nameLbl.BackgroundTransparency = 1
-            nameLbl.Font = Theme.FontBold
-            nameLbl.TextSize = 14
-            nameLbl.TextColor3 = color or Theme.TitleRed
-            nameLbl.Text = name
+            nameLbl.Size = UDim2.new(1, -20, 0, 20); nameLbl.Position = UDim2.new(0, 12, 0, 22)
+            nameLbl.BackgroundTransparency = 1; nameLbl.Font = Theme.FontBold; nameLbl.TextSize = 14
+            nameLbl.TextColor3 = color or Theme.TitleRed; nameLbl.Text = name
             nameLbl.TextXAlignment = Enum.TextXAlignment.Left
             return holder
         end
@@ -898,17 +668,11 @@ function Arsenal.Init(ctx)
         return tab
     end
 
-    -- ============================================================
     -- FEATURES
-    -- ============================================================
     local fovCircle = Drawing.new("Circle")
-    fovCircle.Color = Color3.fromRGB(255, 30, 40)
-    fovCircle.Thickness = 1.5
-    fovCircle.Filled = false
-    fovCircle.NumSides = 100
-    fovCircle.Transparency = 1
-    fovCircle.Radius = 25
-    fovCircle.Visible = false
+    fovCircle.Color = Color3.fromRGB(255, 30, 40); fovCircle.Thickness = 1.5
+    fovCircle.Filled = false; fovCircle.NumSides = 100; fovCircle.Transparency = 1
+    fovCircle.Radius = 25; fovCircle.Visible = false
 
     RunService.RenderStepped:Connect(function()
         if UNLOADED then return end
@@ -976,8 +740,7 @@ function Arsenal.Init(ctx)
 
     UserInputService.InputBegan:Connect(function(input, gp)
         if UNLOADED or gp or not State.silentHeadshot then return end
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1
-            and input.UserInputType ~= Enum.UserInputType.Touch then return end
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
         silentOriginalCam = Camera.CFrame
         local target = getClosestHeadInFov()
         if not target or not target.Character then return end
@@ -989,11 +752,9 @@ function Arsenal.Init(ctx)
 
     UserInputService.InputEnded:Connect(function(input, gp)
         if UNLOADED or gp then return end
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1
-            and input.UserInputType ~= Enum.UserInputType.Touch then return end
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
         if silentHolding then
-            silentHolding = false
-            silentTarget = nil
+            silentHolding = false; silentTarget = nil
             if silentOriginalCam then
                 Camera.CFrame = silentOriginalCam
                 silentOriginalCam = nil
@@ -1048,7 +809,6 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- Head Expander
     local hitboxSaved = {}
     local function saveOriginal(player, part)
         if not player or not part then return end
@@ -1104,18 +864,14 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- ESP
     local ESP = {data = {}}
     local function createESP(p)
         if ESP.data[p] or not p.Character then return end
         local chams = Instance.new("Highlight")
         chams.Adornee = p.Character
-        chams.FillColor = Color3.fromRGB(255, 30, 40)
-        chams.FillTransparency = 0.6
-        chams.OutlineColor = Color3.fromRGB(255, 255, 255)
-        chams.OutlineTransparency = 0.3
+        chams.FillColor = Color3.fromRGB(255, 30, 40); chams.FillTransparency = 0.6
+        chams.OutlineColor = Color3.fromRGB(255, 255, 255); chams.OutlineTransparency = 0.3
         chams.Parent = p.Character
-
         local data = {chams = chams}
         local function newDrawing(class, props)
             local d = Drawing.new(class)
@@ -1165,23 +921,19 @@ function Arsenal.Init(ctx)
         local hrp = char:FindFirstChild("HumanoidRootPart")
         if not head or not hrp then return end
         if d.chams then d.chams.Enabled = true end
-
         local headSp, headOn = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
         local hrpSp, hrpOn = Camera:WorldToViewportPoint(hrp.Position)
         local footPos = hrp.Position - Vector3.new(0, 3, 0)
         local footSp, footOn = Camera:WorldToViewportPoint(footPos)
-
         local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         if not myHRP then return end
         local dist = math.floor((head.Position - myHRP.Position).Magnitude)
-
         if dist > State.espMaxDistance then
             for _, key in ipairs({"box", "name", "distance", "health", "tracer", "headDot"}) do
                 if d[key] then d[key].Visible = false end
             end
             return
         end
-
         if headOn and footOn then
             local h = math.abs(footSp.Y - headSp.Y)
             local w = h * 0.6
@@ -1191,38 +943,31 @@ function Arsenal.Init(ctx)
             d.box.Size = Vector2.new(w, h)
             d.box.Visible = true
         else d.box.Visible = false end
-
         if headOn then
             d.name.Position = Vector2.new(headSp.X, headSp.Y - 20)
-            d.name.Text = p.Name
-            d.name.Visible = true
+            d.name.Text = p.Name; d.name.Visible = true
             d.distance.Position = Vector2.new(headSp.X, headSp.Y - 6)
-            d.distance.Text = dist .. "m"
-            d.distance.Visible = true
+            d.distance.Text = dist .. "m"; d.distance.Visible = true
         else
             d.name.Visible = false; d.distance.Visible = false
         end
-
         if headOn and footOn then
             local h = math.abs(footSp.Y - headSp.Y)
             local hr = hum.Health / hum.MaxHealth
             local bx = headSp.X + (h * 0.6) / 2 + 5
             local by = headSp.Y + h
             local fy = by - (h * hr)
-            d.health.From = Vector2.new(bx, fy)
-            d.health.To = Vector2.new(bx, by)
+            d.health.From = Vector2.new(bx, fy); d.health.To = Vector2.new(bx, by)
             if hr > 0.6 then d.health.Color = Color3.fromRGB(0, 255, 0)
             elseif hr > 0.3 then d.health.Color = Color3.fromRGB(255, 200, 0)
             else d.health.Color = Color3.fromRGB(255, 40, 40) end
             d.health.Visible = true
         else d.health.Visible = false end
-
         if hrpOn then
             d.tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
             d.tracer.To = Vector2.new(hrpSp.X, hrpSp.Y)
             d.tracer.Visible = true
         else d.tracer.Visible = false end
-
         if headOn then
             d.headDot.Position = Vector2.new(headSp.X, headSp.Y)
             d.headDot.Visible = true
@@ -1239,7 +984,6 @@ function Arsenal.Init(ctx)
     end)
     Players.PlayerRemoving:Connect(function(p) removeESP(p) end)
 
-    -- Weapon hacks
     local reloadOriginals = {}
     RunService.Heartbeat:Connect(function()
         if UNLOADED then return end
@@ -1327,7 +1071,6 @@ function Arsenal.Init(ctx)
         end
     end)()
 
-    -- Speed
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.speed then return end
         local char = LocalPlayer.Character
@@ -1337,7 +1080,6 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- Air Jump
     local airJumpConn = nil
     local function startAirJump()
         if airJumpConn then airJumpConn:Disconnect() end
@@ -1355,7 +1097,6 @@ function Arsenal.Init(ctx)
         if airJumpConn then airJumpConn:Disconnect(); airJumpConn = nil end
     end
 
-    -- Backstab
     local backstabLock = {active = false, target = nil, endTime = 0}
     local function getClosestEnemyAnywhere()
         local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
@@ -1408,16 +1149,11 @@ function Arsenal.Init(ctx)
         end
     end
 
-    -- ============================================================
     -- OPTIMIZATIONS
-    -- ============================================================
     local optBackup = {
-        fogEnd = Lighting.FogEnd,
-        fogStart = Lighting.FogStart,
-        globalShadows = Lighting.GlobalShadows,
-        qualityLevel = nil,
-        atmosphereData = {},
-        particles = {},
+        fogEnd = Lighting.FogEnd, fogStart = Lighting.FogStart,
+        globalShadows = Lighting.GlobalShadows, qualityLevel = nil,
+        atmosphereData = {}, particles = {},
     }
     for _, c in ipairs(Lighting:GetChildren()) do
         if c:IsA("Atmosphere") then
@@ -1435,7 +1171,6 @@ function Arsenal.Init(ctx)
             end
         end
     end
-
     local function applyNoShadows(v)
         pcall(function() Lighting.GlobalShadows = not v end)
         for _, d in ipairs(workspace:GetDescendants()) do
@@ -1444,51 +1179,38 @@ function Arsenal.Init(ctx)
             end
         end
     end
-
     local function applyNoFog(v)
         if v then
-            Lighting.FogEnd = 100000
-            Lighting.FogStart = 0
+            Lighting.FogEnd = 100000; Lighting.FogStart = 0
             for _, c in ipairs(Lighting:GetChildren()) do
-                if c:IsA("Atmosphere") then
-                    c.Density = 0; c.Haze = 0; c.Glare = 0
-                end
+                if c:IsA("Atmosphere") then c.Density = 0; c.Haze = 0; c.Glare = 0 end
             end
         else
-            Lighting.FogEnd = optBackup.fogEnd
-            Lighting.FogStart = optBackup.fogStart
+            Lighting.FogEnd = optBackup.fogEnd; Lighting.FogStart = optBackup.fogStart
             for _, data in ipairs(optBackup.atmosphereData) do
                 if data.obj and data.obj.Parent then
                     pcall(function()
-                        data.obj.Density = data.D
-                        data.obj.Haze = data.H
-                        data.obj.Glare = data.G
+                        data.obj.Density = data.D; data.obj.Haze = data.H; data.obj.Glare = data.G
                     end)
                 end
             end
         end
     end
-
     local function applyNoParticles(v)
         if v then
             for _, d in ipairs(workspace:GetDescendants()) do
                 if d:IsA("ParticleEmitter") or d:IsA("Fire") or d:IsA("Smoke") or d:IsA("Sparkles") or d:IsA("Trail") then
-                    if optBackup.particles[d] == nil then
-                        optBackup.particles[d] = d.Enabled
-                    end
+                    if optBackup.particles[d] == nil then optBackup.particles[d] = d.Enabled end
                     pcall(function() d.Enabled = false end)
                 end
             end
         else
             for obj, orig in pairs(optBackup.particles) do
-                if obj and obj.Parent then
-                    pcall(function() obj.Enabled = orig end)
-                end
+                if obj and obj.Parent then pcall(function() obj.Enabled = orig end) end
             end
             optBackup.particles = {}
         end
     end
-
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.noParticles then return end
         for _, d in ipairs(workspace:GetDescendants()) do
@@ -1498,30 +1220,23 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- ============================================================
-    -- CONFIG SYSTEM (POR JOGO)
-    -- ============================================================
+    -- CONFIG SYSTEM
     local BASE_FOLDER = "InfiniteZen_Configs"
     local CONFIG_FOLDER = BASE_FOLDER .. "/Arsenal"
     local AUTOLOAD_FILE = "InfiniteZen_Arsenal_Autoload.txt"
 
     local function ensureFolder()
         if makefolder then
-            if not isfolder(BASE_FOLDER) then
-                pcall(function() makefolder(BASE_FOLDER) end)
-            end
-            if not isfolder(CONFIG_FOLDER) then
-                pcall(function() makefolder(CONFIG_FOLDER) end)
-            end
+            if not isfolder(BASE_FOLDER) then pcall(function() makefolder(BASE_FOLDER) end) end
+            if not isfolder(CONFIG_FOLDER) then pcall(function() makefolder(CONFIG_FOLDER) end) end
         end
     end
-
     local function getConfigPath(name) return CONFIG_FOLDER .. "/" .. name .. ".json" end
     local function getAutoloadPath() return AUTOLOAD_FILE end
 
     local function saveConfigNamed(name)
         ensureFolder()
-        local data = {version = "1.3", language = Language.getCurrent(), state = {}, keybinds = State.keybinds}
+        local data = {version = GAME_VERSION, language = Language.getCurrent(), state = {}, keybinds = State.keybinds}
         for k, v in pairs(State) do
             if k ~= "keybinds" then data.state[k] = v end
         end
@@ -1548,12 +1263,8 @@ function Arsenal.Init(ctx)
             return false
         end
         if data.language then Language.setLanguage(data.language) end
-        if data.state then
-            for k, v in pairs(data.state) do State[k] = v end
-        end
-        if data.keybinds then
-            for k, v in pairs(data.keybinds) do State.keybinds[k] = v end
-        end
+        if data.state then for k, v in pairs(data.state) do State[k] = v end end
+        if data.keybinds then for k, v in pairs(data.keybinds) do State.keybinds[k] = v end end
         for featId, handle in pairs(toggleHandles) do
             if State[featId] ~= nil then handle.SetState(State[featId], true) end
             handle.SetKeybind(State.keybinds[featId])
@@ -1579,7 +1290,6 @@ function Arsenal.Init(ctx)
         end
         return false
     end
-
     local function listConfigs()
         local list = {}
         if listfiles and isfolder and isfolder(CONFIG_FOLDER) then
@@ -1592,30 +1302,25 @@ function Arsenal.Init(ctx)
         end
         return list
     end
-
     local function setAutoload(name)
         ensureFolder()
         local ok = pcall(function() writefile(getAutoloadPath(), name) end)
         if ok then Notify("⚡ Autoload", "Set: " .. name, 3)
         else Notify("⚠️ Error", "Failed autoload", 4, true) end
     end
-
     local function clearAutoload()
         local ok = pcall(function()
             if isfile(getAutoloadPath()) then delfile(getAutoloadPath()) end
         end)
         if ok then Notify("🚫 Autoload", "Disabled", 3) end
     end
-
     local function getAutoload()
         local ok, content = pcall(function() return readfile(getAutoloadPath()) end)
         if ok and content and content ~= "" then return content end
         return nil
     end
 
-    -- ============================================================
     -- CRIAR ABAS
-    -- ============================================================
     local CombatTab = CreateTab("tab_combat", "⚔️")
     CombatTab.CreateToggle("silent_headshot", "silentHeadshot")
     CombatTab.CreateSlider("silent_fov", 30, 300, 120, "silentFov")
@@ -1665,9 +1370,7 @@ function Arsenal.Init(ctx)
     end)
     VisualsTab.CreateSlider("max_distance", 100, 10000, 500, "espMaxDistance")
 
-    -- ============================================================
-    -- SETTINGS (com Optimizations)
-    -- ============================================================
+    -- SETTINGS
     local SettingsTab = CreateTab("tab_settings", "⚙️")
 
     SettingsTab.CreateLabel("── Configs ──", Theme.Text)
@@ -1686,21 +1389,16 @@ function Arsenal.Init(ctx)
 
     local configListFrame = Instance.new("Frame", SettingsTab.container)
     configListFrame.Size = UDim2.new(1, -10, 0, 140)
-    configListFrame.BackgroundColor3 = Theme.Surface
-    configListFrame.BorderSizePixel = 0
+    configListFrame.BackgroundColor3 = Theme.Surface; configListFrame.BorderSizePixel = 0
     Instance.new("UICorner", configListFrame).CornerRadius = UDim.new(0, 6)
     local cfs = Instance.new("UIStroke", configListFrame)
     cfs.Color = Theme.Border; cfs.Thickness = 1; cfs.Transparency = 0.7
 
     local configScroll = Instance.new("ScrollingFrame", configListFrame)
-    configScroll.Size = UDim2.new(1, -10, 1, -10)
-    configScroll.Position = UDim2.new(0, 5, 0, 5)
-    configScroll.BackgroundTransparency = 1
-    configScroll.BorderSizePixel = 0
-    configScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-    configScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    configScroll.ScrollBarThickness = 4
-    configScroll.ScrollBarImageColor3 = Theme.Primary
+    configScroll.Size = UDim2.new(1, -10, 1, -10); configScroll.Position = UDim2.new(0, 5, 0, 5)
+    configScroll.BackgroundTransparency = 1; configScroll.BorderSizePixel = 0
+    configScroll.CanvasSize = UDim2.new(0, 0, 0, 0); configScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    configScroll.ScrollBarThickness = 4; configScroll.ScrollBarImageColor3 = Theme.Primary
     local cl = Instance.new("UIListLayout", configScroll)
     cl.Padding = UDim.new(0, 4)
 
@@ -1713,78 +1411,52 @@ function Arsenal.Init(ctx)
         if #configs == 0 then
             local emptyLbl = Instance.new("TextLabel", configScroll)
             emptyLbl.Size = UDim2.new(1, 0, 0, 30)
-            emptyLbl.BackgroundTransparency = 1
-            emptyLbl.Font = Theme.Font
-            emptyLbl.TextSize = 11
-            emptyLbl.TextColor3 = Theme.TextDim
+            emptyLbl.BackgroundTransparency = 1; emptyLbl.Font = Theme.Font
+            emptyLbl.TextSize = 11; emptyLbl.TextColor3 = Theme.TextDim
             emptyLbl.Text = "No configs saved yet."
             return
         end
         for _, configName in ipairs(configs) do
             local entry = Instance.new("Frame", configScroll)
             entry.Size = UDim2.new(1, -4, 0, 30)
-            entry.BackgroundColor3 = Theme.Surface2
-            entry.BorderSizePixel = 0
+            entry.BackgroundColor3 = Theme.Surface2; entry.BorderSizePixel = 0
             Instance.new("UICorner", entry).CornerRadius = UDim.new(0, 4)
-
             local nameLbl = Instance.new("TextLabel", entry)
-            nameLbl.Size = UDim2.new(0.5, 0, 1, 0)
-            nameLbl.Position = UDim2.new(0, 8, 0, 0)
-            nameLbl.BackgroundTransparency = 1
-            nameLbl.Font = Theme.Font
-            nameLbl.TextSize = 11
-            nameLbl.TextColor3 = Theme.Text
-            nameLbl.Text = configName
+            nameLbl.Size = UDim2.new(0.5, 0, 1, 0); nameLbl.Position = UDim2.new(0, 8, 0, 0)
+            nameLbl.BackgroundTransparency = 1; nameLbl.Font = Theme.Font; nameLbl.TextSize = 11
+            nameLbl.TextColor3 = Theme.Text; nameLbl.Text = configName
             nameLbl.TextXAlignment = Enum.TextXAlignment.Left
             if currentAutoload == configName then
-                nameLbl.Text = "⚡ " .. configName
-                nameLbl.TextColor3 = Theme.Warning
+                nameLbl.Text = "⚡ " .. configName; nameLbl.TextColor3 = Theme.Warning
             end
-
             local loadBtn = Instance.new("TextButton", entry)
-            loadBtn.Size = UDim2.new(0, 50, 0, 22)
-            loadBtn.Position = UDim2.new(1, -110, 0.5, -11)
-            loadBtn.BackgroundColor3 = Theme.Primary
-            loadBtn.Text = "Load"
-            loadBtn.Font = Theme.FontBold
-            loadBtn.TextSize = 10
-            loadBtn.TextColor3 = Theme.Text
+            loadBtn.Size = UDim2.new(0, 50, 0, 22); loadBtn.Position = UDim2.new(1, -110, 0.5, -11)
+            loadBtn.BackgroundColor3 = Theme.Primary; loadBtn.Text = "Load"
+            loadBtn.Font = Theme.FontBold; loadBtn.TextSize = 10; loadBtn.TextColor3 = Theme.Text
             loadBtn.AutoButtonColor = false
             Instance.new("UICorner", loadBtn).CornerRadius = UDim.new(0, 4)
             loadBtn.MouseButton1Click:Connect(function()
-                loadConfigNamed(configName)
-                refreshConfigList()
+                loadConfigNamed(configName); refreshConfigList()
             end)
-
             local autoBtn = Instance.new("TextButton", entry)
-            autoBtn.Size = UDim2.new(0, 22, 0, 22)
-            autoBtn.Position = UDim2.new(1, -55, 0.5, -11)
+            autoBtn.Size = UDim2.new(0, 22, 0, 22); autoBtn.Position = UDim2.new(1, -55, 0.5, -11)
             autoBtn.BackgroundColor3 = currentAutoload == configName and Theme.Warning or Theme.Surface
-            autoBtn.Text = "⚡"
-            autoBtn.Font = Theme.FontBold
-            autoBtn.TextSize = 12
-            autoBtn.TextColor3 = Theme.Text
-            autoBtn.AutoButtonColor = false
+            autoBtn.Text = "⚡"; autoBtn.Font = Theme.FontBold; autoBtn.TextSize = 12
+            autoBtn.TextColor3 = Theme.Text; autoBtn.AutoButtonColor = false
             Instance.new("UICorner", autoBtn).CornerRadius = UDim.new(0, 4)
             autoBtn.MouseButton1Click:Connect(function()
                 if currentAutoload == configName then clearAutoload()
                 else setAutoload(configName) end
                 refreshConfigList()
             end)
-
             local delBtn = Instance.new("TextButton", entry)
-            delBtn.Size = UDim2.new(0, 22, 0, 22)
-            delBtn.Position = UDim2.new(1, -28, 0.5, -11)
-            delBtn.BackgroundColor3 = Color3.fromRGB(60, 15, 20)
-            delBtn.Text = "×"
-            delBtn.Font = Theme.FontBold
-            delBtn.TextSize = 14
-            delBtn.TextColor3 = Theme.Danger
+            delBtn.Size = UDim2.new(0, 22, 0, 22); delBtn.Position = UDim2.new(1, -28, 0.5, -11)
+            delBtn.BackgroundColor3 = Color3.fromRGB(60, 15, 20); delBtn.Text = "×"
+            delBtn.Font = Theme.FontBold; delBtn.TextSize = 14; delBtn.TextColor3 = Theme.Danger
             delBtn.AutoButtonColor = false
             Instance.new("UICorner", delBtn).CornerRadius = UDim.new(0, 4)
             delBtn.MouseButton1Click:Connect(function()
-                deleteConfigNamed(configName)
-                refreshConfigList()
+                deleteConfigNamed(configName); refreshConfigList()
             end)
         end
     end
@@ -1810,26 +1482,17 @@ function Arsenal.Init(ctx)
     end)
     SettingsTab.CreateLabel(" ")
     SettingsTab.CreateButton("🚫 Disable Autoload", function()
-        clearAutoload()
-        refreshConfigList()
+        clearAutoload(); refreshConfigList()
     end)
 
     SettingsTab.CreateLabel(" ")
     SettingsTab.CreateLabel("── Optimizations ──", Theme.Text)
     SettingsTab.CreateLabel("Boost FPS / Reduce lag", Theme.TextDim)
 
-    SettingsTab.CreateToggle("Low Graphics", "lowGraphics", function(v)
-        applyLowGraphics(v)
-    end)
-    SettingsTab.CreateToggle("No Shadows", "noShadows", function(v)
-        applyNoShadows(v)
-    end)
-    SettingsTab.CreateToggle("No Fog", "noFog", function(v)
-        applyNoFog(v)
-    end)
-    SettingsTab.CreateToggle("No Particles", "noParticles", function(v)
-        applyNoParticles(v)
-    end)
+    SettingsTab.CreateToggle("low_graphics", "lowGraphics", function(v) applyLowGraphics(v) end)
+    SettingsTab.CreateToggle("no_shadows", "noShadows", function(v) applyNoShadows(v) end)
+    SettingsTab.CreateToggle("no_fog", "noFog", function(v) applyNoFog(v) end)
+    SettingsTab.CreateToggle("no_particles", "noParticles", function(v) applyNoParticles(v) end)
 
     SettingsTab.CreateLabel(" ")
     SettingsTab.CreateButton("⚡ Max FPS Boost", function()
@@ -1837,9 +1500,8 @@ function Arsenal.Init(ctx)
         toggleHandles.noShadows.SetState(true)
         toggleHandles.noFog.SetState(true)
         toggleHandles.noParticles.SetState(true)
-        Notify("⚡ Boost", "Todas otimizações ativadas", 3)
+        Notify("⚡ Boost", "Otimizações ativadas", 3)
     end)
-
     SettingsTab.CreateButton("🔄 Reset Optimizations", function()
         toggleHandles.lowGraphics.SetState(false)
         toggleHandles.noShadows.SetState(false)
@@ -1871,8 +1533,7 @@ function Arsenal.Init(ctx)
 
     -- CREDITS
     local CreditsTab = CreateTab("tab_credits", "➕")
-    CreditsTab.CreateCredit("FOUNDER", "Sr Red", Theme.TitleRed)
-    CreditsTab.CreateCredit("DEVELOPER", "Eclipse Dev", Theme.Primary)
+    CreditsTab.CreateCredit("FOUNDER & DEVELOPER", "Sr Red", Theme.TitleRed)
     CreditsTab.CreateLabel(" ")
     CreditsTab.CreateLabel("── Join our Discord ──", Theme.Text)
     CreditsTab.CreateLabel("https://discord.gg/ScZfU2mAGm", Theme.TextDim)
@@ -1886,20 +1547,16 @@ function Arsenal.Init(ctx)
     end)
     discordBtn.BackgroundColor3 = Theme.Discord
     CreditsTab.CreateLabel(" ")
-    CreditsTab.CreateLabel("Infinite Zen v1.3", Theme.TextDim)
-    CreditsTab.CreateLabel("Arsenal Edition", Theme.Warning)
-    CreditsTab.CreateLabel("© 2026 Eclipse Dev", Theme.TextDim)
+    CreditsTab.CreateLabel(FULL_VERSION, Theme.TextDim)
+    CreditsTab.CreateLabel("© 2026 Sr Red", Theme.TextDim)
 
-    -- Version label
+    -- Version label (rodapé)
     local versionLabel = Instance.new("TextLabel", MainFrame)
-    versionLabel.Size = UDim2.new(1, -20, 0, 16)
-    versionLabel.Position = UDim2.new(0, 10, 1, -20)
-    versionLabel.BackgroundTransparency = 1
-    versionLabel.Font = Theme.Font
-    versionLabel.TextSize = 10
-    versionLabel.TextColor3 = Theme.TextDim
+    versionLabel.Size = UDim2.new(1, -20, 0, 16); versionLabel.Position = UDim2.new(0, 10, 1, -20)
+    versionLabel.BackgroundTransparency = 1; versionLabel.Font = Theme.Font
+    versionLabel.TextSize = 10; versionLabel.TextColor3 = Theme.TextDim
     versionLabel.TextXAlignment = Enum.TextXAlignment.Right
-    versionLabel.Text = "Infinite Zen v1.3"
+    versionLabel.Text = FULL_VERSION
 
     -- Autoload
     task.defer(function()
@@ -1910,9 +1567,7 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- ============================================================
     -- KEYBIND SYSTEM
-    -- ============================================================
     local MINIMIZE_KEY = Enum.KeyCode.K
 
     UserInputService.InputBegan:Connect(function(input, gp)
@@ -1969,10 +1624,9 @@ function Arsenal.Init(ctx)
     end)
 
     task.wait(0.5)
-    Notify("🌌 Infinite Zen v1.3", "Arsenal carregado!", 4)
+    Notify("🌌 " .. FULL_VERSION, "Carregado!", 4)
 
-    print("[Infinite Zen] ✅ Arsenal v1.3 carregado!")
-    print("[Infinite Zen] K = Minimize | E = Backstab | X = Silent Headshot")
+    print("[Infinite Zen] ✅ " .. FULL_VERSION .. " carregado!")
     print("[Infinite Zen] Configs em: InfiniteZen_Configs/Arsenal")
 end
 
