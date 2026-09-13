@@ -1,5 +1,5 @@
 -- ============================================================
--- INFINITE ZEN - MÓDULO ARSENAL v1.0
+-- INFINITE ZEN - MÓDULO ARSENAL v1.2 (MOBILE + CREDITS)
 -- Tema: INFINITE ZEN (Vermelho/Preto Shinobi)
 -- ============================================================
 
@@ -9,7 +9,7 @@ function Arsenal.Init(ctx)
     local Language = ctx.Language
     local gameName = ctx.gameName
 
-    print("[Infinite Zen] Inicializando Arsenal...")
+    print("[Infinite Zen] Inicializando Arsenal v1.2 MOBILE+CREDITS...")
 
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -23,6 +23,13 @@ function Arsenal.Init(ctx)
     local Camera = workspace.CurrentCamera
 
     local UNLOADED = false
+
+    -- ============================================================
+    -- PATCH MOBILE 1: Detecção
+    -- ============================================================
+    local IS_MOBILE = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+    local MOBILE_SCALE = 0.72
+    print("[Infinite Zen] Mobile:", IS_MOBILE, "| Scale:", MOBILE_SCALE)
 
     -- ============================================================
     -- SISTEMA DE TRADUÇÃO
@@ -111,7 +118,7 @@ function Arsenal.Init(ctx)
     GUI.Parent = PlayerGui
 
     -- ============================================================
-    -- THEME - INFINITE ZEN (Vermelho/Preto Shinobi)
+    -- THEME
     -- ============================================================
     local Theme = {
         Bg = Color3.fromRGB(8, 4, 6),
@@ -120,23 +127,18 @@ function Arsenal.Init(ctx)
         Border = Color3.fromRGB(80, 15, 20),
         SidebarColor = Color3.fromRGB(15, 6, 10),
         ContentColor = Color3.fromRGB(25, 10, 15),
-
         Primary = Color3.fromRGB(255, 30, 40),
         PrimaryDark = Color3.fromRGB(180, 15, 25),
-
         Gradient1 = Color3.fromRGB(150, 10, 20),
         Gradient2 = Color3.fromRGB(255, 40, 40),
-
         TitleRed = Color3.fromRGB(255, 50, 50),
-
         Success = Color3.fromRGB(0, 220, 130),
         Danger = Color3.fromRGB(255, 40, 40),
         Warning = Color3.fromRGB(255, 150, 50),
-
         Text = Color3.fromRGB(255, 245, 245),
         TextDim = Color3.fromRGB(160, 120, 130),
         TextRed = Color3.fromRGB(255, 80, 80),
-
+        Discord = Color3.fromRGB(88, 101, 242),
         Font = Enum.Font.GothamMedium,
         FontBold = Enum.Font.GothamBlack,
     }
@@ -228,6 +230,20 @@ function Arsenal.Init(ctx)
     MainFrame.BorderSizePixel = 0
     Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
 
+    -- ============================================================
+    -- PATCH MOBILE 2: Scale + Recentralização
+    -- ============================================================
+    local guiScale = Instance.new("UIScale")
+    guiScale.Scale = IS_MOBILE and MOBILE_SCALE or 1
+    guiScale.Parent = MainFrame
+
+    if IS_MOBILE then
+        local vp = workspace.CurrentCamera.ViewportSize
+        local w = 620 * MOBILE_SCALE
+        local h = 480 * MOBILE_SCALE
+        MainFrame.Position = UDim2.new(0, (vp.X - w) / 2, 0, (vp.Y - h) / 2)
+    end
+
     local mainStroke = Instance.new("UIStroke", MainFrame)
     mainStroke.Color = Theme.Primary
     mainStroke.Thickness = 1.5
@@ -305,7 +321,7 @@ function Arsenal.Init(ctx)
     Subtitle.Position = UDim2.new(0, 20, 0, 25)
     Subtitle.BackgroundTransparency = 1
     Subtitle.Font = Theme.Font
-    Subtitle.Text = "Arsenal Edition"
+    Subtitle.Text = "Arsenal Mobile v1.2"
     Subtitle.TextColor3 = Color3.fromRGB(220, 180, 185)
     Subtitle.TextSize = 11
     Subtitle.TextXAlignment = Enum.TextXAlignment.Left
@@ -370,8 +386,7 @@ function Arsenal.Init(ctx)
         end)
     end
 
-    local totalDropdownHeight = #availableLangs * 32 + 8
-    LangDropdown.Size = UDim2.new(0, 140, 0, totalDropdownHeight)
+    LangDropdown.Size = UDim2.new(0, 140, 0, #availableLangs * 32 + 8)
 
     local dropdownOpen = false
     LangBtn.MouseButton1Click:Connect(function()
@@ -394,6 +409,81 @@ function Arsenal.Init(ctx)
     MinBtn.TextColor3 = Theme.Text
     MinBtn.ZIndex = 3
     Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0, 6)
+
+    -- ============================================================
+    -- PATCH MOBILE 4: Botão flutuante pra reabrir
+    -- ============================================================
+    local reopenBtn = Instance.new("TextButton", GUI)
+    reopenBtn.Size = UDim2.new(0, 55, 0, 55)
+    reopenBtn.Position = UDim2.new(0, 20, 0, 100)
+    reopenBtn.BackgroundColor3 = Theme.Primary
+    reopenBtn.Text = "∞"
+    reopenBtn.Font = Theme.FontBold
+    reopenBtn.TextSize = 26
+    reopenBtn.TextColor3 = Theme.Text
+    reopenBtn.AutoButtonColor = false
+    reopenBtn.Visible = false
+    reopenBtn.ZIndex = 500
+    Instance.new("UICorner", reopenBtn).CornerRadius = UDim.new(1, 0)
+
+    local reopenStroke = Instance.new("UIStroke", reopenBtn)
+    reopenStroke.Color = Theme.TitleRed
+    reopenStroke.Thickness = 2
+    reopenStroke.Transparency = 0.3
+
+    local reopenShadow = Instance.new("ImageLabel", reopenBtn)
+    reopenShadow.Image = "rbxassetid://1316045217"
+    reopenShadow.Size = UDim2.new(1, 20, 1, 20)
+    reopenShadow.Position = UDim2.new(0, -10, 0, -10)
+    reopenShadow.BackgroundTransparency = 1
+    reopenShadow.ImageTransparency = 0.4
+    reopenShadow.ZIndex = 0
+
+    local reopenDragging = false
+    local reopenDragStart = nil
+    local reopenStartPos = nil
+    local reopenMoved = false
+
+    reopenBtn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            reopenDragging = true
+            reopenMoved = false
+            reopenDragStart = input.Position
+            reopenStartPos = reopenBtn.Position
+        end
+    end)
+
+    reopenBtn.InputChanged:Connect(function(input)
+        if not reopenDragging then return end
+        if input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch then
+            local delta = input.Position - reopenDragStart
+            if math.abs(delta.X) > 5 or math.abs(delta.Y) > 5 then
+                reopenMoved = true
+            end
+            reopenBtn.Position = UDim2.new(
+                reopenStartPos.X.Scale, reopenStartPos.X.Offset + delta.X,
+                reopenStartPos.Y.Scale, reopenStartPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            if reopenDragging then
+                reopenDragging = false
+                task.wait(0.1)
+                reopenMoved = false
+            end
+        end
+    end)
+
+    reopenBtn.MouseButton1Click:Connect(function()
+        if reopenMoved then return end
+        setMinimized(false)
+    end)
 
     -- ============================================================
     -- DRAG SYSTEM
@@ -482,6 +572,7 @@ function Arsenal.Init(ctx)
         Sidebar.Visible = not v
         Content.Visible = not v
         MainFrame.Size = v and UDim2.new(0, 620, 0, 48) or UDim2.new(0, 620, 0, 480)
+        reopenBtn.Visible = v
     end
 
     MinBtn.MouseButton1Click:Connect(function()
@@ -673,7 +764,9 @@ function Arsenal.Init(ctx)
             return handle
         end
 
-        -- SLIDER
+        -- ============================================================
+        -- SLIDER (PATCH MOBILE 3 — touch-safe)
+        -- ============================================================
         tab.CreateSlider = function(labelKey, min, max, defaultValue, featureId, callback)
             local holder = Instance.new("Frame", container)
             holder.Size = UDim2.new(1, -10, 0, 44)
@@ -725,16 +818,22 @@ function Arsenal.Init(ctx)
             fill.BorderSizePixel = 0
             Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
 
+            -- Botão cobrindo só a área da barra
             local click = Instance.new("TextButton", holder)
-            click.Size = UDim2.new(1, 0, 1, 0)
+            click.Size = UDim2.new(1, -24, 0, 22)
+            click.Position = UDim2.new(0, 12, 0, 22)
             click.BackgroundTransparency = 1
             click.Text = ""
+            click.AutoButtonColor = false
+            click.ZIndex = 5
 
-            local draggingSlider = false
-            local function update(mouse)
+            local activeInput = nil
+
+            local function update(posX)
                 local p = barBg.AbsolutePosition
                 local s = barBg.AbsoluteSize
-                local rx = math.clamp((mouse.X - p.X) / s.X, 0, 1)
+                if s.X <= 0 then return end
+                local rx = math.clamp((posX - p.X) / s.X, 0, 1)
                 local v = math.floor(min + (max - min) * rx)
                 cur = v
                 fill.Size = UDim2.new(rx, 0, 1, 0)
@@ -743,17 +842,30 @@ function Arsenal.Init(ctx)
                 if callback then callback(v) end
             end
 
-            click.MouseButton1Down:Connect(function()
-                draggingSlider = true
-                update(UserInputService:GetMouseLocation())
-            end)
-            UserInputService.InputEnded:Connect(function(i)
+            click.InputBegan:Connect(function(input)
                 if UNLOADED then return end
-                if i.UserInputType == Enum.UserInputType.MouseButton1 then draggingSlider = false end
+                if activeInput then return end
+                if input.UserInputType == Enum.UserInputType.MouseButton1
+                    or input.UserInputType == Enum.UserInputType.Touch then
+                    activeInput = input
+                    update(input.Position.X)
+                end
             end)
-            RunService.RenderStepped:Connect(function()
+
+            UserInputService.InputChanged:Connect(function(input)
                 if UNLOADED then return end
-                if draggingSlider then update(UserInputService:GetMouseLocation()) end
+                if activeInput ~= input then return end
+                if input.UserInputType == Enum.UserInputType.MouseMovement
+                    or input.UserInputType == Enum.UserInputType.Touch then
+                    update(input.Position.X)
+                end
+            end)
+
+            UserInputService.InputEnded:Connect(function(input)
+                if UNLOADED then return end
+                if input == activeInput then
+                    activeInput = nil
+                end
             end)
 
             local handle = {
@@ -789,7 +901,12 @@ function Arsenal.Init(ctx)
             btnStroke.Transparency = 0.7
 
             registerRefresh(function()
-                btn.Text = Language.get(labelKey)
+                local t = Language.get(labelKey)
+                if t and t ~= labelKey then
+                    btn.Text = t
+                else
+                    btn.Text = labelKey
+                end
             end)
 
             btn.MouseEnter:Connect(function()
@@ -816,10 +933,88 @@ function Arsenal.Init(ctx)
             lbl.Text = ""
 
             registerRefresh(function()
-                lbl.Text = Language.get(textKey)
+                local t = Language.get(textKey)
+                if t and t ~= textKey then
+                    lbl.Text = t
+                else
+                    lbl.Text = textKey
+                end
             end)
 
             return lbl
+        end
+
+        -- TEXTBOX
+        tab.CreateTextBox = function(placeholder, callback)
+            local holder = Instance.new("Frame", container)
+            holder.Size = UDim2.new(1, -10, 0, 36)
+            holder.BackgroundColor3 = Theme.Surface
+            holder.BorderSizePixel = 0
+            Instance.new("UICorner", holder).CornerRadius = UDim.new(0, 6)
+
+            local hs = Instance.new("UIStroke", holder)
+            hs.Color = Theme.Border
+            hs.Thickness = 1
+            hs.Transparency = 0.7
+
+            local box = Instance.new("TextBox", holder)
+            box.Size = UDim2.new(1, -20, 1, -10)
+            box.Position = UDim2.new(0, 10, 0, 5)
+            box.BackgroundTransparency = 1
+            box.Font = Theme.Font
+            box.TextSize = 12
+            box.TextColor3 = Theme.Text
+            box.PlaceholderText = placeholder or "Type..."
+            box.PlaceholderColor3 = Theme.TextDim
+            box.Text = ""
+            box.ClearTextOnFocus = false
+            box.TextXAlignment = Enum.TextXAlignment.Left
+
+            box.FocusLost:Connect(function(enterPressed)
+                if enterPressed and box.Text ~= "" then
+                    local text = box.Text
+                    box.Text = ""
+                    if callback then callback(text) end
+                end
+            end)
+
+            return box
+        end
+
+        -- CREDIT ENTRY
+        tab.CreateCredit = function(role, name, color)
+            local holder = Instance.new("Frame", container)
+            holder.Size = UDim2.new(1, -10, 0, 50)
+            holder.BackgroundColor3 = Theme.Surface
+            holder.BorderSizePixel = 0
+            Instance.new("UICorner", holder).CornerRadius = UDim.new(0, 6)
+
+            local hs = Instance.new("UIStroke", holder)
+            hs.Color = Theme.Border
+            hs.Thickness = 1
+            hs.Transparency = 0.7
+
+            local roleLbl = Instance.new("TextLabel", holder)
+            roleLbl.Size = UDim2.new(1, -20, 0, 16)
+            roleLbl.Position = UDim2.new(0, 12, 0, 6)
+            roleLbl.BackgroundTransparency = 1
+            roleLbl.Font = Theme.Font
+            roleLbl.TextSize = 10
+            roleLbl.TextColor3 = Theme.TextDim
+            roleLbl.Text = role
+            roleLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+            local nameLbl = Instance.new("TextLabel", holder)
+            nameLbl.Size = UDim2.new(1, -20, 0, 20)
+            nameLbl.Position = UDim2.new(0, 12, 0, 22)
+            nameLbl.BackgroundTransparency = 1
+            nameLbl.Font = Theme.FontBold
+            nameLbl.TextSize = 14
+            nameLbl.TextColor3 = color or Theme.TitleRed
+            nameLbl.Text = name
+            nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+            return holder
         end
 
         return tab
@@ -919,10 +1114,12 @@ function Arsenal.Init(ctx)
         Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position + Vector3.new(0, 0.15, 0))
     end)
 
+    -- Aceita MouseButton1 E Touch
     UserInputService.InputBegan:Connect(function(input, gp)
         if UNLOADED or gp then return end
         if not State.silentHeadshot then return end
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1
+            and input.UserInputType ~= Enum.UserInputType.Touch then return end
         silentOriginalCam = Camera.CFrame
         local target = getClosestHeadInFov()
         if not target or not target.Character then return end
@@ -936,7 +1133,8 @@ function Arsenal.Init(ctx)
 
     UserInputService.InputEnded:Connect(function(input, gp)
         if UNLOADED or gp then return end
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1
+            and input.UserInputType ~= Enum.UserInputType.Touch then return end
         if silentHolding then
             silentHolding = false
             silentTarget = nil
@@ -1442,6 +1640,116 @@ function Arsenal.Init(ctx)
     end
 
     -- ============================================================
+    -- CONFIG SYSTEM (nomeado + lista + autoload)
+    -- ============================================================
+    local CONFIG_FOLDER = "InfiniteZen_Configs"
+    local AUTOLOAD_FILE = "InfiniteZen_Arsenal_Autoload.txt"
+
+    local function ensureFolder()
+        if makefolder and not isfolder(CONFIG_FOLDER) then
+            pcall(function() makefolder(CONFIG_FOLDER) end)
+        end
+    end
+
+    local function getConfigPath(name) return CONFIG_FOLDER .. "/" .. name .. ".json" end
+    local function getAutoloadPath() return AUTOLOAD_FILE end
+
+    local function saveConfigNamed(name)
+        ensureFolder()
+        local data = {}
+        for k, v in pairs(State) do
+            if k ~= "keybinds" then data[k] = v end
+        end
+        data.keybinds = State.keybinds
+        data.language = Language.getCurrent()
+        data.version = "1.2"
+        local json = HttpService:JSONEncode(data)
+        local ok, err = pcall(function()
+            writefile(getConfigPath(name), json)
+        end)
+        if ok then
+            Notify("💾 Config", "Saved: " .. name, 3)
+            return true
+        else
+            Notify("⚠️ Error", "Failed: " .. tostring(err), 4, true)
+            return false
+        end
+    end
+
+    local function loadConfigNamed(name)
+        local ok, content = pcall(function() return readfile(getConfigPath(name)) end)
+        if not ok or not content then
+            Notify("⚠️ Error", "Config not found: " .. name, 4, true)
+            return false
+        end
+        local success, data = pcall(function() return HttpService:JSONDecode(content) end)
+        if not success or not data then
+            Notify("⚠️ Error", "Corrupted: " .. name, 4, true)
+            return false
+        end
+        if data.language then Language.setLanguage(data.language) end
+        for k, v in pairs(data) do
+            if k == "keybinds" then
+                for feat, key in pairs(v) do State.keybinds[feat] = key end
+            elseif k ~= "language" and k ~= "version" then
+                State[k] = v
+            end
+        end
+        for featId, handle in pairs(toggleHandles) do
+            if State[featId] ~= nil then handle.SetState(State[featId], true) end
+            handle.SetKeybind(State.keybinds[featId])
+        end
+        for featId, handle in pairs(sliderHandles) do
+            if State[featId] ~= nil then handle.SetValue(State[featId]) end
+        end
+        Notify("📂 Load", "Loaded: " .. name, 3)
+        return true
+    end
+
+    local function deleteConfigNamed(name)
+        local path = getConfigPath(name)
+        if isfile and isfile(path) then
+            pcall(function() delfile(path) end)
+            Notify("🗑️ Delete", "Deleted: " .. name, 3)
+            return true
+        end
+        return false
+    end
+
+    local function listConfigs()
+        local list = {}
+        if listfiles and isfolder and isfolder(CONFIG_FOLDER) then
+            for _, file in ipairs(listfiles(CONFIG_FOLDER)) do
+                if file:sub(-5) == ".json" then
+                    local name = file:match("([^/\\]+)%.json$")
+                    if name then table.insert(list, name) end
+                end
+            end
+        end
+        return list
+    end
+
+    local function setAutoload(name)
+        ensureFolder()
+        local ok = pcall(function() writefile(getAutoloadPath(), name) end)
+        if ok then Notify("⚡ Autoload", "Set: " .. name, 3)
+        else Notify("⚠️ Error", "Failed autoload", 4, true) end
+    end
+
+    local function clearAutoload()
+        local ok = pcall(function()
+            if isfile(getAutoloadPath()) then delfile(getAutoloadPath()) end
+        end)
+        if ok then Notify("🚫 Autoload", "Disabled", 3) end
+    end
+
+    local function getAutoload()
+        local ok, content = pcall(function() return readfile(getAutoloadPath()) end)
+        if ok and content and content ~= "" then return content end
+        return nil
+    end
+
+    -- ============================================================
     -- CRIAR ABAS
     -- ============================================================
     local CombatTab = CreateTab("tab_combat", "⚔️")
@@ -1495,60 +1803,158 @@ function Arsenal.Init(ctx)
     end)
     VisualsTab.CreateSlider("max_distance", 100, 10000, 500, "espMaxDistance")
 
+    -- ============================================================
+    -- SETTINGS TAB
+    -- ============================================================
     local SettingsTab = CreateTab("tab_settings", "⚙️")
 
-    local function saveConfig()
-        local data = {}
-        for k, v in pairs(State) do
-            if k ~= "keybinds" then data[k] = v end
-        end
-        data.keybinds = State.keybinds
-        local json = HttpService:JSONEncode(data)
-        local ok = pcall(function()
-            writefile("InfiniteZen_Config.json", json)
-        end)
-        if ok then
-            Notify("💾 " .. Language.get("config_title"), Language.get("config_saved"), 3)
-        else
-            Notify("⚠️ " .. Language.get("error_title"), Language.get("config_error_save"), 3, true)
-        end
-    end
+    SettingsTab.CreateLabel("interface_label")
+    SettingsTab.CreateLabel("Type name and press Enter", Theme.TextDim)
+    SettingsTab.CreateTextBox("Config name...", function(name)
+        saveConfigNamed(name)
+        task.wait(0.1)
+        -- refresh manual não é necessário, mas se quiser:
+    end)
 
-    local function loadConfig()
-        local ok, content = pcall(function()
-            return readfile("InfiniteZen_Config.json")
-        end)
-        if ok and content then
-            local success, data = pcall(function()
-                return HttpService:JSONDecode(content)
-            end)
-            if success and data then
-                for k, v in pairs(data) do
-                    if k == "keybinds" then
-                        for feat, key in pairs(v) do
-                            State.keybinds[feat] = key
-                        end
-                    else
-                        State[k] = v
-                    end
-                end
-                for featId, handle in pairs(toggleHandles) do
-                    if State[featId] ~= nil then handle.SetState(State[featId], true) end
-                    handle.SetKeybind(State.keybinds[featId])
-                end
-                for featId, handle in pairs(sliderHandles) do
-                    if State[featId] ~= nil then handle.SetValue(State[featId]) end
-                end
-                Notify("📂 " .. Language.get("load_title"), Language.get("config_loaded"), 3)
-            else
-                Notify("⚠️ " .. Language.get("error_title"), Language.get("config_error_corrupt"), 3, true)
+    SettingsTab.CreateLabel("── Configs ──", Theme.Text)
+    SettingsTab.CreateLabel("Load • ⚡ Autoload • × Delete", Theme.TextDim)
+
+    local configListFrame = Instance.new("Frame", SettingsTab.container)
+    configListFrame.Size = UDim2.new(1, -10, 0, 140)
+    configListFrame.BackgroundColor3 = Theme.Surface
+    configListFrame.BorderSizePixel = 0
+    Instance.new("UICorner", configListFrame).CornerRadius = UDim.new(0, 6)
+    local cfs = Instance.new("UIStroke", configListFrame)
+    cfs.Color = Theme.Border; cfs.Thickness = 1; cfs.Transparency = 0.7
+
+    local configScroll = Instance.new("ScrollingFrame", configListFrame)
+    configScroll.Size = UDim2.new(1, -10, 1, -10)
+    configScroll.Position = UDim2.new(0, 5, 0, 5)
+    configScroll.BackgroundTransparency = 1
+    configScroll.BorderSizePixel = 0
+    configScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    configScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    configScroll.ScrollBarThickness = 4
+    configScroll.ScrollBarImageColor3 = Theme.Primary
+    local cl = Instance.new("UIListLayout", configScroll)
+    cl.Padding = UDim.new(0, 4)
+
+    local function refreshConfigList()
+        for _, child in ipairs(configScroll:GetChildren()) do
+            if child:IsA("TextButton") or child:IsA("Frame") then child:Destroy() end
+        end
+        local configs = listConfigs()
+        local currentAutoload = getAutoload()
+        if #configs == 0 then
+            local emptyLbl = Instance.new("TextLabel", configScroll)
+            emptyLbl.Size = UDim2.new(1, 0, 0, 30)
+            emptyLbl.BackgroundTransparency = 1
+            emptyLbl.Font = Theme.Font
+            emptyLbl.TextSize = 11
+            emptyLbl.TextColor3 = Theme.TextDim
+            emptyLbl.Text = "No configs saved yet."
+            return
+        end
+        for _, configName in ipairs(configs) do
+            local entry = Instance.new("Frame", configScroll)
+            entry.Size = UDim2.new(1, -4, 0, 30)
+            entry.BackgroundColor3 = Theme.Surface2
+            entry.BorderSizePixel = 0
+            Instance.new("UICorner", entry).CornerRadius = UDim.new(0, 4)
+
+            local nameLbl = Instance.new("TextLabel", entry)
+            nameLbl.Size = UDim2.new(0.5, 0, 1, 0)
+            nameLbl.Position = UDim2.new(0, 8, 0, 0)
+            nameLbl.BackgroundTransparency = 1
+            nameLbl.Font = Theme.Font
+            nameLbl.TextSize = 11
+            nameLbl.TextColor3 = Theme.Text
+            nameLbl.Text = configName
+            nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+            if currentAutoload == configName then
+                nameLbl.Text = "⚡ " .. configName
+                nameLbl.TextColor3 = Theme.Warning
             end
-        else
-            Notify("⚠️ " .. Language.get("error_title"), Language.get("config_error_load"), 3, true)
+
+            local loadBtn = Instance.new("TextButton", entry)
+            loadBtn.Size = UDim2.new(0, 50, 0, 22)
+            loadBtn.Position = UDim2.new(1, -110, 0.5, -11)
+            loadBtn.BackgroundColor3 = Theme.Primary
+            loadBtn.Text = "Load"
+            loadBtn.Font = Theme.FontBold
+            loadBtn.TextSize = 10
+            loadBtn.TextColor3 = Theme.Text
+            loadBtn.AutoButtonColor = false
+            Instance.new("UICorner", loadBtn).CornerRadius = UDim.new(0, 4)
+            loadBtn.MouseButton1Click:Connect(function()
+                loadConfigNamed(configName)
+                refreshConfigList()
+            end)
+
+            local autoBtn = Instance.new("TextButton", entry)
+            autoBtn.Size = UDim2.new(0, 22, 0, 22)
+            autoBtn.Position = UDim2.new(1, -55, 0.5, -11)
+            autoBtn.BackgroundColor3 = currentAutoload == configName and Theme.Warning or Theme.Surface
+            autoBtn.Text = "⚡"
+            autoBtn.Font = Theme.FontBold
+            autoBtn.TextSize = 12
+            autoBtn.TextColor3 = Theme.Text
+            autoBtn.AutoButtonColor = false
+            Instance.new("UICorner", autoBtn).CornerRadius = UDim.new(0, 4)
+            autoBtn.MouseButton1Click:Connect(function()
+                if currentAutoload == configName then clearAutoload()
+                else setAutoload(configName) end
+                refreshConfigList()
+            end)
+
+            local delBtn = Instance.new("TextButton", entry)
+            delBtn.Size = UDim2.new(0, 22, 0, 22)
+            delBtn.Position = UDim2.new(1, -28, 0.5, -11)
+            delBtn.BackgroundColor3 = Color3.fromRGB(60, 15, 20)
+            delBtn.Text = "×"
+            delBtn.Font = Theme.FontBold
+            delBtn.TextSize = 14
+            delBtn.TextColor3 = Theme.Danger
+            delBtn.AutoButtonColor = false
+            Instance.new("UICorner", delBtn).CornerRadius = UDim.new(0, 4)
+            delBtn.MouseButton1Click:Connect(function()
+                deleteConfigNamed(configName)
+                refreshConfigList()
+            end)
         end
     end
+    refreshConfigList()
 
-    local function unloadScript()
+    SettingsTab.CreateButton("🔄 Refresh List", function()
+        refreshConfigList()
+        Notify("🔄 Refresh", "Config list updated", 2)
+    end)
+
+    SettingsTab.CreateLabel(" ")
+    local autoloadLabel = SettingsTab.CreateLabel("", Theme.Text)
+    registerRefresh(function()
+        local ca = getAutoload()
+        if ca then
+            autoloadLabel.Text = "⚡ Autoload: " .. ca
+            autoloadLabel.TextColor3 = Theme.Warning
+        else
+            autoloadLabel.Text = "🚫 Autoload: disabled"
+            autoloadLabel.TextColor3 = Theme.TextDim
+        end
+    end)
+    SettingsTab.CreateLabel(" ")
+    SettingsTab.CreateButton("🚫 Disable Autoload", function()
+        clearAutoload()
+        refreshConfigList()
+    end)
+
+    SettingsTab.CreateLabel(" ")
+    SettingsTab.CreateLabel("info_label")
+    SettingsTab.CreateLabel("key_minimize")
+    SettingsTab.CreateLabel("keybind_help1")
+    SettingsTab.CreateLabel("keybind_help2")
+    SettingsTab.CreateLabel(" ")
+    SettingsTab.CreateButton("unload_script", function()
         UNLOADED = true
         _G.IZ_RefreshLanguage = nil
         restoreAll()
@@ -1557,19 +1963,38 @@ function Arsenal.Init(ctx)
         if fovCircle then fovCircle:Remove() end
         GUI:Destroy()
         print("[Infinite Zen] Script descarregado")
-    end
+    end, "danger")
 
-    SettingsTab.CreateLabel("interface_label")
-    SettingsTab.CreateButton("save_config", saveConfig)
-    SettingsTab.CreateButton("load_config", loadConfig)
-    SettingsTab.CreateLabel(" ")
-    SettingsTab.CreateLabel("info_label")
-    SettingsTab.CreateLabel("key_minimize")
-    SettingsTab.CreateLabel("keybind_help1")
-    SettingsTab.CreateLabel("keybind_help2")
-    SettingsTab.CreateLabel(" ")
-    SettingsTab.CreateButton("unload_script", unloadScript, "danger")
+    -- ============================================================
+    -- CREDITS TAB
+    -- ============================================================
+    local CreditsTab = CreateTab("tab_credits", "➕")
 
+    CreditsTab.CreateCredit("FOUNDER", "Sr Red", Theme.TitleRed)
+    CreditsTab.CreateCredit("DEVELOPER", "Eclipse Dev", Theme.Primary)
+
+    CreditsTab.CreateLabel(" ")
+    CreditsTab.CreateLabel("── Join our Discord ──", Theme.Text)
+    CreditsTab.CreateLabel("https://discord.gg/ScZfU2mAGm", Theme.TextDim)
+
+    local discordBtn = CreditsTab.CreateButton("💬 Join Discord Server", function()
+        if setclipboard then
+            setclipboard("https://discord.gg/ScZfU2mAGm")
+            Notify("📋 Copied", "Discord link copied!", 3)
+        else
+            Notify("ℹ️ Discord", "discord.gg/ScZfU2mAGm", 5)
+        end
+    end)
+    discordBtn.BackgroundColor3 = Theme.Discord
+
+    CreditsTab.CreateLabel(" ")
+    CreditsTab.CreateLabel("Infinite Zen v1.2", Theme.TextDim)
+    CreditsTab.CreateLabel("Arsenal Mobile Edition", Theme.Warning)
+    CreditsTab.CreateLabel("© 2026 Eclipse Dev", Theme.TextDim)
+
+    -- ============================================================
+    -- VERSION LABEL + AUTOLOAD
+    -- ============================================================
     local versionLabel = Instance.new("TextLabel", MainFrame)
     versionLabel.Size = UDim2.new(1, -20, 0, 16)
     versionLabel.Position = UDim2.new(0, 10, 1, -20)
@@ -1578,16 +2003,27 @@ function Arsenal.Init(ctx)
     versionLabel.TextSize = 10
     versionLabel.TextColor3 = Theme.TextDim
     versionLabel.TextXAlignment = Enum.TextXAlignment.Right
-    versionLabel.Text = Language.get("version_text")
+    versionLabel.Text = Language.get("version_text") or "Infinite Zen v1.2"
 
     registerRefresh(function()
-        versionLabel.Text = Language.get("version_text")
+        versionLabel.Text = Language.get("version_text") or "Infinite Zen v1.2"
     end)
 
     registerRefresh(function()
-        Subtitle.Text = Language.get("hub_subtitle") .. " • v1.0"
+        Subtitle.Text = Language.get("hub_subtitle") .. " • v1.2"
     end)
 
+    task.defer(function()
+        local autoloadName = getAutoload()
+        if autoloadName then
+            task.wait(1)
+            loadConfigNamed(autoloadName)
+        end
+    end)
+
+    -- ============================================================
+    -- KEYBIND SYSTEM
+    -- ============================================================
     local MINIMIZE_KEY = Enum.KeyCode.K
 
     UserInputService.InputBegan:Connect(function(input, gp)
@@ -1607,8 +2043,8 @@ function Arsenal.Init(ctx)
             local newKey = input.KeyCode.Name
 
             if newKey == "K" then
-                Notify("🚫 " .. Language.get("keybind_locked"),
-                    Language.get("keybind_locked_desc"),
+                Notify("🚫 " .. (Language.get("keybind_locked") or "Blocked"),
+                    Language.get("keybind_locked_desc") or "K is reserved",
                     4, true)
                 recordingKeyFor = nil
                 local handle = toggleHandles[featId]
@@ -1619,8 +2055,8 @@ function Arsenal.Init(ctx)
             local conflictFeat = findFeatureWithKeybind(newKey)
             if conflictFeat and conflictFeat ~= featId then
                 local conflictLabel = FeatureLabels[conflictFeat] or conflictFeat
-                Notify("🚫 " .. Language.get("keybind_inuse"),
-                    newKey .. Language.get("keybind_inuse_desc") .. conflictLabel,
+                Notify("🚫 " .. (Language.get("keybind_inuse") or "In Use"),
+                    newKey .. " → " .. conflictLabel,
                     4, true)
                 recordingKeyFor = nil
                 local handle = toggleHandles[featId]
@@ -1653,8 +2089,12 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    print("[Infinite Zen] ✅ Arsenal carregado!")
+    task.wait(0.5)
+    Notify("🌌 Infinite Zen v1.2", "Arsenal Mobile carregado!", 4)
+
+    print("[Infinite Zen] ✅ Arsenal v1.2 carregado!")
     print("[Infinite Zen] K = Minimize | E = Backstab | X = Silent Headshot")
+    print("[Infinite Zen] Mobile scale:", MOBILE_SCALE)
 end
 
 return Arsenal
