@@ -1,24 +1,19 @@
 -- ============================================================
 -- INFINITE ZEN - MAIN LOADER
--- Detecta o jogo. Se for Arsenal, carrega. Se não, avisa.
 -- ============================================================
 
 print("============================================")
 print("  🌌 INFINITE ZEN HUB")
-print("  Versão: 1.1")
+print("  Versão: 2.0")
 print("============================================")
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- ============================================================
--- CONFIGURAÇÕES
--- ============================================================
 local CONFIG = {
     REPO = "https://raw.githubusercontent.com/qualquerumapessoa913-ops/InfiniteZen/Moon-Angel",
     DEFAULT_LANG = "en",
-
     SUPPORTED_GAMES = {
         [286090429] = {name = "Arsenal", module = "arsenal"},
         [14939963714] = {name = "Jailbird", module = "jailbird"},
@@ -30,15 +25,12 @@ local CONFIG = {
 local placeId = game.PlaceId
 local gameInfo = CONFIG.SUPPORTED_GAMES[placeId]
 
--- ============================================================
--- FUNÇÃO PRA CARREGAR MÓDULO
--- ============================================================
 local function loadModule(path)
     local url = CONFIG.REPO .. "/" .. path
     local success, result = pcall(function()
         return game:HttpGet(url)
     end)
-    if not success then
+    if not success or not result or result == "" then
         warn("[Infinite Zen] Falha ao carregar: " .. path)
         return nil
     end
@@ -50,15 +42,20 @@ local function loadModule(path)
     return fn
 end
 
--- ============================================================
--- CARREGA IDIOMAS
--- ============================================================
+-- Carrega UI Library (NOVO)
+local UI = loadModule("InfiniteZen_UI.lua")
+if UI then
+    UI = UI()
+    print("[Infinite Zen] ✅ UI Library carregada")
+else
+    warn("[Infinite Zen] ⚠️ Falha ao carregar UI Library")
+end
+
+-- Carrega Language
 local Language = loadModule("src/utils/language.lua")()
 Language.setLanguage(CONFIG.DEFAULT_LANG)
 
--- ============================================================
--- SE O JOGO NÃO É SUPORTADO -> GUI DE AVISO
--- ============================================================
+-- Jogo não suportado
 if not gameInfo then
     warn("[Infinite Zen] Jogo não suportado! PlaceId: " .. placeId)
 
@@ -66,12 +63,6 @@ if not gameInfo then
     gui.Name = "InfiniteZen_Unsupported"
     gui.ResetOnSpawn = false
     gui.Parent = PlayerGui
-
-    local backdrop = Instance.new("Frame", gui)
-    backdrop.Size = UDim2.new(1, 0, 1, 0)
-    backdrop.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    backdrop.BackgroundTransparency = 0.5
-    backdrop.BorderSizePixel = 0
 
     local frame = Instance.new("Frame", gui)
     frame.Size = UDim2.new(0, 420, 0, 200)
@@ -131,25 +122,24 @@ if not gameInfo then
     closeBtn.AutoButtonColor = false
     Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
 
-    closeBtn.MouseButton1Click:Connect(function()
-        gui:Destroy()
-    end)
-
+    closeBtn.MouseButton1Click:Connect(function() gui:Destroy() end)
     return
 end
 
--- ============================================================
--- JOGO SUPORTADO -> CARREGA O MÓDULO
--- ============================================================
 print("[Infinite Zen] 🎮 Jogo detectado: " .. gameInfo.name)
 print("[Infinite Zen] 📦 Carregando módulo: " .. gameInfo.module)
 print("============================================")
 
 local gameModule = loadModule("src/games/" .. gameInfo.module .. ".lua")()
+if not gameModule then
+    warn("[Infinite Zen] ⚠️ Falha ao carregar módulo do jogo.")
+    return
+end
 
-if gameModule and gameModule.Init then
+if gameModule.Init then
     gameModule.Init({
         Language = Language,
+        UI = UI,  -- ⬅️ passa a UI
         gameName = gameInfo.name,
         placeId = placeId,
     })
