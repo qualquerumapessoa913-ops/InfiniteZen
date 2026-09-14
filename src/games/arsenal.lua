@@ -1,5 +1,5 @@
 -- ============================================================
--- INFINITE ZEN - MÓDULO ARSENAL v2.1 (SUPER UPDATE + SKINS)
+-- INFINITE ZEN - MÓDULO ARSENAL v2.0 (FULL FIX)
 -- ============================================================
 
 local Arsenal = {}
@@ -32,7 +32,11 @@ function Arsenal.Init(ctx)
     local IS_MOBILE = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
     local MOBILE_SCALE = 0.72
 
+    local function LOGE(msg) pcall(function() print("[IZ Arsenal ERROR] " .. tostring(msg)) end) end
+
+    -- ═══════════════════════════════════════════════
     -- SAFE WRAPPERS
+    -- ═══════════════════════════════════════════════
     local function safeFind(parent, ...)
         if not parent then return nil end
         local current = parent
@@ -109,7 +113,6 @@ function Arsenal.Init(ctx)
 
     -- STATE
     local State = {
-        -- COMBAT
         killAll = false, killAllDelay = 100,
         killAura = false, killAuraRange = 30, killAuraDelay = 50,
         wallbang = false,
@@ -124,7 +127,6 @@ function Arsenal.Init(ctx)
         expanderEnabled = false, hitboxSize = 3,
         fovCircle = false,
 
-        -- GUN MODS
         noRecoil = false,
         noSpread = false,
         rapidFire = false, rapidFireValue = 0.03,
@@ -140,13 +142,10 @@ function Arsenal.Init(ctx)
         piercing = false,
         noMuzzleFlash = false,
         hitSounds = false, hitSoundId = "rbxassetid://131961136",
-        -- NEW WEAPON VISUALS
         ghostWeapon = false, ghostTransparency = 1,
         rainbowWeapon = false, rainbowSpeed = 1,
-        -- CUSTOM SKIN
         customSkin = false, customSkinName = "",
 
-        -- MOVEMENT
         speed = false, speedValue = 50,
         fly = false, flySpeed = 60,
         infJump = false, jumpPower = 50,
@@ -154,7 +153,6 @@ function Arsenal.Init(ctx)
         noclip = false,
         teleportCursor = false,
 
-        -- VISUALS
         esp = false, espMaxDistance = 1000, espTeamCheck = true,
         espBox = true, espName = true, espHealth = true,
         espDistance = true, espWeapon = true, espTracer = false,
@@ -167,12 +165,10 @@ function Arsenal.Init(ctx)
         viewmodelFov = false, viewmodelFovValue = 90,
         crosshair = false,
 
-        -- EXTRA
         antiFlash = false,
         antiVK = false,
         antiAFK = false,
 
-        -- OPTIMIZATION
         lowGraphics = false, noShadows = false, noFog = false, noParticles = false,
 
         keybinds = {
@@ -600,7 +596,7 @@ function Arsenal.Init(ctx)
                 State[featureId] = v
                 toggleBtn.Text = v and "ON" or "OFF"
                 toggleBtn.BackgroundColor3 = v and Theme.Success or Theme.Surface2
-                if not silent and callback then callback(v) end
+                if not silent and callback then pcall(callback, v) end
             end
             local function toggle() setState(not State[featureId]) end
             toggleBtn.MouseButton1Click:Connect(toggle)
@@ -668,7 +664,7 @@ function Arsenal.Init(ctx)
                 fill.Size = UDim2.new(rx, 0, 1, 0)
                 valLbl.Text = tostring(v)
                 State[featureId] = v
-                if callback then callback(v) end
+                if callback then pcall(callback, v) end
             end
             click.InputBegan:Connect(function(input)
                 if UNLOADED or activeInput then return end
@@ -694,7 +690,7 @@ function Arsenal.Init(ctx)
                     fill.Size = UDim2.new(r, 0, 1, 0)
                     valLbl.Text = tostring(cur)
                     State[featureId] = cur
-                    if callback then callback(cur) end
+                    if callback then pcall(callback, cur) end
                 end
             }
             sliderHandles[featureId] = handle
@@ -742,7 +738,7 @@ function Arsenal.Init(ctx)
                     selBtn.Text = opt
                     State[featureId] = i
                     dd.Visible = false
-                    if callback then callback(i, opt) end
+                    if callback then pcall(callback, i, opt) end
                 end)
             end
             selBtn.MouseButton1Click:Connect(function()
@@ -753,7 +749,7 @@ function Arsenal.Init(ctx)
                     curIdx = math.clamp(i, 1, #options)
                     selBtn.Text = options[curIdx]
                     State[featureId] = curIdx
-                    if callback then callback(curIdx, options[curIdx]) end
+                    if callback then pcall(callback, curIdx, options[curIdx]) end
                 end,
             }
             dropdownHandles[featureId] = handle
@@ -777,7 +773,7 @@ function Arsenal.Init(ctx)
             btn.MouseLeave:Connect(function()
                 btn.BackgroundColor3 = style == "danger" and Color3.fromRGB(60, 15, 20) or Theme.Surface
             end)
-            btn.MouseButton1Click:Connect(function() if callback then callback() end end)
+            btn.MouseButton1Click:Connect(function() if callback then pcall(callback) end end)
             return btn
         end
 
@@ -807,7 +803,7 @@ function Arsenal.Init(ctx)
                 if enterPressed and box.Text ~= "" then
                     local text = box.Text
                     box.Text = ""
-                    if callback then callback(text) end
+                    if callback then pcall(callback, text) end
                 end
             end)
             return box
@@ -836,6 +832,8 @@ function Arsenal.Init(ctx)
         return tab
     end
 
+    print("[IZ Arsenal] Tabs builder OK")
+
     -- FOV CIRCLE
     local fovCircle = Drawing.new("Circle")
     fovCircle.Color = Theme.Primary; fovCircle.Thickness = 1.5
@@ -860,7 +858,7 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- TARGETING HELPERS
+    -- TARGETING
     local function getClosestEnemyInFov(fovRange, requireLOS)
         local mouse = UserInputService:GetMouseLocation()
         local closest, minDist = nil, fovRange
@@ -887,14 +885,15 @@ function Arsenal.Init(ctx)
     -- COMBAT
     -- ═══════════════════════════════════════════════
 
-    -- SILENT AIM
     local silentHolding, silentTarget, silentOriginalCF = false, nil, nil
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not silentHolding then return end
         if not silentTarget or not silentTarget.Character then silentHolding = false; return end
         local head = getBasePart(silentTarget.Character, "Head")
         if not head then silentHolding = false; return end
-        Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position + Vector3.new(0, 0.15, 0))
+        pcall(function()
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position + Vector3.new(0, 0.15, 0))
+        end)
     end)
     UserInputService.InputBegan:Connect(function(input, gp)
         if UNLOADED or gp or not State.silentAim then return end
@@ -906,7 +905,9 @@ function Arsenal.Init(ctx)
         silentHolding = true
         local head = getBasePart(target.Character, "Head")
         if head then
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position + Vector3.new(0, 0.15, 0))
+            pcall(function()
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position + Vector3.new(0, 0.15, 0))
+            end)
         end
     end)
     UserInputService.InputEnded:Connect(function(input, gp)
@@ -916,13 +917,12 @@ function Arsenal.Init(ctx)
             silentHolding = false
             silentTarget = nil
             if silentOriginalCF then
-                Camera.CFrame = silentOriginalCF
+                pcall(function() Camera.CFrame = silentOriginalCF end)
                 silentOriginalCF = nil
             end
         end
     end)
 
-    -- AIMBOT
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.aimbot then return end
         local target = getClosestEnemyInFov(State.aimbotFov, State.aimbotWallCheck)
@@ -947,7 +947,6 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- LOCK BOT
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.lockBot then return end
         local target = getClosestEnemyInFov(State.lockBotFov, false)
@@ -966,7 +965,6 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- TRIGGERBOT
     local triggerLastFire = 0
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.triggerbot then return end
@@ -990,7 +988,6 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- AUTO SHOT
     local lastAutoShot = 0
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.autoShot then return end
@@ -1005,7 +1002,6 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- KILL AURA
     local killAuraActive = false
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.killAura then return end
@@ -1024,7 +1020,7 @@ function Arsenal.Init(ctx)
                     if tHRP then
                         local dist = (tHRP.Position - originalCF.Position).Magnitude
                         if dist <= State.killAuraRange then
-                            myHRP.CFrame = tHRP.CFrame * CFrame.new(0, 0, 2)
+                            pcall(function() myHRP.CFrame = tHRP.CFrame * CFrame.new(0, 0, 2) end)
                             task.wait(0.02)
                             pcall(function() mouse1click() end)
                             pcall(function()
@@ -1037,12 +1033,11 @@ function Arsenal.Init(ctx)
                     end
                 end
             end
-            if myHRP and myHRP.Parent then myHRP.CFrame = originalCF end
+            if myHRP and myHRP.Parent then pcall(function() myHRP.CFrame = originalCF end) end
             killAuraActive = false
         end)
     end)
 
-    -- KILL ALL
     local killAllActive = false
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.killAll then return end
@@ -1061,9 +1056,9 @@ function Arsenal.Init(ctx)
                 if isEnemy(p) and p.Character then
                     local tHead = getBasePart(p.Character, "Head")
                     if tHead then
-                        myHRP.CFrame = CFrame.new(tHead.Position + Vector3.new(0, 0, 2))
+                        pcall(function() myHRP.CFrame = CFrame.new(tHead.Position + Vector3.new(0, 0, 2)) end)
                         task.wait(0.01)
-                        Camera.CFrame = CFrame.new(myHRP.Position, tHead.Position)
+                        pcall(function() Camera.CFrame = CFrame.new(myHRP.Position, tHead.Position) end)
                         task.wait(0.01)
                         pcall(function() mouse1click() end)
                         pcall(function() tool:Activate() end)
@@ -1071,23 +1066,24 @@ function Arsenal.Init(ctx)
                     end
                 end
             end
-            if myHRP and myHRP.Parent then myHRP.CFrame = originalCF end
+            if myHRP and myHRP.Parent then pcall(function() myHRP.CFrame = originalCF end) end
             killAllActive = false
         end)
     end)
 
-    -- ANTI-AIM
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.antiAim then return end
         local mode = State.antiAimMode
-        if mode == 1 then
-            Camera.CFrame = Camera.CFrame * CFrame.Angles(0, math.rad(15), 0)
-        elseif mode == 2 then
-            local jitter = CFrame.Angles(math.rad(math.random(-15, 15)), math.rad(math.random(-15, 15)), 0)
-            Camera.CFrame = Camera.CFrame * jitter
-        elseif mode == 3 then
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + Vector3.new(0, -1, 0))
-        end
+        pcall(function()
+            if mode == 1 then
+                Camera.CFrame = Camera.CFrame * CFrame.Angles(0, math.rad(15), 0)
+            elseif mode == 2 then
+                local jitter = CFrame.Angles(math.rad(math.random(-15, 15)), math.rad(math.random(-15, 15)), 0)
+                Camera.CFrame = Camera.CFrame * jitter
+            elseif mode == 3 then
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + Vector3.new(0, -1, 0))
+            end
+        end)
     end)
 
     -- HEAD EXPANDER
@@ -1163,13 +1159,17 @@ function Arsenal.Init(ctx)
     print("[IZ Arsenal] Combat OK")
 
     -- ═══════════════════════════════════════════════
-    -- GUN MODS (NumberValue based)
+    -- GUN MODS
     -- ═══════════════════════════════════════════════
     local reloadOriginals = {}
 
     RunService.Heartbeat:Connect(function()
         if UNLOADED then return end
-        if not (State.rapidFire or State.noRecoil or State.fastReload or State.instaReload or State.noSpread or State.infiniteAmmo or State.rangeExtender or State.bulletSpeed or State.damageMult or State.piercing) then return end
+        local anyWeaponMod = State.rapidFire or State.noRecoil or State.fastReload or State.instaReload
+            or State.noSpread or State.infiniteAmmo or State.rangeExtender or State.bulletSpeed
+            or State.damageMult or State.piercing or State.noGravity or State.noMuzzleFlash
+        local hasSavedOriginals = next(reloadOriginals) ~= nil
+        if not (anyWeaponMod or hasSavedOriginals) then return end
         local char = LocalPlayer.Character
         if not char then return end
         local containers = {char}
@@ -1265,13 +1265,29 @@ function Arsenal.Init(ctx)
                             end
                         end)
                     end
+                    -- FIXED: damageMult saves original, no more exponential multiplication
                     if State.damageMult then
                         pcall(function()
                             for _, d in ipairs(tool:GetDescendants()) do
                                 if d:IsA("NumberValue") or d:IsA("IntValue") then
                                     local n = d.Name:lower()
                                     if n:find("damage") or n == "dmg" then
-                                        d.Value = d.Value * State.damageMultValue
+                                        if not reloadOriginals["dmg_" .. tostring(d)] then
+                                            reloadOriginals["dmg_" .. tostring(d)] = d.Value
+                                        end
+                                        d.Value = reloadOriginals["dmg_" .. tostring(d)] * State.damageMultValue
+                                    end
+                                end
+                            end
+                        end)
+                    else
+                        pcall(function()
+                            for _, d in ipairs(tool:GetDescendants()) do
+                                if d:IsA("NumberValue") or d:IsA("IntValue") then
+                                    local key = "dmg_" .. tostring(d)
+                                    if reloadOriginals[key] then
+                                        d.Value = reloadOriginals[key]
+                                        reloadOriginals[key] = nil
                                     end
                                 end
                             end
@@ -1312,7 +1328,6 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- AUTO RELOAD
     local lastReloadCheck = 0
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.autoReload then return end
@@ -1327,65 +1342,64 @@ function Arsenal.Init(ctx)
     print("[IZ Arsenal] Gun Mods OK")
 
     -- ═══════════════════════════════════════════════
-    -- NEW: GHOST WEAPON + RAINBOW WEAPON
+    -- GHOST + RAINBOW (FIXED)
     -- ═══════════════════════════════════════════════
-    local weaponVisualOriginals = {}
+    local savedWeaponParts = {}
     local rainbowHue = 0
-    local lastWeaponVisualActive = false
+    local lastWeaponKey = nil
+
+    local function restoreAllWeaponParts()
+        for part, orig in pairs(savedWeaponParts) do
+            if part and part.Parent then
+                pcall(function()
+                    if part:IsA("BasePart") then
+                        part.Transparency = orig.Transparency or 0
+                        if orig.Color then part.Color = orig.Color end
+                        if orig.Material then part.Material = orig.Material end
+                    elseif part:IsA("Decal") or part:IsA("Texture") then
+                        part.Transparency = orig.Transparency or 0
+                    end
+                end)
+            end
+        end
+        savedWeaponParts = {}
+    end
 
     RunService.Heartbeat:Connect(function(dt)
         if UNLOADED then return end
-        local tool = getMyTool()
         local active = State.ghostWeapon or State.rainbowWeapon
+        local tool = getMyTool()
+        local toolKey = tool and tool:GetFullName() or nil
 
-        -- Restore when both off
+        if lastWeaponKey and lastWeaponKey ~= toolKey then
+            restoreAllWeaponParts()
+        end
+        lastWeaponKey = toolKey
+
         if not active then
-            if lastWeaponVisualActive then
-                for part, orig in pairs(weaponVisualOriginals) do
-                    if part and part.Parent then
-                        pcall(function()
-                            if part:IsA("BasePart") then
-                                part.Transparency = orig.Transparency
-                                part.Color = orig.Color
-                                part.Material = orig.Material
-                            elseif part:IsA("Decal") or part:IsA("Texture") then
-                                part.Transparency = orig.Transparency
-                            end
-                        end)
-                    end
-                end
-                weaponVisualOriginals = {}
-            end
-            lastWeaponVisualActive = false
+            if next(savedWeaponParts) then restoreAllWeaponParts() end
             return
         end
 
-        lastWeaponVisualActive = true
         if not tool then return end
 
-        -- Salvar originais
         for _, part in ipairs(tool:GetDescendants()) do
-            if (part:IsA("BasePart") or part:IsA("Decal") or part:IsA("Texture")) and weaponVisualOriginals[part] == nil then
-                local ok, orig = pcall(function()
-                    return {
-                        Transparency = part.Transparency,
-                        Color = part:IsA("BasePart") and part.Color or nil,
-                        Material = part:IsA("BasePart") and part.Material or nil,
-                    }
-                end)
-                if ok and orig then weaponVisualOriginals[part] = orig end
+            if (part:IsA("BasePart") or part:IsA("Decal") or part:IsA("Texture")) and savedWeaponParts[part] == nil then
+                savedWeaponParts[part] = {
+                    Transparency = part.Transparency or 0,
+                    Color = part:IsA("BasePart") and part.Color or nil,
+                    Material = part:IsA("BasePart") and part.Material or nil,
+                }
             end
         end
 
         if State.ghostWeapon and not State.rainbowWeapon then
-            -- GHOST
             for _, part in ipairs(tool:GetDescendants()) do
                 if part:IsA("BasePart") or part:IsA("Decal") or part:IsA("Texture") then
                     pcall(function() part.Transparency = State.ghostTransparency end)
                 end
             end
         elseif State.rainbowWeapon then
-            -- RAINBOW
             rainbowHue = (rainbowHue + dt * State.rainbowSpeed) % 1
             local color = Color3.fromHSV(rainbowHue, 1, 1)
             for _, part in ipairs(tool:GetDescendants()) do
@@ -1393,8 +1407,9 @@ function Arsenal.Init(ctx)
                     pcall(function()
                         part.Color = color
                         part.Material = Enum.Material.Neon
-                        if weaponVisualOriginals[part] then
-                            part.Transparency = math.min(weaponVisualOriginals[part].Transparency, 0.3)
+                        local orig = savedWeaponParts[part]
+                        if orig then
+                            part.Transparency = math.min(orig.Transparency or 0, 0.3)
                         else
                             part.Transparency = 0
                         end
@@ -1406,120 +1421,123 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    print("[IZ Arsenal] Ghost + Rainbow Weapon OK")
+    print("[IZ Arsenal] Ghost + Rainbow OK")
 
     -- ═══════════════════════════════════════════════
-    -- NEW: CUSTOM SKIN SYSTEM
+    -- SKIN SYSTEM (FIXED - non-blocking)
     -- ═══════════════════════════════════════════════
     local skinList = {}
-    local skinMenuFrame = nil
     local skinButtons = {}
 
-    local function scanWeaponSkins()
+    local function scanWeaponSkinsSafe()
         local found = {}
         local seen = {}
+        local count = 0
 
-        local function addSkin(name, source)
+        local function addSkin(name)
             if not name or name == "" then return end
             if name:sub(1, 1) == "." then return end
+            if #name > 50 then return end
             if seen[name] then return end
             seen[name] = true
-            table.insert(found, { name = name, source = source })
+            count = count + 1
+            if count > 500 then return end
+            table.insert(found, name)
         end
 
-        -- Scan ReplicatedStorage broadly
         local paths = {
             {"Skins"}, {"WeaponSkins"}, {"SkinData"}, {"SkinsFolder"},
             {"Assets", "Skins"}, {"Assets", "Weapons"}, {"Assets", "WeaponSkins"},
-            {"Shared", "Skins"}, {"Shared", "Weapons"}, {"Shared", "WeaponSkins"},
-            {"Database", "Skins"}, {"Database", "Weapons"}, {"Database", "SkinData"},
-            {"Classes", "Weapons"}, {"Classes", "Skins"},
-            {"Components", "Skins"}, {"Components", "Weapons"},
-            {"Controllers", "Skins"}, {"Controllers", "Weapons"},
+            {"Shared", "Skins"}, {"Shared", "Weapons"},
+            {"Database", "Skins"}, {"Database", "Weapons"},
         }
-
         for _, path in ipairs(paths) do
-            local current = ReplicatedStorage
-            local ok = true
-            for _, name in ipairs(path) do
-                current = current and current:FindFirstChild(name)
-                if not current then ok = false; break end
-            end
-            if ok and current then
+            pcall(function()
+                local current = ReplicatedStorage
+                for _, name in ipairs(path) do
+                    current = current and current:FindFirstChild(name)
+                    if not current then return end
+                end
                 for _, child in ipairs(current:GetChildren()) do
-                    if child:IsA("StringValue") or child:IsA("Folder")
-                       or child:IsA("Configuration") or child:IsA("ModuleScript") then
-                        addSkin(child.Name, path[#path])
+                    if child:IsA("StringValue") or child:IsA("Folder") or child:IsA("ModuleScript") then
+                        addSkin(child.Name)
+                    end
+                end
+            end)
+        end
+
+        pcall(function()
+            local scanned = 0
+            for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
+                scanned = scanned + 1
+                if scanned > 5000 then break end
+                if obj:IsA("StringValue") or obj:IsA("Folder") or obj:IsA("ModuleScript") then
+                    local lower = obj.Name:lower()
+                    if lower:find("skin") and not lower:find("remotes") and not lower:find("event") then
+                        addSkin(obj.Name)
                     end
                 end
             end
-        end
+        end)
 
-        -- Deep scan fallback for anything with "skin" in the name
-        for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
-            if obj:IsA("StringValue") or obj:IsA("Folder") or obj:IsA("ModuleScript") then
-                local n = obj.Name
-                local lower = n:lower()
-                if lower:find("skin") and #n < 40 and not lower:find("remotes") then
-                    addSkin(n, "auto")
-                end
-            end
-        end
-
-        table.sort(found, function(a, b) return a.name < b.name end)
+        table.sort(found)
         return found
     end
 
     local function applySkinToTool(skinName)
+        if not skinName or skinName == "" then
+            Notify("🎨 Skin", "Selecione uma skin", 3, true)
+            return false
+        end
         local tool = getMyTool()
         if not tool then
             Notify("🎨 Skin", "Nenhuma arma equipada", 3, true)
             return false
         end
 
-        -- Best effort: tenta um remote comum primeiro
-        local applied = false
-        local skinRemotes = {
-            safeFind(ReplicatedStorage, "NetworkRemotes", "Inventory", "EquipLoadoutSkin"),
-            safeFind(ReplicatedStorage, "NetworkRemotes", "Inventory", "SwapLoadoutSkins"),
-            safeFind(ReplicatedStorage, "Remotes", "EquipSkin"),
-            safeFind(ReplicatedStorage, "Remotes", "SetSkin"),
-            safeFind(ReplicatedStorage, "WeaponSkinRemote"),
-        }
-        for _, rem in ipairs(skinRemotes) do
-            if rem and (rem:IsA("RemoteEvent") or rem:IsA("RemoteFunction")) then
-                pcall(function() rem:FireServer(skinName) end)
-                applied = true
-            end
-        end
-
-        -- Client-side: procura por Mesh/Texture correspondentes e troca
-        local skinObj = nil
-        for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
-            if obj.Name == skinName then skinObj = obj; break end
-        end
-
-        if skinObj then
-            for _, part in ipairs(tool:GetDescendants()) do
-                if part:IsA("MeshPart") or part:IsA("SpecialMesh") then
-                    pcall(function()
-                        if part:IsA("MeshPart") and skinObj:IsA("MeshPart") then
-                            part.MeshId = skinObj.MeshId
-                            part.TextureID = skinObj.TextureID
-                        elseif part:IsA("SpecialMesh") and skinObj:IsA("SpecialMesh") then
-                            part.MeshId = skinObj.MeshId
-                            part.TextureId = skinObj.TextureId
-                        end
-                    end)
-                elseif part:IsA("Texture") then
-                    pcall(function()
-                        if skinObj:IsA("Texture") then
-                            part.Texture = skinObj.Texture
-                        end
-                    end)
+        pcall(function()
+            local remotes = {
+                safeFind(ReplicatedStorage, "NetworkRemotes", "Inventory", "EquipLoadoutSkin"),
+                safeFind(ReplicatedStorage, "NetworkRemotes", "Inventory", "SwapLoadoutSkins"),
+                safeFind(ReplicatedStorage, "Remotes", "EquipSkin"),
+                safeFind(ReplicatedStorage, "Remotes", "SetSkin"),
+            }
+            for _, rem in ipairs(remotes) do
+                if rem and (rem:IsA("RemoteEvent") or rem:IsA("RemoteFunction")) then
+                    pcall(function() rem:FireServer(skinName) end)
                 end
             end
-        end
+        end)
+
+        pcall(function()
+            local skinObj = nil
+            local scanned = 0
+            for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
+                scanned = scanned + 1
+                if scanned > 5000 then break end
+                if obj.Name == skinName and (obj:IsA("MeshPart") or obj:IsA("SpecialMesh") or obj:IsA("Texture") or obj:IsA("Decal")) then
+                    skinObj = obj
+                    break
+                end
+            end
+            if skinObj then
+                for _, part in ipairs(tool:GetDescendants()) do
+                    if part:IsA("MeshPart") and skinObj:IsA("MeshPart") then
+                        pcall(function()
+                            part.MeshId = skinObj.MeshId
+                            part.TextureID = skinObj.TextureID
+                        end)
+                    elseif part:IsA("SpecialMesh") and skinObj:IsA("SpecialMesh") then
+                        pcall(function()
+                            part.MeshId = skinObj.MeshId
+                            part.TextureId = skinObj.TextureId
+                        end)
+                    elseif part:IsA("Texture") and skinObj:IsA("Texture") then
+                        pcall(function() part.Texture = skinObj.Texture end)
+                    end
+                end
+            end
+        end)
 
         State.customSkinName = skinName
         Notify("🎨 Skin", "Aplicado: " .. skinName, 3)
@@ -1527,111 +1545,99 @@ function Arsenal.Init(ctx)
     end
 
     local function buildSkinMenu(tab)
-        local scrollFrame = Instance.new("ScrollingFrame", tab.container)
-        scrollFrame.Size = UDim2.new(1, -10, 0, 300)
-        scrollFrame.BackgroundColor3 = Theme.Surface
-        scrollFrame.BorderSizePixel = 0
-        scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-        scrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-        scrollFrame.ScrollBarThickness = 4
-        scrollFrame.ScrollBarImageColor3 = Theme.Primary
-        Instance.new("UICorner", scrollFrame).CornerRadius = UDim.new(0, 6)
-        local sl = Instance.new("UIListLayout", scrollFrame)
-        sl.Padding = UDim.new(0, 3)
-        local sp = Instance.new("UIPadding", scrollFrame)
-        sp.PaddingTop = UDim.new(0, 4)
-        sp.PaddingBottom = UDim.new(0, 4)
-        sp.PaddingLeft = UDim.new(0, 4)
-        sp.PaddingRight = UDim.new(0, 4)
+        pcall(function()
+            local scrollFrame = Instance.new("ScrollingFrame", tab.container)
+            scrollFrame.Size = UDim2.new(1, -10, 0, 280)
+            scrollFrame.BackgroundColor3 = Theme.Surface
+            scrollFrame.BorderSizePixel = 0
+            scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+            scrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+            scrollFrame.ScrollBarThickness = 4
+            scrollFrame.ScrollBarImageColor3 = Theme.Primary
+            Instance.new("UICorner", scrollFrame).CornerRadius = UDim.new(0, 6)
+            local sl = Instance.new("UIListLayout", scrollFrame)
+            sl.Padding = UDim.new(0, 3)
+            local sp = Instance.new("UIPadding", scrollFrame)
+            sp.PaddingTop = UDim.new(0, 4)
+            sp.PaddingBottom = UDim.new(0, 4)
+            sp.PaddingLeft = UDim.new(0, 4)
+            sp.PaddingRight = UDim.new(0, 4)
 
-        skinMenuFrame = scrollFrame
-
-        local function refresh()
-            for _, child in ipairs(scrollFrame:GetChildren()) do
-                if child:IsA("TextButton") or child:IsA("Frame") then child:Destroy() end
-            end
-            skinList = scanWeaponSkins()
-            if #skinList == 0 then
-                local lbl = Instance.new("TextLabel", scrollFrame)
-                lbl.Size = UDim2.new(1, 0, 0, 30)
-                lbl.BackgroundTransparency = 1
-                lbl.Font = Theme.Font
-                lbl.TextSize = 11
-                lbl.TextColor3 = Theme.TextDim
-                lbl.Text = "Nenhuma skin encontrada."
-                return
-            end
-            for _, skin in ipairs(skinList) do
-                local btn = Instance.new("TextButton", scrollFrame)
-                btn.Size = UDim2.new(1, 0, 0, 26)
-                btn.BackgroundColor3 = State.customSkinName == skin.name and Theme.Success or Theme.Surface2
-                btn.Text = "  " .. skin.name
-                btn.Font = Theme.Font
-                btn.TextSize = 11
-                btn.TextColor3 = Theme.Text
-                btn.TextXAlignment = Enum.TextXAlignment.Left
-                btn.AutoButtonColor = false
-                btn.ZIndex = 5
-                Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
-                btn.MouseEnter:Connect(function()
-                    if State.customSkinName ~= skin.name then
-                        btn.BackgroundColor3 = Theme.Surface
-                    end
-                end)
-                btn.MouseLeave:Connect(function()
-                    if State.customSkinName ~= skin.name then
-                        btn.BackgroundColor3 = Theme.Surface2
-                    end
-                end)
-                btn.MouseButton1Click:Connect(function()
-                    applySkinToTool(skin.name)
-                    for _, other in ipairs(skinButtons) do
-                        if other.Parent then
-                            other.BackgroundColor3 = Theme.Surface2
+            local function refresh()
+                for _, child in ipairs(scrollFrame:GetChildren()) do
+                    if child:IsA("TextButton") then child:Destroy() end
+                end
+                skinButtons = {}
+                skinList = scanWeaponSkinsSafe()
+                if #skinList == 0 then
+                    local lbl = Instance.new("TextLabel", scrollFrame)
+                    lbl.Size = UDim2.new(1, 0, 0, 30)
+                    lbl.BackgroundTransparency = 1
+                    lbl.Font = Theme.Font
+                    lbl.TextSize = 11
+                    lbl.TextColor3 = Theme.TextDim
+                    lbl.Text = "Nenhuma skin encontrada. Tente Refresh."
+                    return
+                end
+                for _, skinName in ipairs(skinList) do
+                    local btn = Instance.new("TextButton", scrollFrame)
+                    btn.Size = UDim2.new(1, 0, 0, 26)
+                    btn.BackgroundColor3 = State.customSkinName == skinName and Theme.Success or Theme.Surface2
+                    btn.Text = "  " .. skinName
+                    btn.Font = Theme.Font
+                    btn.TextSize = 11
+                    btn.TextColor3 = Theme.Text
+                    btn.TextXAlignment = Enum.TextXAlignment.Left
+                    btn.AutoButtonColor = false
+                    btn.ZIndex = 5
+                    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+                    btn.MouseButton1Click:Connect(function()
+                        applySkinToTool(skinName)
+                        for _, other in ipairs(skinButtons) do
+                            if other.Parent then other.BackgroundColor3 = Theme.Surface2 end
                         end
-                    end
-                    btn.BackgroundColor3 = Theme.Success
-                end)
-                table.insert(skinButtons, btn)
+                        btn.BackgroundColor3 = Theme.Success
+                    end)
+                    table.insert(skinButtons, btn)
+                end
             end
-        end
 
-        refresh()
+            local abtn = Instance.new("TextButton", tab.container)
+            abtn.Size = UDim2.new(1, -10, 0, 30)
+            abtn.BackgroundColor3 = Theme.Primary
+            abtn.Text = "✅ Apply Current"
+            abtn.Font = Theme.FontBold
+            abtn.TextSize = 11
+            abtn.TextColor3 = Theme.Text
+            abtn.AutoButtonColor = false
+            Instance.new("UICorner", abtn).CornerRadius = UDim.new(0, 6)
+            abtn.MouseButton1Click:Connect(function()
+                if State.customSkinName ~= "" then
+                    applySkinToTool(State.customSkinName)
+                else
+                    Notify("🎨 Skin", "Selecione uma skin", 3, true)
+                end
+            end)
 
-        -- Botão de refresh
-        local rbtn = Instance.new("TextButton", tab.container)
-        rbtn.Size = UDim2.new(1, -10, 0, 30)
-        rbtn.BackgroundColor3 = Theme.Surface2
-        rbtn.Text = "🔄 Refresh Skins"
-        rbtn.Font = Theme.FontBold
-        rbtn.TextSize = 11
-        rbtn.TextColor3 = Theme.Text
-        rbtn.AutoButtonColor = false
-        Instance.new("UICorner", rbtn).CornerRadius = UDim.new(0, 6)
-        rbtn.MouseButton1Click:Connect(function()
-            skinButtons = {}
-            refresh()
-            Notify("🔄 Skins", #skinList .. " skins encontradas", 3)
-        end)
+            local rbtn = Instance.new("TextButton", tab.container)
+            rbtn.Size = UDim2.new(1, -10, 0, 30)
+            rbtn.BackgroundColor3 = Theme.Surface2
+            rbtn.Text = "🔄 Refresh Skins"
+            rbtn.Font = Theme.FontBold
+            rbtn.TextSize = 11
+            rbtn.TextColor3 = Theme.Text
+            rbtn.AutoButtonColor = false
+            Instance.new("UICorner", rbtn).CornerRadius = UDim.new(0, 6)
+            rbtn.MouseButton1Click:Connect(function()
+                refresh()
+                Notify("🔄 Skins", #skinList .. " skins encontradas", 3)
+            end)
 
-        -- Botão apply
-        local abtn = Instance.new("TextButton", tab.container)
-        abtn.Size = UDim2.new(1, -10, 0, 30)
-        abtn.BackgroundColor3 = Theme.Primary
-        abtn.Text = "✅ Apply Current"
-        abtn.Font = Theme.FontBold
-        abtn.TextSize = 11
-        abtn.TextColor3 = Theme.Text
-        abtn.AutoButtonColor = false
-        Instance.new("UICorner", abtn).CornerRadius = UDim.new(0, 6)
-        abtn.MouseButton1Click:Connect(function()
-            if State.customSkinName ~= "" then
-                applySkinToTool(State.customSkinName)
-            else
-                Notify("🎨 Skin", "Selecione uma skin", 3, true)
-            end
+            task.defer(refresh)
         end)
     end
+
+    print("[IZ Arsenal] Skin System OK")
 
     -- ═══════════════════════════════════════════════
     -- MOVEMENT
@@ -1679,7 +1685,7 @@ function Arsenal.Init(ctx)
         if not hrp then return end
         if not flyBodyVel then startFly() end
         if not flyBodyVel or not flyBodyGyro then return end
-        flyBodyGyro.CFrame = Camera.CFrame
+        pcall(function() flyBodyGyro.CFrame = Camera.CFrame end)
         local move = Vector3.zero
         if UserInputService:IsKeyDown(Enum.KeyCode.W) then move = move + Camera.CFrame.LookVector end
         if UserInputService:IsKeyDown(Enum.KeyCode.S) then move = move - Camera.CFrame.LookVector end
@@ -1730,7 +1736,7 @@ function Arsenal.Init(ctx)
         if not char then return end
         for _, part in ipairs(char:GetDescendants()) do
             if part:IsA("BasePart") and part.CanCollide then
-                part.CanCollide = false
+                pcall(function() part.CanCollide = false end)
             end
         end
     end)
@@ -1749,7 +1755,7 @@ function Arsenal.Init(ctx)
         params.FilterDescendantsInstances = {char}
         local result = workspace:Raycast(ray.Origin, ray.Direction * 1000, params)
         if result then
-            hrp.CFrame = CFrame.new(result.Position + Vector3.new(0, 3, 0))
+            pcall(function() hrp.CFrame = CFrame.new(result.Position + Vector3.new(0, 3, 0)) end)
         end
     end)
 
@@ -1786,9 +1792,9 @@ function Arsenal.Init(ctx)
     local function removeESP(p)
         local d = ESP.data[p]
         if not d then return end
-        if d.chams then d.chams:Destroy() end
+        if d.chams then pcall(function() d.chams:Destroy() end) end
         for _, key in ipairs({"box", "name", "distance", "health", "tracer", "headDot", "weapon"}) do
-            if d[key] and d[key].Remove then d[key]:Remove() end
+            if d[key] and d[key].Remove then pcall(function() d[key]:Remove() end) end
         end
         ESP.data[p] = nil
     end
@@ -1896,7 +1902,6 @@ function Arsenal.Init(ctx)
     end)
     Players.PlayerRemoving:Connect(function(p) removeESP(p) end)
 
-    -- GRENADE ESP
     local grenadeKeywords = {"grenade", "frag", "flashbang", "smoke", "molotov", "impact", "sticky", "decoy"}
     local grenadeDrawings = {}
     local function isGrenade(obj)
@@ -1907,8 +1912,8 @@ function Arsenal.Init(ctx)
     end
     local function clearGrenadeDrawings()
         for _, d in pairs(grenadeDrawings) do
-            if d.box then d.box:Remove() end
-            if d.name then d.name:Remove() end
+            if d.box then pcall(function() d.box:Remove() end) end
+            if d.name then pcall(function() d.name:Remove() end) end
         end
         grenadeDrawings = {}
     end
@@ -1945,15 +1950,14 @@ function Arsenal.Init(ctx)
             end
             for obj, data in pairs(grenadeDrawings) do
                 if not activeObjects[obj] then
-                    if data.box then data.box:Remove() end
-                    if data.name then data.name:Remove() end
+                    if data.box then pcall(function() data.box:Remove() end) end
+                    if data.name then pcall(function() data.name:Remove() end) end
                     grenadeDrawings[obj] = nil
                 end
             end
         end)
     end)
 
-    -- DAMAGE INDICATOR
     local dmgArrow = Drawing.new("Triangle")
     dmgArrow.Filled = true
     dmgArrow.Color = Color3.fromRGB(255, 40, 40)
@@ -2000,7 +2004,6 @@ function Arsenal.Init(ctx)
         dmgArrow.Visible = true
     end)
 
-    -- FULLBRIGHT
     local origBrightness = Lighting.Brightness
     local origAmbient = Lighting.Ambient
     local origOutdoorAmbient = Lighting.OutdoorAmbient
@@ -2040,19 +2043,19 @@ function Arsenal.Init(ctx)
         end
     end
 
-    -- THIRD PERSON
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.thirdPerson then return end
         local char = LocalPlayer.Character
         if not char then return end
         local hrp = char:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
-        local current = Camera.CFrame
-        local newCF = CFrame.new(hrp.Position - (current.LookVector * 8) + Vector3.new(0, 3, 0), hrp.Position + Vector3.new(0, 1.5, 0))
-        Camera.CFrame = newCF
+        pcall(function()
+            local current = Camera.CFrame
+            local newCF = CFrame.new(hrp.Position - (current.LookVector * 8) + Vector3.new(0, 3, 0), hrp.Position + Vector3.new(0, 1.5, 0))
+            Camera.CFrame = newCF
+        end)
     end)
 
-    -- CAMERA FOV
     local origFov = Camera.FieldOfView
     RunService.Heartbeat:Connect(function()
         if UNLOADED then return end
@@ -2063,7 +2066,6 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- ANTI-FLASH
     local flashKeywords = {"flash", "blind", "whiteout", "whitescreen", "flashbang"}
     local function isFlashName(name)
         if type(name) ~= "string" then return false end
@@ -2088,7 +2090,6 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- ANTI-VOTEKICK
     local vkKeywords = {"votekick", "voting", "vote_kick", "kickvote"}
     local function blockVoteKickGui(child)
         if not child then return false end
@@ -2108,7 +2109,6 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- ANTI-AFK
     task.spawn(function()
         while not UNLOADED do
             if State.antiAFK then
@@ -2124,9 +2124,7 @@ function Arsenal.Init(ctx)
 
     print("[IZ Arsenal] Visuals OK")
 
-    -- ═══════════════════════════════════════════════
     -- OPTIMIZATIONS
-    -- ═══════════════════════════════════════════════
     local optBackup = {
         fogEnd = Lighting.FogEnd, fogStart = Lighting.FogStart,
         globalShadows = Lighting.GlobalShadows, qualityLevel = nil,
@@ -2185,9 +2183,7 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- ═══════════════════════════════════════════════
     -- CONFIG SYSTEM
-    -- ═══════════════════════════════════════════════
     local BASE_FOLDER = "InfiniteZen_Configs"
     local CONFIG_FOLDER = BASE_FOLDER .. "/Arsenal"
     local AUTOLOAD_FILE = "InfiniteZen_Arsenal_Autoload.txt"
@@ -2278,13 +2274,9 @@ function Arsenal.Init(ctx)
         return nil
     end
 
-    -- ═══════════════════════════════════════════════
     -- TABS
-    -- ═══════════════════════════════════════════════
-
-    -- COMBAT
     local CombatTab = CreateTab("Combat", "⚔️")
-    CombatTab.CreateLabel("── Rage ──", Theme.Text)
+    CombatTab.CreateLabel("Rage", Theme.Text)
     CombatTab.CreateToggle("kill_all", "killAll")
     CombatTab.CreateSlider("kill_all_delay", 10, 1000, 100, "killAllDelay")
     CombatTab.CreateToggle("lock_bot", "lockBot")
@@ -2292,8 +2284,7 @@ function Arsenal.Init(ctx)
     CombatTab.CreateToggle("kill_aura", "killAura")
     CombatTab.CreateSlider("kill_aura_range", 5, 100, 30, "killAuraRange")
     CombatTab.CreateSlider("kill_aura_delay", 10, 500, 50, "killAuraDelay")
-    CombatTab.CreateLabel(" ")
-    CombatTab.CreateLabel("── Legit ──", Theme.Text)
+    CombatTab.CreateLabel("Legit", Theme.Text)
     CombatTab.CreateToggle("silent_aim", "silentAim")
     CombatTab.CreateSlider("silent_fov", 30, 300, 120, "silentFov")
     CombatTab.CreateToggle("aimbot", "aimbot")
@@ -2309,8 +2300,7 @@ function Arsenal.Init(ctx)
     CombatTab.CreateToggle("auto_shot", "autoShot")
     CombatTab.CreateSlider("auto_shot_fov", 30, 300, 100, "autoShotFov")
     CombatTab.CreateSlider("auto_shot_delay", 10, 500, 50, "autoShotDelay")
-    CombatTab.CreateLabel(" ")
-    CombatTab.CreateLabel("── Extra ──", Theme.Text)
+    CombatTab.CreateLabel("Extra", Theme.Text)
     CombatTab.CreateToggle("backtrack", "backtrack")
     CombatTab.CreateToggle("anti_aim", "antiAim")
     CombatTab.CreateDropdown("anti_aim_mode", {"Spin", "Jitter", "Down"}, "antiAimMode")
@@ -2320,13 +2310,11 @@ function Arsenal.Init(ctx)
     CombatTab.CreateSlider("hitbox_size", 1, 8, 3, "hitboxSize")
     CombatTab.CreateToggle("fov_circle", "fovCircle")
 
-    -- WEAPON
     local WeaponTab = CreateTab("Weapon", "🔫")
-    WeaponTab.CreateLabel("── Recoil / Spread ──", Theme.Text)
+    WeaponTab.CreateLabel("Recoil / Spread", Theme.Text)
     WeaponTab.CreateToggle("no_recoil", "noRecoil")
     WeaponTab.CreateToggle("no_spread", "noSpread")
-    WeaponTab.CreateLabel(" ")
-    WeaponTab.CreateLabel("── Fire Rate / Reload ──", Theme.Text)
+    WeaponTab.CreateLabel("Fire Rate / Reload", Theme.Text)
     WeaponTab.CreateToggle("rapid_fire", "rapidFire")
     WeaponTab.CreateSlider("rapid_fire_value", 1, 100, 3, "rapidFireValue", function(v)
         State.rapidFireValue = v / 100
@@ -2334,14 +2322,12 @@ function Arsenal.Init(ctx)
     WeaponTab.CreateToggle("fast_reload", "fastReload")
     WeaponTab.CreateToggle("insta_reload", "instaReload")
     WeaponTab.CreateToggle("auto_reload", "autoReload")
-    WeaponTab.CreateLabel(" ")
-    WeaponTab.CreateLabel("── Ammo / Damage ──", Theme.Text)
+    WeaponTab.CreateLabel("Ammo / Damage", Theme.Text)
     WeaponTab.CreateToggle("infinite_ammo", "infiniteAmmo")
     WeaponTab.CreateToggle("instant_kill", "instantKill")
     WeaponTab.CreateToggle("damage_mult", "damageMult")
     WeaponTab.CreateSlider("damage_mult_value", 1, 50, 2, "damageMultValue")
-    WeaponTab.CreateLabel(" ")
-    WeaponTab.CreateLabel("── Bullet Mods ──", Theme.Text)
+    WeaponTab.CreateLabel("Bullet Mods", Theme.Text)
     WeaponTab.CreateToggle("range_extender", "rangeExtender")
     WeaponTab.CreateSlider("range_value", 500, 50000, 5000, "rangeValue")
     WeaponTab.CreateToggle("bullet_speed", "bulletSpeed")
@@ -2349,8 +2335,7 @@ function Arsenal.Init(ctx)
     WeaponTab.CreateToggle("no_gravity", "noGravity")
     WeaponTab.CreateToggle("piercing", "piercing")
     WeaponTab.CreateToggle("no_muzzle_flash", "noMuzzleFlash")
-    WeaponTab.CreateLabel(" ")
-    WeaponTab.CreateLabel("── Visual Mods ──", Theme.Text)
+    WeaponTab.CreateLabel("Visual Mods", Theme.Text)
     WeaponTab.CreateToggle("ghost_weapon", "ghostWeapon")
     WeaponTab.CreateSlider("ghost_transparency", 0, 100, 100, "ghostTransparency", function(v)
         State.ghostTransparency = v / 100
@@ -2359,17 +2344,22 @@ function Arsenal.Init(ctx)
     WeaponTab.CreateSlider("rainbow_speed", 1, 10, 1, "rainbowSpeed", function(v)
         State.rainbowSpeed = v / 10
     end)
-    WeaponTab.CreateLabel(" ")
-    WeaponTab.CreateLabel("── Feedbacks ──", Theme.Text)
+    WeaponTab.CreateLabel("Feedbacks", Theme.Text)
     WeaponTab.CreateToggle("hit_sounds", "hitSounds")
 
-    -- SKINS (NOVA ABA)
-    local SkinsTab = CreateTab("Skins", "🎨")
-    SkinsTab.CreateLabel("── Custom Weapon Skin ──", Theme.Text)
-    SkinsTab.CreateLabel("Escaneando ReplicatedStorage...", Theme.TextDim)
-    buildSkinMenu(SkinsTab)
+    -- SKINS (protegido)
+    local okSkins, SkinsTab = pcall(function()
+        local t = CreateTab("Skins", "🎨")
+        t.CreateLabel("Custom Weapon Skin", Theme.Text)
+        t.CreateLabel("Clique em Refresh se lista estiver vazia", Theme.TextDim)
+        return t
+    end)
+    if okSkins and SkinsTab then
+        buildSkinMenu(SkinsTab)
+    else
+        LOGE("Erro ao criar aba Skins: " .. tostring(SkinsTab))
+    end
 
-    -- MOVEMENT
     local MovementTab = CreateTab("Movement", "🏃")
     MovementTab.CreateToggle("speed", "speed")
     MovementTab.CreateSlider("speed_value", 16, 300, 50, "speedValue")
@@ -2381,7 +2371,6 @@ function Arsenal.Init(ctx)
     MovementTab.CreateToggle("noclip", "noclip")
     MovementTab.CreateToggle("teleport_cursor", "teleportCursor")
 
-    -- VISUALS
     local VisualsTab = CreateTab("Visuals", "👁️")
     VisualsTab.CreateToggle("esp", "esp", function(v)
         if v then
@@ -2391,7 +2380,7 @@ function Arsenal.Init(ctx)
         else clearAllESP() end
     end)
     VisualsTab.CreateSlider("esp_max_distance", 100, 5000, 1000, "espMaxDistance")
-    VisualsTab.CreateLabel("── ESP Elements ──", Theme.Text)
+    VisualsTab.CreateLabel("ESP Elements", Theme.Text)
     VisualsTab.CreateToggle("esp_box", "espBox")
     VisualsTab.CreateToggle("esp_name", "espName")
     VisualsTab.CreateToggle("esp_health", "espHealth")
@@ -2399,8 +2388,7 @@ function Arsenal.Init(ctx)
     VisualsTab.CreateToggle("esp_weapon", "espWeapon")
     VisualsTab.CreateToggle("esp_tracer", "espTracer")
     VisualsTab.CreateToggle("esp_chams", "espChams")
-    VisualsTab.CreateLabel(" ")
-    VisualsTab.CreateLabel("── Extra ──", Theme.Text)
+    VisualsTab.CreateLabel("Extra", Theme.Text)
     VisualsTab.CreateToggle("grenade_esp", "grenadeEsp")
     VisualsTab.CreateToggle("damage_indicator", "damageIndicator")
     VisualsTab.CreateToggle("fullbright", "fullbright", function(v)
@@ -2409,19 +2397,17 @@ function Arsenal.Init(ctx)
     VisualsTab.CreateToggle("third_person", "thirdPerson")
     VisualsTab.CreateToggle("camera_fov", "cameraFov")
     VisualsTab.CreateSlider("camera_fov_value", 30, 150, 90, "cameraFovValue")
-    VisualsTab.CreateLabel(" ")
 
-    -- SETTINGS
     local SettingsTab = CreateTab("Settings", "⚙️")
-    SettingsTab.CreateLabel("── Configs ──", Theme.Text)
+    SettingsTab.CreateLabel("Configs", Theme.Text)
     SettingsTab.CreateLabel("Type name and press Enter", Theme.TextDim)
     local refreshConfigListRef = nil
     SettingsTab.CreateTextBox("Config name...", function(name)
         if saveConfigNamed(name) and refreshConfigListRef then refreshConfigListRef() end
     end)
     SettingsTab.CreateLabel(" ")
-    SettingsTab.CreateLabel("── Loaded Configs ──", Theme.Text)
-    SettingsTab.CreateLabel("Load • ⚡ Autoload • × Delete", Theme.TextDim)
+    SettingsTab.CreateLabel("Loaded Configs", Theme.Text)
+    SettingsTab.CreateLabel("Load . Autoload . Delete", Theme.TextDim)
 
     local configListFrame = Instance.new("Frame", SettingsTab.container)
     configListFrame.Size = UDim2.new(1, -10, 0, 140)
@@ -2500,7 +2486,7 @@ function Arsenal.Init(ctx)
             end)
             local delBtn = Instance.new("TextButton", entry)
             delBtn.Size = UDim2.new(0, 22, 0, 22); delBtn.Position = UDim2.new(1, -28, 0.5, -11)
-            delBtn.BackgroundColor3 = Color3.fromRGB(60, 15, 20); delBtn.Text = "×"
+            delBtn.BackgroundColor3 = Color3.fromRGB(60, 15, 20); delBtn.Text = "X"
             delBtn.Font = Theme.FontBold; delBtn.TextSize = 14; delBtn.TextColor3 = Theme.Danger
             delBtn.AutoButtonColor = false
             Instance.new("UICorner", delBtn).CornerRadius = UDim.new(0, 4)
@@ -2512,9 +2498,9 @@ function Arsenal.Init(ctx)
     refreshConfigListRef = refreshConfigList
     refreshConfigList()
 
-    SettingsTab.CreateButton("🔄 Refresh List", function()
+    SettingsTab.CreateButton("Refresh List", function()
         refreshConfigList()
-        Notify("🔄 Refresh", "Config list updated", 2)
+        Notify("Refresh", "Config list updated", 2)
     end)
     SettingsTab.CreateLabel(" ")
     local autoloadLabel = SettingsTab.CreateLabel("", Theme.Text)
@@ -2524,36 +2510,36 @@ function Arsenal.Init(ctx)
             autoloadLabel.Text = "⚡ Autoload: " .. ca
             autoloadLabel.TextColor3 = Theme.Warning
         else
-            autoloadLabel.Text = "🚫 Autoload: disabled"
+            autoloadLabel.Text = "Autoload: disabled"
             autoloadLabel.TextColor3 = Theme.TextDim
         end
     end)
     SettingsTab.CreateLabel(" ")
-    SettingsTab.CreateButton("🚫 Disable Autoload", function()
+    SettingsTab.CreateButton("Disable Autoload", function()
         clearAutoload(); refreshConfigList()
     end)
     SettingsTab.CreateLabel(" ")
-    SettingsTab.CreateLabel("── Optimizations ──", Theme.Text)
+    SettingsTab.CreateLabel("Optimizations", Theme.Text)
     SettingsTab.CreateToggle("low_graphics", "lowGraphics", function(v) applyLowGraphics(v) end)
     SettingsTab.CreateToggle("no_shadows", "noShadows", function(v) applyNoShadows(v) end)
     SettingsTab.CreateToggle("no_fog", "noFog", function(v) applyNoFog(v) end)
     SettingsTab.CreateToggle("no_particles", "noParticles", function(v) applyNoParticles(v) end)
     SettingsTab.CreateLabel(" ")
-    SettingsTab.CreateButton("⚡ Max FPS Boost", function()
+    SettingsTab.CreateButton("Max FPS Boost", function()
         toggleHandles.lowGraphics.SetState(true)
         toggleHandles.noShadows.SetState(true)
         toggleHandles.noFog.SetState(true)
         toggleHandles.noParticles.SetState(true)
-        Notify("⚡ Boost", "All optimizations ON", 3)
+        Notify("Boost", "All optimizations ON", 3)
     end)
-    SettingsTab.CreateButton("🔄 Reset Optimizations", function()
+    SettingsTab.CreateButton("Reset Optimizations", function()
         toggleHandles.lowGraphics.SetState(false)
         toggleHandles.noShadows.SetState(false)
         toggleHandles.noFog.SetState(false)
         toggleHandles.noParticles.SetState(false)
     end)
     SettingsTab.CreateLabel(" ")
-    SettingsTab.CreateLabel("── Security ──", Theme.Text)
+    SettingsTab.CreateLabel("Security", Theme.Text)
     SettingsTab.CreateToggle("anti_flash", "antiFlash")
     SettingsTab.CreateToggle("anti_votekick", "antiVK")
     SettingsTab.CreateToggle("anti_afk", "antiAFK")
@@ -2566,22 +2552,8 @@ function Arsenal.Init(ctx)
         stopInfJump()
         stopFly()
         restoreAllHitboxes()
+        restoreAllWeaponParts()
         disableFullbright()
-        -- Restore weapon visuals
-        for part, orig in pairs(weaponVisualOriginals) do
-            if part and part.Parent then
-                pcall(function()
-                    if part:IsA("BasePart") then
-                        part.Transparency = orig.Transparency
-                        part.Color = orig.Color
-                        part.Material = orig.Material
-                    elseif part:IsA("Decal") or part:IsA("Texture") then
-                        part.Transparency = orig.Transparency
-                    end
-                end)
-            end
-        end
-        weaponVisualOriginals = {}
         applyLowGraphics(false)
         applyNoShadows(false)
         applyNoFog(false)
@@ -2592,20 +2564,19 @@ function Arsenal.Init(ctx)
         GUI:Destroy()
     end, "danger")
 
-    -- CREDITS
     local CreditsTab = CreateTab("Credits", "➕")
     CreditsTab.CreateCredit("FOUNDER & DEVELOPER", "Sr Red", Theme.TitleRed)
     CreditsTab.CreateLabel(" ")
-    CreditsTab.CreateLabel("── Join our Discord ──", Theme.Text)
+    CreditsTab.CreateLabel("Join our Discord", Theme.Text)
     CreditsTab.CreateLabel("https://discord.gg/ScZfU2mAGm", Theme.TextDim)
     local discordBtn = CreditsTab.CreateButton("Join Discord Server", function()
-        if setclipboard then setclipboard("https://discord.gg/ScZfU2mAGm"); Notify("📋 Copied", "Discord link copied!", 3) end
+        if setclipboard then setclipboard("https://discord.gg/ScZfU2mAGm"); Notify("Copied", "Discord link copied!", 3) end
     end)
     discordBtn.BackgroundColor3 = Theme.Discord
     CreditsTab.CreateLabel(" ")
     CreditsTab.CreateLabel(FULL_VERSION, Theme.TextDim)
-    CreditsTab.CreateLabel("Arsenal Super Edition + Skins", Theme.Warning)
-    CreditsTab.CreateLabel("© 2026 Sr Red", Theme.TextDim)
+    CreditsTab.CreateLabel("Arsenal Super Edition", Theme.Warning)
+    CreditsTab.CreateLabel("2026 Sr Red", Theme.TextDim)
 
     local versionLabel = Instance.new("TextLabel", MainFrame)
     versionLabel.Size = UDim2.new(1, -20, 0, 16)
@@ -2637,7 +2608,7 @@ function Arsenal.Init(ctx)
             end
             local newKey = input.KeyCode.Name
             if newKey == "K" then
-                Notify("🚫 Blocked", "K reserved", 4, true)
+                Notify("Blocked", "K reserved", 4, true)
                 recordingKeyFor = nil
                 local handle = toggleHandles[featId]
                 if handle then handle.SetKeybind(State.keybinds[featId]) end
@@ -2645,7 +2616,7 @@ function Arsenal.Init(ctx)
             end
             local conflictFeat = findFeatureWithKeybind(newKey)
             if conflictFeat and conflictFeat ~= featId then
-                Notify("🚫 In Use", newKey .. " → " .. (FeatureLabels[conflictFeat] or conflictFeat), 4, true)
+                Notify("In Use", newKey .. " -> " .. (FeatureLabels[conflictFeat] or conflictFeat), 4, true)
                 recordingKeyFor = nil
                 local handle = toggleHandles[featId]
                 if handle then handle.SetKeybind(State.keybinds[featId]) end
@@ -2668,9 +2639,9 @@ function Arsenal.Init(ctx)
     end)
 
     task.wait(0.5)
-    Notify("🎯 " .. SHORT_VERSION, "Arsenal Super + Skins!", 4)
+    Notify("V2.0 - Arsenal", "Carregado!", 4)
 
-    print("[Infinite Zen] ✅ " .. FULL_VERSION .. " carregado!")
+    print("[Infinite Zen] " .. FULL_VERSION .. " carregado!")
     print("[Infinite Zen] Configs em: InfiniteZen_Configs/Arsenal")
 end
 
