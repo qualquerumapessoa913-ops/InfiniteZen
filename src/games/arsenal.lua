@@ -1,5 +1,5 @@
 -- ============================================================
--- INFINITE ZEN - MÓDULO ARSENAL v2.0 (FULL FIX)
+-- INFINITE ZEN - MÓDULO ARSENAL v2.0 (DUMP-ACCURATE)
 -- ============================================================
 
 local Arsenal = {}
@@ -13,7 +13,7 @@ function Arsenal.Init(ctx)
     local FULL_VERSION = "Infinite Zen V" .. GAME_VERSION .. " - " .. gameName
     local SHORT_VERSION = "V" .. GAME_VERSION .. " - " .. gameName
 
-    print("[Infinite Zen] Inicializando " .. FULL_VERSION .. "...")
+    print("[Infinite Zen] Iniciando " .. FULL_VERSION)
 
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -23,7 +23,6 @@ function Arsenal.Init(ctx)
     local HttpService = game:GetService("HttpService")
     local TweenService = game:GetService("TweenService")
     local Lighting = game:GetService("Lighting")
-    local SoundService = game:GetService("SoundService")
     local LocalPlayer = Players.LocalPlayer
     local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
     local Camera = workspace.CurrentCamera
@@ -32,21 +31,22 @@ function Arsenal.Init(ctx)
     local IS_MOBILE = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
     local MOBILE_SCALE = 0.72
 
-    local function LOGE(msg) pcall(function() print("[IZ Arsenal ERROR] " .. tostring(msg)) end) end
+    local function STEP(n, msg) pcall(function() print("[IZ Step " .. n .. "] " .. msg) end) end
+    STEP(1, "Base")
 
     -- ═══════════════════════════════════════════════
     -- SAFE WRAPPERS
     -- ═══════════════════════════════════════════════
     local function safeFind(parent, ...)
         if not parent then return nil end
-        local current = parent
-        for _, name in ipairs({...}) do
-            if not current then return nil end
-            local ok, nxt = pcall(function() return current:FindFirstChild(name) end)
+        local cur = parent
+        for _, n in ipairs({...}) do
+            if not cur then return nil end
+            local ok, nxt = pcall(function() return cur:FindFirstChild(n) end)
             if not ok or not nxt then return nil end
-            current = nxt
+            cur = nxt
         end
-        return current
+        return cur
     end
 
     local function langGet(key)
@@ -55,14 +55,14 @@ function Arsenal.Init(ctx)
         if ok and res then return res end
         return key
     end
+    local function langSet(code)
+        if Language and type(Language.setLanguage) == "function" then pcall(Language.setLanguage, code) end
+    end
     local function langGetAvailable()
         if not Language or type(Language.getAvailable) ~= "function" then return {} end
         local ok, res = pcall(Language.getAvailable)
         if ok and type(res) == "table" then return res end
         return {}
-    end
-    local function langSet(code)
-        if Language and type(Language.setLanguage) == "function" then pcall(Language.setLanguage, code) end
     end
     local function langGetCurrent()
         if not Language or type(Language.getCurrent) ~= "function" then return "en" end
@@ -88,18 +88,69 @@ function Arsenal.Init(ctx)
         for _, fn in ipairs(langRefresh) do pcall(fn) end
     end
 
-    local function getLabel(labelKey)
-        if type(labelKey) ~= "string" then return tostring(labelKey) end
-        local t = langGet(labelKey)
-        if t and t ~= labelKey then return t end
-        local formatted = labelKey:gsub("_", " ")
-        formatted = formatted:gsub("(%a)([%w']*)", function(a, b)
-            return a:upper() .. b:lower()
-        end)
+    local function getLabel(k)
+        if type(k) ~= "string" then return tostring(k) end
+        local t = langGet(k)
+        if t and t ~= k then return t end
+        local formatted = k:gsub("_", " ")
+        formatted = formatted:gsub("(%a)([%w']*)", function(a, b) return a:upper() .. b:lower() end)
         return formatted
     end
 
-    -- TEAM
+    -- ═══════════════════════════════════════════════
+    -- REMOTES (baseado no dump)
+    -- ═══════════════════════════════════════════════
+    local Events = safeFind(ReplicatedStorage, "Events")
+    local Remotes = {
+        -- Combat
+        Look = safeFind(Events, "Look"),
+        Fire = safeFind(Events, "Fire"),
+        HitPart = safeFind(Events, "HitPart"),
+        MyHitPart = safeFind(Events, "MyHitPart"),
+        -- Weapons
+        ReloadInstant = safeFind(Events, "ReloadInstant"),
+        AmmoMod = safeFind(Events, "AmmoMod"),
+        GetWeapons = safeFind(Events, "GetWeapons"),
+        GetInventory = safeFind(Events, "GetInventory"),
+        UpdateLoadout = safeFind(Events, "UpdateLoadout"),
+        Requip = safeFind(Events, "Requip"),
+        EquipTool = safeFind(Events, "EquipTool"),
+        AutoEquip = safeFind(Events, "AutoEquip"),
+        ApplyGun = safeFind(Events, "ApplyGun"),
+        -- SKINS (críticos)
+        GunSkinner = safeFind(Events, "GunSkinner"),
+        SkinChanged = safeFind(Events, "SkinChanged"),
+        -- Votekick
+        Votekick = safeFind(Events, "Votekick"),
+        DoVotekick = safeFind(Events, "DoVotekick"),
+        PromptVotekick = safeFind(Events, "PromptVotekick"),
+        -- Team
+        JoinTeam = safeFind(Events, "JoinTeam"),
+        ForceTeam = safeFind(Events, "ForceTeam"),
+        -- MISC
+        Crosshair = safeFind(ReplicatedStorage, "Crosshair"),
+        PlaySound = safeFind(Events, "PlaySound"),
+        CreateProjectile = safeFind(Events, "CreateProjectile"),
+    }
+    STEP(2, "Remotes loaded")
+
+    -- ═══════════════════════════════════════════════
+    -- SKINS FOLDER (para popular o menu)
+    -- ═══════════════════════════════════════════════
+    local SkinsFolder = safeFind(ReplicatedStorage, "Skins")
+    local WeaponSkins = {} -- [name] = assetId
+    if SkinsFolder then
+        for _, sv in ipairs(SkinsFolder:GetChildren()) do
+            if sv:IsA("StringValue") then
+                WeaponSkins[sv.Name] = sv.Value
+            end
+        end
+    end
+    STEP(3, "Skins loaded: " .. tostring(#SkinsFolder and #SkinsFolder:GetChildren() or 0))
+
+    -- ═══════════════════════════════════════════════
+    -- TEAM CHECK (usa Teams nativo do Roblox)
+    -- ═══════════════════════════════════════════════
     local function isEnemy(player)
         if player == LocalPlayer then return false end
         if not player.Character then return false end
@@ -111,70 +162,53 @@ function Arsenal.Init(ctx)
         return player.Team ~= myTeam
     end
 
+    -- ═══════════════════════════════════════════════
     -- STATE
+    -- ═══════════════════════════════════════════════
     local State = {
+        -- COMBAT
         killAll = false, killAllDelay = 100,
         killAura = false, killAuraRange = 30, killAuraDelay = 50,
-        wallbang = false,
         silentAim = false, silentFov = 120,
         lockBot = false, lockBotFov = 200,
         triggerbot = false, triggerbotDelay = 5,
         autoShot = false, autoShotFov = 100, autoShotDelay = 50,
         aimbot = false, aimbotFov = 100, aimbotSmoothness = 0.3,
         aimbotMaxDist = 500, aimbotHitbox = 1, aimbotWallCheck = true,
-        backtrack = false, backtrackTime = 0.15,
         antiAim = false, antiAimMode = 1,
-        expanderEnabled = false, hitboxSize = 3,
+        expanderEnabled = false, hitboxSize = 2,
         fovCircle = false,
-
-        noRecoil = false,
-        noSpread = false,
+        -- WEAPON
+        noRecoil = false, noSpread = false,
         rapidFire = false, rapidFireValue = 0.03,
-        fastReload = false,
-        instaReload = false,
-        infiniteAmmo = false,
-        autoReload = false,
-        instantKill = false,
+        fastReload = false, instaReload = false, autoReload = false,
+        infiniteAmmo = false, instantKill = false,
         damageMult = false, damageMultValue = 2,
         rangeExtender = false, rangeValue = 5000,
         bulletSpeed = false, bulletSpeedValue = 9999,
-        noGravity = false,
-        piercing = false,
-        noMuzzleFlash = false,
-        hitSounds = false, hitSoundId = "rbxassetid://131961136",
+        noGravity = false, piercing = false, noMuzzleFlash = false,
         ghostWeapon = false, ghostTransparency = 1,
         rainbowWeapon = false, rainbowSpeed = 1,
         customSkin = false, customSkinName = "",
-
+        -- MOVEMENT
         speed = false, speedValue = 50,
         fly = false, flySpeed = 60,
         infJump = false, jumpPower = 50,
-        autoBhop = false,
-        noclip = false,
-        teleportCursor = false,
-
+        autoBhop = false, noclip = false, teleportCursor = false,
+        -- VISUALS
         esp = false, espMaxDistance = 1000, espTeamCheck = true,
         espBox = true, espName = true, espHealth = true,
-        espDistance = true, espWeapon = true, espTracer = false,
-        espChams = true,
-        grenadeEsp = false,
-        damageIndicator = false,
-        fullbright = false,
-        thirdPerson = false,
-        cameraFov = false, cameraFovValue = 90,
-        viewmodelFov = false, viewmodelFovValue = 90,
-        crosshair = false,
-
-        antiFlash = false,
-        antiVK = false,
-        antiAFK = false,
-
+        espDistance = true, espWeapon = true, espTracer = false, espChams = true,
+        grenadeEsp = false, damageIndicator = false, fullbright = false,
+        thirdPerson = false, cameraFov = false, cameraFovValue = 90,
+        -- EXTRA
+        antiFlash = false, antiVK = false, antiAFK = false,
+        -- OPT
         lowGraphics = false, noShadows = false, noFog = false, noParticles = false,
-
         keybinds = {
             killAll = nil, killAura = "G", silentAim = "X",
             lockBot = nil, triggerbot = nil, autoShot = nil,
-            aimbot = "C", backtrack = nil, antiAim = nil,
+            aimbot = "C", antiAim = nil,
             speed = nil, fly = "F", infJump = nil, autoBhop = nil,
             esp = "V", fullbright = nil, thirdPerson = nil,
             ghostWeapon = nil, rainbowWeapon = nil,
@@ -183,29 +217,24 @@ function Arsenal.Init(ctx)
 
     local recordingKeyFor = nil
     local FeatureLabels = {
-        killAll = "Kill All", killAura = "Kill Aura", wallbang = "Wallbang",
-        silentAim = "Silent Aim", lockBot = "Lock Bot (Rage)", triggerbot = "Triggerbot",
-        autoShot = "Auto Shot", aimbot = "Aimbot", backtrack = "Back Tracks",
-        antiAim = "Anti Aim", expanderEnabled = "Head Expander",
+        killAll = "Kill All", killAura = "Kill Aura", silentAim = "Silent Aim",
+        lockBot = "Lock Bot", triggerbot = "Triggerbot", autoShot = "Auto Shot",
+        aimbot = "Aimbot", antiAim = "Anti Aim", expanderEnabled = "Head Expander",
         noRecoil = "No-Recoil", noSpread = "No Spread", rapidFire = "Rapid Fire",
         fastReload = "Fast Reload", instaReload = "Insta-Reload",
         infiniteAmmo = "Infinite Ammo", autoReload = "Auto Reload",
         instantKill = "Instant Kill", damageMult = "Damage Multiplier",
         rangeExtender = "Range Extender", bulletSpeed = "Bullet Speed",
-        noGravity = "No Gravity Bullets", piercing = "Piercing Bullets",
-        noMuzzleFlash = "No Muzzle Flash", hitSounds = "Hit Sounds",
+        noGravity = "No Gravity", piercing = "Piercing", noMuzzleFlash = "No Muzzle Flash",
         ghostWeapon = "Ghost Weapon", rainbowWeapon = "Rainbow Weapon",
         speed = "Speed", fly = "Fly", infJump = "Infinite Jump",
         jumpPower = "Jump Power", autoBhop = "Auto Bhop", noclip = "Noclip",
         teleportCursor = "Teleport to Cursor",
-        esp = "ESP", grenadeEsp = "Grenade ESP",
-        damageIndicator = "Damage Indicator", fullbright = "Fullbright",
-        thirdPerson = "Third Person", cameraFov = "Camera FOV",
-        viewmodelFov = "Viewmodel FOV", crosshair = "Custom Crosshair",
-        antiFlash = "Anti-Flash", antiVK = "Anti-VoteKick", antiAFK = "Anti-AFK",
-        lowGraphics = "Low Graphics", noShadows = "No Shadows",
-        noFog = "No Fog", noParticles = "No Particles",
-        fovCircle = "FOV Circle",
+        esp = "ESP", grenadeEsp = "Grenade ESP", damageIndicator = "Damage Indicator",
+        fullbright = "Fullbright", thirdPerson = "Third Person",
+        cameraFov = "Camera FOV", antiFlash = "Anti-Flash", antiVK = "Anti-VoteKick",
+        antiAFK = "Anti-AFK", lowGraphics = "Low Graphics", noShadows = "No Shadows",
+        noFog = "No Fog", noParticles = "No Particles", fovCircle = "FOV Circle",
         espBox = "Box", espName = "Name", espHealth = "Health",
         espDistance = "Distance", espWeapon = "Weapon", espTracer = "Tracer",
         espChams = "Chams", espTeamCheck = "Team Check",
@@ -231,57 +260,60 @@ function Arsenal.Init(ctx)
     GUI.Name = "InfiniteZen"
     GUI.ResetOnSpawn = false
     GUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    local parentedOk = false
-    if gethui then parentedOk = pcall(function() GUI.Parent = gethui() end) end
-    if not parentedOk then GUI.Parent = PlayerGui end
+    if gethui then
+        local ok = pcall(function() GUI.Parent = gethui() end)
+        if not ok then GUI.Parent = PlayerGui end
+    else
+        GUI.Parent = PlayerGui
+    end
 
-    -- NOTIFICATIONS
+    -- NOTIFICAÇÕES
     local activeNotifs = {}
     local function Notify(title, content, duration, isError)
         duration = duration or 4
-        local stackIndex = #activeNotifs
-        local notif = Instance.new("Frame")
-        notif.Size = UDim2.new(0, 260, 0, 62)
-        notif.Position = UDim2.new(1, 20, 0, 80 + stackIndex * 72)
-        notif.BackgroundColor3 = Theme.Surface
-        notif.BorderSizePixel = 0
-        notif.Parent = GUI
-        notif.ZIndex = 999
-        Instance.new("UICorner", notif).CornerRadius = UDim.new(0, 10)
-        local strokeColor = isError and Theme.Danger or Theme.Warning
-        local s = Instance.new("UIStroke", notif)
-        s.Color = strokeColor; s.Thickness = 1.5; s.Transparency = 0.2
-        local titleL = Instance.new("TextLabel", notif)
-        titleL.Size = UDim2.new(1, -20, 0, 22); titleL.Position = UDim2.new(0, 12, 0, 8)
-        titleL.BackgroundTransparency = 1; titleL.Font = Theme.FontBold; titleL.TextSize = 12
-        titleL.TextColor3 = strokeColor; titleL.TextXAlignment = Enum.TextXAlignment.Left
-        titleL.Text = title; titleL.ZIndex = 1000
-        local contentL = Instance.new("TextLabel", notif)
-        contentL.Size = UDim2.new(1, -20, 0, 30); contentL.Position = UDim2.new(0, 12, 0, 28)
-        contentL.BackgroundTransparency = 1; contentL.Font = Theme.Font; contentL.TextSize = 11
-        contentL.TextColor3 = Theme.Text; contentL.TextXAlignment = Enum.TextXAlignment.Left
-        contentL.TextWrapped = true; contentL.Text = content; contentL.ZIndex = 1000
-        table.insert(activeNotifs, notif)
-        TweenService:Create(notif, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-            Position = UDim2.new(1, -280, 0, 80 + stackIndex * 72)
+        local idx = #activeNotifs
+        local n = Instance.new("Frame")
+        n.Size = UDim2.new(0, 260, 0, 62)
+        n.Position = UDim2.new(1, 20, 0, 80 + idx * 72)
+        n.BackgroundColor3 = Theme.Surface
+        n.BorderSizePixel = 0
+        n.Parent = GUI
+        n.ZIndex = 999
+        Instance.new("UICorner", n).CornerRadius = UDim.new(0, 10)
+        local col = isError and Theme.Danger or Theme.Warning
+        local s = Instance.new("UIStroke", n)
+        s.Color = col; s.Thickness = 1.5; s.Transparency = 0.2
+        local tl = Instance.new("TextLabel", n)
+        tl.Size = UDim2.new(1, -20, 0, 22); tl.Position = UDim2.new(0, 12, 0, 8)
+        tl.BackgroundTransparency = 1; tl.Font = Theme.FontBold; tl.TextSize = 12
+        tl.TextColor3 = col; tl.TextXAlignment = Enum.TextXAlignment.Left
+        tl.Text = title; tl.ZIndex = 1000
+        local cl = Instance.new("TextLabel", n)
+        cl.Size = UDim2.new(1, -20, 0, 30); cl.Position = UDim2.new(0, 12, 0, 28)
+        cl.BackgroundTransparency = 1; cl.Font = Theme.Font; cl.TextSize = 11
+        cl.TextColor3 = Theme.Text; cl.TextXAlignment = Enum.TextXAlignment.Left
+        cl.TextWrapped = true; cl.Text = content; cl.ZIndex = 1000
+        table.insert(activeNotifs, n)
+        TweenService:Create(n, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            Position = UDim2.new(1, -280, 0, 80 + idx * 72)
         }):Play()
         task.delay(duration, function()
-            for i, n in ipairs(activeNotifs) do
-                if n == notif then table.remove(activeNotifs, i); break end
+            for i, nn in ipairs(activeNotifs) do
+                if nn == n then table.remove(activeNotifs, i); break end
             end
-            if notif and notif.Parent then
-                TweenService:Create(notif, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-                    Position = UDim2.new(1, 20, 0, notif.Position.Y.Offset)
+            if n and n.Parent then
+                TweenService:Create(n, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+                    Position = UDim2.new(1, 20, 0, n.Position.Y.Offset)
                 }):Play()
                 task.wait(0.35)
-                if notif.Parent then notif:Destroy() end
+                if n.Parent then n:Destroy() end
             end
         end)
     end
 
-    local function findFeatureWithKeybind(key)
-        for featId, boundKey in pairs(State.keybinds) do
-            if boundKey == key then return featId end
+    local function findFeatureWithKeybind(k)
+        for id, kk in pairs(State.keybinds) do
+            if kk == k then return id end
         end
         return nil
     end
@@ -302,35 +334,36 @@ function Arsenal.Init(ctx)
         local params = RaycastParams.new()
         params.FilterType = Enum.RaycastFilterType.Exclude
         params.IgnoreWater = true
-        local exclusions = {}
-        if LocalPlayer.Character then table.insert(exclusions, LocalPlayer.Character) end
-        table.insert(exclusions, targetPart.Parent)
-        params.FilterDescendantsInstances = exclusions
-        local direction = targetPart.Position - fromPos
-        local distance = direction.Magnitude
-        if distance < 0.1 then return true end
-        local rayLength = distance - 2
-        if rayLength <= 0 then return true end
-        return workspace:Raycast(fromPos + direction.Unit * 2, direction.Unit * rayLength, params) == nil
+        local excl = {}
+        if LocalPlayer.Character then table.insert(excl, LocalPlayer.Character) end
+        table.insert(excl, targetPart.Parent)
+        params.FilterDescendantsInstances = excl
+        local dir = targetPart.Position - fromPos
+        local dist = dir.Magnitude
+        if dist < 0.1 then return true end
+        local rayLen = dist - 2
+        if rayLen <= 0 then return true end
+        return workspace:Raycast(fromPos + dir.Unit * 2, dir.Unit * rayLen, params) == nil
     end
 
+    -- Foco no Hitbox real do Arsenal
     local function getTargetPart(p)
         if not p.Character then return nil end
         local mode = State.aimbotHitbox
         if mode == 1 then
-            return getBasePart(p.Character, "Head")
+            return getBasePart(p.Character, "HeadHB", "Head")
         elseif mode == 2 then
-            return getBasePart(p.Character, "Torso", "UpperTorso")
+            return getBasePart(p.Character, "Hitbox", "UpperTorso", "Torso")
         elseif mode == 3 then
-            local order = {"Head", "UpperTorso", "Torso", "LowerTorso", "HumanoidRootPart"}
+            local order = {"Hitbox", "HeadHB", "Head", "UpperTorso", "Torso", "HumanoidRootPart"}
             for _, n in ipairs(order) do
                 local bp = getBasePart(p.Character, n)
                 if bp then return bp end
             end
             return nil
         else
-            local head = getBasePart(p.Character, "Head")
-            local torso = getBasePart(p.Character, "Torso", "UpperTorso")
+            local head = getBasePart(p.Character, "HeadHB", "Head")
+            local torso = getBasePart(p.Character, "Hitbox", "UpperTorso", "Torso")
             if head and torso then
                 local camPos = Camera.CFrame.Position
                 return (head.Position - camPos).Magnitude <= (torso.Position - camPos).Magnitude and head or torso
@@ -361,9 +394,11 @@ function Arsenal.Init(ctx)
         return true
     end
 
-    print("[IZ Arsenal] Base OK")
+    STEP(4, "Helpers ready")
 
+    -- ═══════════════════════════════════════════════
     -- MAIN WINDOW
+    -- ═══════════════════════════════════════════════
     local MainFrame = Instance.new("Frame", GUI)
     MainFrame.Size = UDim2.new(0, 620, 0, 480)
     MainFrame.Position = UDim2.new(0.5, -310, 0.5, -240)
@@ -428,24 +463,24 @@ function Arsenal.Init(ctx)
     LangDropdown.BackgroundColor3 = Theme.Surface2; LangDropdown.BorderSizePixel = 0
     LangDropdown.Visible = false; LangDropdown.ZIndex = 10; LangDropdown.ClipsDescendants = true
     Instance.new("UICorner", LangDropdown).CornerRadius = UDim.new(0, 8)
-    local dStroke = Instance.new("UIStroke", LangDropdown)
-    dStroke.Color = Theme.Primary; dStroke.Thickness = 1; dStroke.Transparency = 0.3
-    local dLayout = Instance.new("UIListLayout", LangDropdown)
-    dLayout.Padding = UDim.new(0, 2)
+    local dStr = Instance.new("UIStroke", LangDropdown)
+    dStr.Color = Theme.Primary; dStr.Thickness = 1; dStr.Transparency = 0.3
+    local dLay = Instance.new("UIListLayout", LangDropdown)
+    dLay.Padding = UDim.new(0, 2)
 
     local availableLangs = langGetAvailable()
     if #availableLangs == 0 then
         availableLangs = { { code = "en", shortCode = "US", displayName = "English" } }
     end
-    for _, langData in ipairs(availableLangs) do
-        local optBtn = Instance.new("TextButton", LangDropdown)
-        optBtn.Size = UDim2.new(1, -8, 0, 30); optBtn.BackgroundColor3 = Theme.Surface
-        optBtn.Text = "  [" .. (langData.shortCode or "??") .. "]  " .. (langData.displayName or langData.code or "Lang")
-        optBtn.Font = Theme.Font; optBtn.TextSize = 12; optBtn.TextColor3 = Theme.Text
-        optBtn.TextXAlignment = Enum.TextXAlignment.Left; optBtn.AutoButtonColor = false; optBtn.ZIndex = 11
-        Instance.new("UICorner", optBtn).CornerRadius = UDim.new(0, 6)
-        optBtn.MouseButton1Click:Connect(function()
-            langSet(langData.code)
+    for _, ld in ipairs(availableLangs) do
+        local ob = Instance.new("TextButton", LangDropdown)
+        ob.Size = UDim2.new(1, -8, 0, 30); ob.BackgroundColor3 = Theme.Surface
+        ob.Text = "  [" .. (ld.shortCode or "??") .. "]  " .. (ld.displayName or ld.code or "Lang")
+        ob.Font = Theme.Font; ob.TextSize = 12; ob.TextColor3 = Theme.Text
+        ob.TextXAlignment = Enum.TextXAlignment.Left; ob.AutoButtonColor = false; ob.ZIndex = 11
+        Instance.new("UICorner", ob).CornerRadius = UDim.new(0, 6)
+        ob.MouseButton1Click:Connect(function()
+            langSet(ld.code)
             LangDropdown.Visible = false
         end)
     end
@@ -456,8 +491,8 @@ function Arsenal.Init(ctx)
         LangDropdown.Visible = ddOpen
     end)
     registerRefresh(function()
-        local data = langGetCurrentData()
-        LangBtn.Text = "[" .. (data.shortCode or "US") .. "]"
+        local d = langGetCurrentData()
+        LangBtn.Text = "[" .. (d.shortCode or "US") .. "]"
     end)
 
     local MinBtn = Instance.new("TextButton", Header)
@@ -488,14 +523,14 @@ function Arsenal.Init(ctx)
 
     local dragging, dragInput, dragStart, startPos
     local function updateDrag(input)
-        local delta = input.Position - dragStart
+        local d = input.Position - dragStart
         MainFrame.Position = UDim2.new(
-            startPos.X.Scale, startPos.X.Offset + delta.X,
-            startPos.Y.Scale, startPos.Y.Offset + delta.Y
+            startPos.X.Scale, startPos.X.Offset + d.X,
+            startPos.Y.Scale, startPos.Y.Offset + d.Y
         )
     end
-    local function makeDraggable(element)
-        element.InputBegan:Connect(function(input)
+    local function makeDraggable(el)
+        el.InputBegan:Connect(function(input)
             if UNLOADED then return end
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 dragging = true; dragStart = input.Position; startPos = MainFrame.Position
@@ -504,7 +539,7 @@ function Arsenal.Init(ctx)
                 end)
             end
         end)
-        element.InputChanged:Connect(function(input)
+        el.InputChanged:Connect(function(input)
             if UNLOADED then return end
             if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
                 dragInput = input
@@ -517,15 +552,19 @@ function Arsenal.Init(ctx)
     end)
     makeDraggable(Header); makeDraggable(Title); makeDraggable(Subtitle)
 
+    STEP(5, "Window ready")
+
+    -- ═══════════════════════════════════════════════
     -- TABS BUILDER
+    -- ═══════════════════════════════════════════════
     local tabs, toggleHandles, sliderHandles, dropdownHandles = {}, {}, {}, {}
 
-    local function CreateTab(customLabel, icon)
+    local function CreateTab(label, icon)
         local tab = {}
         local btn = Instance.new("TextButton", Sidebar)
         btn.Size = UDim2.new(1, -16, 0, 38); btn.Position = UDim2.new(0, 8, 0, 8 + #tabs * 44)
         btn.BackgroundColor3 = Theme.Surface; btn.BorderSizePixel = 0
-        btn.Text = "  " .. icon .. "   " .. customLabel
+        btn.Text = "  " .. icon .. "   " .. label
         btn.Font = Theme.Font; btn.TextColor3 = Theme.TextDim; btn.TextSize = 12
         btn.TextXAlignment = Enum.TextXAlignment.Left; btn.AutoButtonColor = false
         Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
@@ -542,9 +581,8 @@ function Arsenal.Init(ctx)
         container.CanvasSize = UDim2.new(0, 0, 0, 0); container.AutomaticCanvasSize = Enum.AutomaticSize.Y
         container.ScrollBarThickness = 4; container.ScrollBarImageColor3 = Theme.Primary
         container.Visible = false
-
-        local layout = Instance.new("UIListLayout", container)
-        layout.Padding = UDim.new(0, 6)
+        local lay = Instance.new("UIListLayout", container)
+        lay.Padding = UDim.new(0, 6)
         local bp = Instance.new("Frame", container)
         bp.Size = UDim2.new(1, 0, 0, 10); bp.BackgroundTransparency = 1
 
@@ -717,7 +755,6 @@ function Arsenal.Init(ctx)
             selBtn.Font = Theme.FontBold; selBtn.TextSize = 11
             selBtn.TextColor3 = Theme.Text; selBtn.AutoButtonColor = false
             Instance.new("UICorner", selBtn).CornerRadius = UDim.new(0, 6)
-
             local dd = Instance.new("Frame", holder)
             dd.Size = UDim2.new(0.55, 0, 0, #options * 26 + 4)
             dd.Position = UDim2.new(0.44, 0, 1, 2)
@@ -801,9 +838,9 @@ function Arsenal.Init(ctx)
             box.ClearTextOnFocus = false; box.TextXAlignment = Enum.TextXAlignment.Left
             box.FocusLost:Connect(function(enterPressed)
                 if enterPressed and box.Text ~= "" then
-                    local text = box.Text
+                    local t = box.Text
                     box.Text = ""
-                    if callback then pcall(callback, text) end
+                    if callback then pcall(callback, t) end
                 end
             end)
             return box
@@ -816,25 +853,27 @@ function Arsenal.Init(ctx)
             Instance.new("UICorner", holder).CornerRadius = UDim.new(0, 6)
             local hs = Instance.new("UIStroke", holder)
             hs.Color = Theme.Border; hs.Thickness = 1; hs.Transparency = 0.7
-            local roleLbl = Instance.new("TextLabel", holder)
-            roleLbl.Size = UDim2.new(1, -20, 0, 16); roleLbl.Position = UDim2.new(0, 12, 0, 6)
-            roleLbl.BackgroundTransparency = 1; roleLbl.Font = Theme.Font; roleLbl.TextSize = 10
-            roleLbl.TextColor3 = Theme.TextDim; roleLbl.Text = role
-            roleLbl.TextXAlignment = Enum.TextXAlignment.Left
-            local nameLbl = Instance.new("TextLabel", holder)
-            nameLbl.Size = UDim2.new(1, -20, 0, 20); nameLbl.Position = UDim2.new(0, 12, 0, 22)
-            nameLbl.BackgroundTransparency = 1; nameLbl.Font = Theme.FontBold; nameLbl.TextSize = 14
-            nameLbl.TextColor3 = color or Theme.TitleRed; nameLbl.Text = name
-            nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+            local rl = Instance.new("TextLabel", holder)
+            rl.Size = UDim2.new(1, -20, 0, 16); rl.Position = UDim2.new(0, 12, 0, 6)
+            rl.BackgroundTransparency = 1; rl.Font = Theme.Font; rl.TextSize = 10
+            rl.TextColor3 = Theme.TextDim; rl.Text = role
+            rl.TextXAlignment = Enum.TextXAlignment.Left
+            local nl = Instance.new("TextLabel", holder)
+            nl.Size = UDim2.new(1, -20, 0, 20); nl.Position = UDim2.new(0, 12, 0, 22)
+            nl.BackgroundTransparency = 1; nl.Font = Theme.FontBold; nl.TextSize = 14
+            nl.TextColor3 = color or Theme.TitleRed; nl.Text = name
+            nl.TextXAlignment = Enum.TextXAlignment.Left
             return holder
         end
 
         return tab
     end
 
-    print("[IZ Arsenal] Tabs builder OK")
+    STEP(6, "CreateTab ready")
 
+    -- ═══════════════════════════════════════════════
     -- FOV CIRCLE
+    -- ═══════════════════════════════════════════════
     local fovCircle = Drawing.new("Circle")
     fovCircle.Color = Theme.Primary; fovCircle.Thickness = 1.5
     fovCircle.Filled = false; fovCircle.NumSides = 100; fovCircle.Transparency = 1
@@ -881,35 +920,41 @@ function Arsenal.Init(ctx)
         return closest
     end
 
+    STEP(7, "FOV + targeting ready")
+
     -- ═══════════════════════════════════════════════
     -- COMBAT
     -- ═══════════════════════════════════════════════
 
+    -- SILENT AIM
     local silentHolding, silentTarget, silentOriginalCF = false, nil, nil
+
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not silentHolding then return end
         if not silentTarget or not silentTarget.Character then silentHolding = false; return end
-        local head = getBasePart(silentTarget.Character, "Head")
-        if not head then silentHolding = false; return end
-        pcall(function()
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position + Vector3.new(0, 0.15, 0))
-        end)
+        local part = getTargetPart(silentTarget)
+        if not part then silentHolding = false; return end
+        local newCF = CFrame.new(Camera.CFrame.Position, part.Position)
+        pcall(function() Camera.CFrame = newCF end)
+        if Remotes.Look then pcall(function() Remotes.Look:FireServer(newCF) end) end
     end)
+
     UserInputService.InputBegan:Connect(function(input, gp)
         if UNLOADED or gp or not State.silentAim then return end
         if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
         silentOriginalCF = Camera.CFrame
         local target = getClosestEnemyInFov(State.silentFov, State.aimbotWallCheck)
-        if not target or not target.Character then return end
+        if not target then return end
         silentTarget = target
         silentHolding = true
-        local head = getBasePart(target.Character, "Head")
-        if head then
-            pcall(function()
-                Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position + Vector3.new(0, 0.15, 0))
-            end)
+        local part = getTargetPart(target)
+        if part then
+            local newCF = CFrame.new(Camera.CFrame.Position, part.Position)
+            pcall(function() Camera.CFrame = newCF end)
+            if Remotes.Look then pcall(function() Remotes.Look:FireServer(newCF) end) end
         end
     end)
+
     UserInputService.InputEnded:Connect(function(input, gp)
         if UNLOADED or gp then return end
         if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
@@ -918,28 +963,29 @@ function Arsenal.Init(ctx)
             silentTarget = nil
             if silentOriginalCF then
                 pcall(function() Camera.CFrame = silentOriginalCF end)
+                if Remotes.Look then pcall(function() Remotes.Look:FireServer(silentOriginalCF) end) end
                 silentOriginalCF = nil
             end
         end
     end)
 
+    -- AIMBOT
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.aimbot then return end
         local target = getClosestEnemyInFov(State.aimbotFov, State.aimbotWallCheck)
-        if target and target.Character then
+        if target then
             local part = getTargetPart(target)
             if part then
                 local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                if myRoot and myRoot:IsA("BasePart") then
-                    local dist3D = (part.Position - myRoot.Position).Magnitude
-                    if dist3D <= State.aimbotMaxDist then
+                if myRoot then
+                    local d3 = (part.Position - myRoot.Position).Magnitude
+                    if d3 <= State.aimbotMaxDist then
                         local sp, onScreen = Camera:WorldToViewportPoint(part.Position)
                         if onScreen then
                             local mouse = UserInputService:GetMouseLocation()
                             local dx = sp.X - mouse.X
                             local dy = sp.Y - mouse.Y
-                            local s = State.aimbotSmoothness
-                            if mousemoverel then pcall(function() mousemoverel(dx * s, dy * s) end) end
+                            if mousemoverel then pcall(function() mousemoverel(dx * State.aimbotSmoothness, dy * State.aimbotSmoothness) end) end
                         end
                     end
                 end
@@ -947,37 +993,36 @@ function Arsenal.Init(ctx)
         end
     end)
 
+    -- LOCK BOT
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.lockBot then return end
         local target = getClosestEnemyInFov(State.lockBotFov, false)
-        if target and target.Character then
+        if target then
             local part = getTargetPart(target)
             if part then
                 local sp, onScreen = Camera:WorldToViewportPoint(part.Position)
                 if onScreen then
                     local mouse = UserInputService:GetMouseLocation()
-                    local dx = sp.X - mouse.X
-                    local dy = sp.Y - mouse.Y
-                    if mousemoverel then pcall(function() mousemoverel(dx, dy) end) end
+                    if mousemoverel then pcall(function() mousemoverel(sp.X - mouse.X, sp.Y - mouse.Y) end) end
                 end
                 fireWeapon()
             end
         end
     end)
 
+    -- TRIGGERBOT
     local triggerLastFire = 0
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.triggerbot then return end
         if tick() - triggerLastFire < (State.triggerbotDelay / 1000) then return end
-        local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+        local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
         for _, p in ipairs(Players:GetPlayers()) do
             if isEnemy(p) then
                 local part = getTargetPart(p)
                 if part then
                     local sp, onScreen, depth = Camera:WorldToViewportPoint(part.Position)
                     if onScreen and depth and depth > 0 then
-                        local d = (Vector2.new(sp.X, sp.Y) - screenCenter).Magnitude
-                        if d and d < 25 then
+                        if (Vector2.new(sp.X, sp.Y) - center).Magnitude < 25 then
                             triggerLastFire = tick()
                             fireWeapon()
                             break
@@ -988,20 +1033,19 @@ function Arsenal.Init(ctx)
         end
     end)
 
+    -- AUTO SHOT
     local lastAutoShot = 0
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.autoShot then return end
         if tick() - lastAutoShot < (State.autoShotDelay / 1000) then return end
         local target = getClosestEnemyInFov(State.autoShotFov, State.aimbotWallCheck)
-        if target and target.Character then
-            local part = getTargetPart(target)
-            if part then
-                lastAutoShot = tick()
-                fireWeapon()
-            end
+        if target then
+            lastAutoShot = tick()
+            fireWeapon()
         end
     end)
 
+    -- KILL AURA
     local killAuraActive = false
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.killAura then return end
@@ -1012,32 +1056,28 @@ function Arsenal.Init(ctx)
         if not myHRP then return end
         killAuraActive = true
         task.spawn(function()
-            local originalCF = myHRP.CFrame
+            local origCF = myHRP.CFrame
             for _, p in ipairs(Players:GetPlayers()) do
                 if UNLOADED then break end
                 if isEnemy(p) and p.Character then
                     local tHRP = getBasePart(p.Character, "HumanoidRootPart")
                     if tHRP then
-                        local dist = (tHRP.Position - originalCF.Position).Magnitude
+                        local dist = (tHRP.Position - origCF.Position).Magnitude
                         if dist <= State.killAuraRange then
                             pcall(function() myHRP.CFrame = tHRP.CFrame * CFrame.new(0, 0, 2) end)
                             task.wait(0.02)
-                            pcall(function() mouse1click() end)
-                            pcall(function()
-                                VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-                                task.wait(0.005)
-                                VirtualInput:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-                            end)
+                            fireWeapon()
                             task.wait(State.killAuraDelay / 1000)
                         end
                     end
                 end
             end
-            if myHRP and myHRP.Parent then pcall(function() myHRP.CFrame = originalCF end) end
+            if myHRP and myHRP.Parent then pcall(function() myHRP.CFrame = origCF end) end
             killAuraActive = false
         end)
     end)
 
+    -- KILL ALL
     local killAllActive = false
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.killAll then return end
@@ -1050,45 +1090,44 @@ function Arsenal.Init(ctx)
         if not tool then return end
         killAllActive = true
         task.spawn(function()
-            local originalCF = myHRP.CFrame
+            local origCF = myHRP.CFrame
             for _, p in ipairs(Players:GetPlayers()) do
                 if UNLOADED then break end
                 if isEnemy(p) and p.Character then
-                    local tHead = getBasePart(p.Character, "Head")
+                    local tHead = getBasePart(p.Character, "HeadHB", "Head")
                     if tHead then
                         pcall(function() myHRP.CFrame = CFrame.new(tHead.Position + Vector3.new(0, 0, 2)) end)
                         task.wait(0.01)
                         pcall(function() Camera.CFrame = CFrame.new(myHRP.Position, tHead.Position) end)
                         task.wait(0.01)
-                        pcall(function() mouse1click() end)
+                        fireWeapon()
                         pcall(function() tool:Activate() end)
                         task.wait(State.killAllDelay / 1000)
                     end
                 end
             end
-            if myHRP and myHRP.Parent then pcall(function() myHRP.CFrame = originalCF end) end
+            if myHRP and myHRP.Parent then pcall(function() myHRP.CFrame = origCF end) end
             killAllActive = false
         end)
     end)
 
+    -- ANTI AIM
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.antiAim then return end
-        local mode = State.antiAimMode
         pcall(function()
-            if mode == 1 then
+            if State.antiAimMode == 1 then
                 Camera.CFrame = Camera.CFrame * CFrame.Angles(0, math.rad(15), 0)
-            elseif mode == 2 then
-                local jitter = CFrame.Angles(math.rad(math.random(-15, 15)), math.rad(math.random(-15, 15)), 0)
-                Camera.CFrame = Camera.CFrame * jitter
-            elseif mode == 3 then
+            elseif State.antiAimMode == 2 then
+                Camera.CFrame = Camera.CFrame * CFrame.Angles(math.rad(math.random(-15, 15)), math.rad(math.random(-15, 15)), 0)
+            elseif State.antiAimMode == 3 then
                 Camera.CFrame = CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + Vector3.new(0, -1, 0))
             end
         end)
     end)
 
-    -- HEAD EXPANDER
+    -- HEAD EXPANDER (usa Hitbox e HeadHB que existem no Arsenal!)
     local hitboxSaved = {}
-    local function saveOriginal(player, part)
+    local function saveOrig(player, part)
         if not player or not part or not part:IsA("BasePart") then return end
         if not hitboxSaved[player] then hitboxSaved[player] = {} end
         if not hitboxSaved[player][part] then
@@ -1111,29 +1150,29 @@ function Arsenal.Init(ctx)
     end
     local function expandPlayer(p, size)
         if not p.Character then return end
-        local head = getBasePart(p.Character, "Head")
-        if head then
-            saveOriginal(p, head)
-            local base = hitboxSaved[p] and hitboxSaved[p][head]
+        -- Hitbox principal
+        local hitbox = getBasePart(p.Character, "Hitbox")
+        if hitbox then
+            saveOrig(p, hitbox)
+            local base = hitboxSaved[p] and hitboxSaved[p][hitbox]
             if base then
                 pcall(function()
-                    head.Size = Vector3.new(base.X * size, base.Y * math.min(size, 4), base.Z * size)
-                    head.Transparency = 0.7
-                    head.CanCollide = false
-                    head.Massless = true
+                    hitbox.Size = Vector3.new(base.X * size, base.Y * size, base.Z * size)
+                    hitbox.Transparency = 0.85
+                    hitbox.CanCollide = false
                 end)
             end
         end
-        local torso = getBasePart(p.Character, "UpperTorso", "Torso")
-        if torso then
-            saveOriginal(p, torso)
-            local base = hitboxSaved[p] and hitboxSaved[p][torso]
+        -- HeadHB
+        local headHB = getBasePart(p.Character, "HeadHB")
+        if headHB then
+            saveOrig(p, headHB)
+            local base = hitboxSaved[p] and hitboxSaved[p][headHB]
             if base then
-                local tMult = math.min(size * 0.7, 3)
                 pcall(function()
-                    torso.Size = Vector3.new(base.X * tMult, base.Y * tMult, base.Z * tMult)
-                    torso.CanCollide = false
-                    torso.Massless = true
+                    headHB.Size = Vector3.new(base.X * size, base.Y * size, base.Z * size)
+                    headHB.Transparency = 0.85
+                    headHB.CanCollide = false
                 end)
             end
         end
@@ -1146,7 +1185,6 @@ function Arsenal.Init(ctx)
         pcall(function()
             for _, p in ipairs(Players:GetPlayers()) do
                 if p == LocalPlayer then
-                    -- skip
                 elseif isEnemy(p) then
                     if p.Character then expandPlayer(p, State.hitboxSize) end
                 else
@@ -1156,71 +1194,96 @@ function Arsenal.Init(ctx)
         end)
     end)
 
-    print("[IZ Arsenal] Combat OK")
+    STEP(8, "Combat OK")
 
     -- ═══════════════════════════════════════════════
-    -- GUN MODS
+    -- WEAPON MODS (rate-limited, com remotes nativos)
     -- ═══════════════════════════════════════════════
     local reloadOriginals = {}
+    local weaponAcc = 0
 
-    RunService.Heartbeat:Connect(function()
+    RunService.Heartbeat:Connect(function(dt)
         if UNLOADED then return end
-        local anyWeaponMod = State.rapidFire or State.noRecoil or State.fastReload or State.instaReload
+        weaponAcc = weaponAcc + dt
+        if weaponAcc < 0.25 then return end
+        weaponAcc = 0
+
+        -- Insta Reload via remote nativo
+        if State.instaReload and Remotes.ReloadInstant then
+            pcall(function() Remotes.ReloadInstant:FireServer() end)
+        end
+        if State.infiniteAmmo and Remotes.AmmoMod then
+            pcall(function() Remotes.AmmoMod:FireServer("infinite") end)
+        end
+
+        local anyMod = State.rapidFire or State.noRecoil or State.fastReload or State.instaReload
             or State.noSpread or State.infiniteAmmo or State.rangeExtender or State.bulletSpeed
             or State.damageMult or State.piercing or State.noGravity or State.noMuzzleFlash
-        local hasSavedOriginals = next(reloadOriginals) ~= nil
-        if not (anyWeaponMod or hasSavedOriginals) then return end
+            or State.autoReload
+
+        if not anyMod then
+            if next(reloadOriginals) then
+                local char = LocalPlayer.Character
+                if char then
+                    for _, cont in ipairs({char, LocalPlayer:FindFirstChild("Backpack")}) do
+                        if cont then
+                            for _, tool in ipairs(cont:GetChildren()) do
+                                if tool:IsA("Tool") then
+                                    pcall(function()
+                                        for _, d in ipairs(tool:GetDescendants()) do
+                                            local key = "dmg_" .. tostring(d)
+                                            if reloadOriginals[key] and (d:IsA("NumberValue") or d:IsA("IntValue")) then
+                                                d.Value = reloadOriginals[key]
+                                                reloadOriginals[key] = nil
+                                            end
+                                        end
+                                    end)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            return
+        end
+
         local char = LocalPlayer.Character
         if not char then return end
         local containers = {char}
-        local backpack = LocalPlayer:FindFirstChild("Backpack")
-        if backpack then table.insert(containers, backpack) end
+        local bp = LocalPlayer:FindFirstChild("Backpack")
+        if bp then table.insert(containers, bp) end
+
         for _, cont in ipairs(containers) do
             for _, tool in ipairs(cont:GetChildren()) do
                 if tool:IsA("Tool") then
-                    if State.rapidFire then
-                        pcall(function()
+                    pcall(function()
+                        local desc = tool:GetDescendants()
+                        if State.rapidFire then
                             for _, name in ipairs({"FireRate", "BFireRate", "RateOfFire", "ShootCooldown", "FireDelay"}) do
                                 local f = tool:FindFirstChild(name)
-                                if f and (f:IsA("NumberValue") or f:IsA("IntValue")) then
-                                    f.Value = State.rapidFireValue
-                                elseif typeof(tool[name]) == "number" then
-                                    tool[name] = State.rapidFireValue
-                                end
+                                if f and (f:IsA("NumberValue") or f:IsA("IntValue")) then f.Value = State.rapidFireValue
+                                elseif typeof(tool[name]) == "number" then tool[name] = State.rapidFireValue end
                             end
-                            for _, name in ipairs({"Cooldown", "EquipTime", "EquipCooldown", "SwapCooldown", "NextFire"}) do
-                                local f = tool:FindFirstChild(name)
-                                if f and (f:IsA("NumberValue") or f:IsA("IntValue")) then f.Value = 0
-                                elseif typeof(tool[name]) == "number" then tool[name] = 0 end
-                            end
-                        end)
-                    end
-                    if State.noRecoil or State.noSpread then
-                        pcall(function()
-                            for _, d in ipairs(tool:GetDescendants()) do
+                        end
+                        if State.noRecoil or State.noSpread then
+                            for _, d in ipairs(desc) do
                                 if d:IsA("NumberValue") or d:IsA("IntValue") then
                                     local n = d.Name:lower()
                                     if State.noRecoil and (n:find("recoil") or n:find("kick")) then d.Value = 0 end
                                     if State.noSpread and (n:find("spread") or n:find("accuracy") or n:find("deviation")) then d.Value = 0 end
                                 end
                             end
-                        end)
-                    end
-                    if State.infiniteAmmo then
-                        pcall(function()
-                            for _, d in ipairs(tool:GetDescendants()) do
+                        end
+                        if State.infiniteAmmo then
+                            for _, d in ipairs(desc) do
                                 if d:IsA("NumberValue") or d:IsA("IntValue") then
                                     local n = d.Name:lower()
-                                    if n:find("ammo") or n:find("magazine") or n == "mag" then
-                                        d.Value = 9999
-                                    end
+                                    if n:find("ammo") or n:find("magazine") or n == "mag" then d.Value = 9999 end
                                 end
                             end
-                        end)
-                    end
-                    if State.fastReload and not State.instaReload then
-                        pcall(function()
-                            for _, d in ipairs(tool:GetDescendants()) do
+                        end
+                        if State.fastReload and not State.instaReload then
+                            for _, d in ipairs(desc) do
                                 if d:IsA("NumberValue") or d:IsA("IntValue") then
                                     if d.Name:lower():find("reload") and not d.Name:lower():find("reloading") then
                                         if not reloadOriginals[d] then reloadOriginals[d] = d.Value end
@@ -1228,125 +1291,79 @@ function Arsenal.Init(ctx)
                                     end
                                 end
                             end
-                        end)
-                    end
-                    if State.instaReload then
-                        pcall(function()
-                            for _, d in ipairs(tool:GetDescendants()) do
-                                if d:IsA("NumberValue") or d:IsA("IntValue") then
-                                    if d.Name:lower():find("reload") and not d.Name:lower():find("reloading") then
-                                        d.Value = 0
-                                    end
-                                end
-                            end
-                        end)
-                    end
-                    if State.rangeExtender then
-                        pcall(function()
-                            for _, d in ipairs(tool:GetDescendants()) do
+                        end
+                        if State.rangeExtender then
+                            for _, d in ipairs(desc) do
                                 if d:IsA("NumberValue") or d:IsA("IntValue") then
                                     local n = d.Name:lower()
-                                    if n:find("range") or n:find("distance") then
-                                        d.Value = State.rangeValue
-                                    end
+                                    if n:find("range") or n:find("distance") then d.Value = State.rangeValue end
                                 end
                             end
-                        end)
-                    end
-                    if State.bulletSpeed then
-                        pcall(function()
-                            for _, d in ipairs(tool:GetDescendants()) do
+                        end
+                        if State.bulletSpeed then
+                            for _, d in ipairs(desc) do
                                 if d:IsA("NumberValue") or d:IsA("IntValue") then
                                     local n = d.Name:lower()
-                                    if n:find("speed") or n:find("velocity") then
-                                        d.Value = State.bulletSpeedValue
-                                    end
+                                    if n:find("speed") or n:find("velocity") then d.Value = State.bulletSpeedValue end
                                 end
                             end
-                        end)
-                    end
-                    -- FIXED: damageMult saves original, no more exponential multiplication
-                    if State.damageMult then
-                        pcall(function()
-                            for _, d in ipairs(tool:GetDescendants()) do
+                        end
+                        if State.damageMult then
+                            for _, d in ipairs(desc) do
                                 if d:IsA("NumberValue") or d:IsA("IntValue") then
                                     local n = d.Name:lower()
                                     if n:find("damage") or n == "dmg" then
-                                        if not reloadOriginals["dmg_" .. tostring(d)] then
-                                            reloadOriginals["dmg_" .. tostring(d)] = d.Value
-                                        end
-                                        d.Value = reloadOriginals["dmg_" .. tostring(d)] * State.damageMultValue
+                                        local key = "dmg_" .. tostring(d)
+                                        if not reloadOriginals[key] then reloadOriginals[key] = d.Value end
+                                        d.Value = reloadOriginals[key] * State.damageMultValue
                                     end
                                 end
                             end
-                        end)
-                    else
-                        pcall(function()
-                            for _, d in ipairs(tool:GetDescendants()) do
-                                if d:IsA("NumberValue") or d:IsA("IntValue") then
-                                    local key = "dmg_" .. tostring(d)
-                                    if reloadOriginals[key] then
-                                        d.Value = reloadOriginals[key]
-                                        reloadOriginals[key] = nil
-                                    end
-                                end
-                            end
-                        end)
-                    end
-                    if State.piercing then
-                        pcall(function()
-                            for _, d in ipairs(tool:GetDescendants()) do
+                        end
+                        if State.piercing then
+                            for _, d in ipairs(desc) do
                                 if d:IsA("BoolValue") then
                                     local n = d.Name:lower()
-                                    if n:find("pierce") or n:find("penetrat") then
-                                        d.Value = true
-                                    end
+                                    if n:find("pierce") or n:find("penetrat") then d.Value = true end
                                 end
                             end
-                        end)
-                    end
-                    if State.noGravity then
-                        pcall(function()
-                            for _, d in ipairs(tool:GetDescendants()) do
+                        end
+                        if State.noGravity then
+                            for _, d in ipairs(desc) do
                                 if d:IsA("NumberValue") or d:IsA("IntValue") then
                                     if d.Name:lower():find("gravity") then d.Value = 0 end
                                 end
                             end
-                        end)
-                    end
-                    if State.noMuzzleFlash then
-                        pcall(function()
-                            for _, d in ipairs(tool:GetDescendants()) do
-                                if d:IsA("ParticleEmitter") or d:IsA("Fire") then
-                                    d.Enabled = false
-                                end
+                        end
+                        if State.noMuzzleFlash then
+                            for _, d in ipairs(desc) do
+                                if d:IsA("ParticleEmitter") or d:IsA("Fire") then d.Enabled = false end
                             end
-                        end)
-                    end
+                        end
+                    end)
                 end
             end
         end
     end)
 
-    local lastReloadCheck = 0
+    local lastAutoReload = 0
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.autoReload then return end
-        if tick() - lastReloadCheck < 0.5 then return end
-        lastReloadCheck = tick()
+        if tick() - lastAutoReload < 0.5 then return end
+        lastAutoReload = tick()
         local tool = getMyTool()
-        if tool then
-            pcall(function() tool:Activate() end)
-        end
+        if tool then pcall(function() tool:Activate() end) end
     end)
 
-    print("[IZ Arsenal] Gun Mods OK")
+    STEP(9, "Weapon mods OK")
 
     -- ═══════════════════════════════════════════════
-    -- GHOST + RAINBOW (FIXED)
+    -- GHOST + RAINBOW (rate-limited)
     -- ═══════════════════════════════════════════════
     local savedWeaponParts = {}
     local rainbowHue = 0
     local lastWeaponKey = nil
+    local ghostAcc = 0
 
     local function restoreAllWeaponParts()
         for part, orig in pairs(savedWeaponParts) do
@@ -1367,6 +1384,11 @@ function Arsenal.Init(ctx)
 
     RunService.Heartbeat:Connect(function(dt)
         if UNLOADED then return end
+        ghostAcc = ghostAcc + dt
+        if ghostAcc < 0.05 then return end
+        local delta = ghostAcc
+        ghostAcc = 0
+
         local active = State.ghostWeapon or State.rainbowWeapon
         local tool = getMyTool()
         local toolKey = tool and tool:GetFullName() or nil
@@ -1380,107 +1402,60 @@ function Arsenal.Init(ctx)
             if next(savedWeaponParts) then restoreAllWeaponParts() end
             return
         end
-
         if not tool then return end
 
-        for _, part in ipairs(tool:GetDescendants()) do
-            if (part:IsA("BasePart") or part:IsA("Decal") or part:IsA("Texture")) and savedWeaponParts[part] == nil then
-                savedWeaponParts[part] = {
-                    Transparency = part.Transparency or 0,
-                    Color = part:IsA("BasePart") and part.Color or nil,
-                    Material = part:IsA("BasePart") and part.Material or nil,
-                }
-            end
-        end
-
-        if State.ghostWeapon and not State.rainbowWeapon then
-            for _, part in ipairs(tool:GetDescendants()) do
-                if part:IsA("BasePart") or part:IsA("Decal") or part:IsA("Texture") then
-                    pcall(function() part.Transparency = State.ghostTransparency end)
+        pcall(function()
+            local desc = tool:GetDescendants()
+            for _, part in ipairs(desc) do
+                if (part:IsA("BasePart") or part:IsA("Decal") or part:IsA("Texture")) and savedWeaponParts[part] == nil then
+                    savedWeaponParts[part] = {
+                        Transparency = part.Transparency or 0,
+                        Color = part:IsA("BasePart") and part.Color or nil,
+                        Material = part:IsA("BasePart") and part.Material or nil,
+                    }
                 end
             end
-        elseif State.rainbowWeapon then
-            rainbowHue = (rainbowHue + dt * State.rainbowSpeed) % 1
-            local color = Color3.fromHSV(rainbowHue, 1, 1)
-            for _, part in ipairs(tool:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    pcall(function()
+            if State.ghostWeapon and not State.rainbowWeapon then
+                for _, part in ipairs(desc) do
+                    if part:IsA("BasePart") or part:IsA("Decal") or part:IsA("Texture") then
+                        part.Transparency = State.ghostTransparency
+                    end
+                end
+            elseif State.rainbowWeapon then
+                rainbowHue = (rainbowHue + delta * State.rainbowSpeed) % 1
+                local color = Color3.fromHSV(rainbowHue, 1, 1)
+                for _, part in ipairs(desc) do
+                    if part:IsA("BasePart") then
                         part.Color = color
                         part.Material = Enum.Material.Neon
                         local orig = savedWeaponParts[part]
-                        if orig then
-                            part.Transparency = math.min(orig.Transparency or 0, 0.3)
-                        else
-                            part.Transparency = 0
-                        end
-                    end)
-                elseif part:IsA("Decal") or part:IsA("Texture") then
-                    pcall(function() part.Transparency = 1 end)
-                end
-            end
-        end
-    end)
-
-    print("[IZ Arsenal] Ghost + Rainbow OK")
-
-    -- ═══════════════════════════════════════════════
-    -- SKIN SYSTEM (FIXED - non-blocking)
-    -- ═══════════════════════════════════════════════
-    local skinList = {}
-    local skinButtons = {}
-
-    local function scanWeaponSkinsSafe()
-        local found = {}
-        local seen = {}
-        local count = 0
-
-        local function addSkin(name)
-            if not name or name == "" then return end
-            if name:sub(1, 1) == "." then return end
-            if #name > 50 then return end
-            if seen[name] then return end
-            seen[name] = true
-            count = count + 1
-            if count > 500 then return end
-            table.insert(found, name)
-        end
-
-        local paths = {
-            {"Skins"}, {"WeaponSkins"}, {"SkinData"}, {"SkinsFolder"},
-            {"Assets", "Skins"}, {"Assets", "Weapons"}, {"Assets", "WeaponSkins"},
-            {"Shared", "Skins"}, {"Shared", "Weapons"},
-            {"Database", "Skins"}, {"Database", "Weapons"},
-        }
-        for _, path in ipairs(paths) do
-            pcall(function()
-                local current = ReplicatedStorage
-                for _, name in ipairs(path) do
-                    current = current and current:FindFirstChild(name)
-                    if not current then return end
-                end
-                for _, child in ipairs(current:GetChildren()) do
-                    if child:IsA("StringValue") or child:IsA("Folder") or child:IsA("ModuleScript") then
-                        addSkin(child.Name)
-                    end
-                end
-            end)
-        end
-
-        pcall(function()
-            local scanned = 0
-            for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
-                scanned = scanned + 1
-                if scanned > 5000 then break end
-                if obj:IsA("StringValue") or obj:IsA("Folder") or obj:IsA("ModuleScript") then
-                    local lower = obj.Name:lower()
-                    if lower:find("skin") and not lower:find("remotes") and not lower:find("event") then
-                        addSkin(obj.Name)
+                        part.Transparency = orig and math.min(orig.Transparency or 0, 0.3) or 0
+                    elseif part:IsA("Decal") or part:IsA("Texture") then
+                        part.Transparency = 1
                     end
                 end
             end
         end)
+    end)
 
-        table.sort(found)
+    STEP(10, "Ghost/Rainbow OK")
+
+    -- ═══════════════════════════════════════════════
+    -- SKIN SYSTEM (usa ReplicatedStorage.Skins)
+    -- ═══════════════════════════════════════════════
+    local skinList = {}
+    local skinButtons = {}
+
+    local function scanSkinsSafe()
+        local found = {}
+        if SkinsFolder then
+            for _, sv in ipairs(SkinsFolder:GetChildren()) do
+                if sv:IsA("StringValue") and sv.Name ~= "" then
+                    table.insert(found, { name = sv.Name, assetId = sv.Value })
+                end
+            end
+        end
+        table.sort(found, function(a, b) return a.name < b.name end)
         return found
     end
 
@@ -1495,49 +1470,39 @@ function Arsenal.Init(ctx)
             return false
         end
 
-        pcall(function()
-            local remotes = {
-                safeFind(ReplicatedStorage, "NetworkRemotes", "Inventory", "EquipLoadoutSkin"),
-                safeFind(ReplicatedStorage, "NetworkRemotes", "Inventory", "SwapLoadoutSkins"),
-                safeFind(ReplicatedStorage, "Remotes", "EquipSkin"),
-                safeFind(ReplicatedStorage, "Remotes", "SetSkin"),
-            }
-            for _, rem in ipairs(remotes) do
-                if rem and (rem:IsA("RemoteEvent") or rem:IsA("RemoteFunction")) then
-                    pcall(function() rem:FireServer(skinName) end)
-                end
-            end
-        end)
+        local assetId = WeaponSkins[skinName]
 
-        pcall(function()
-            local skinObj = nil
-            local scanned = 0
-            for _, obj in ipairs(ReplicatedStorage:GetDescendants()) do
-                scanned = scanned + 1
-                if scanned > 5000 then break end
-                if obj.Name == skinName and (obj:IsA("MeshPart") or obj:IsA("SpecialMesh") or obj:IsA("Texture") or obj:IsA("Decal")) then
-                    skinObj = obj
-                    break
-                end
-            end
-            if skinObj then
+        -- Tenta GunSkinner remote
+        if Remotes.GunSkinner then
+            pcall(function() Remotes.GunSkinner:FireServer(tool.Name, skinName) end)
+            pcall(function() Remotes.GunSkinner:FireServer(skinName) end)
+        end
+        if Remotes.ApplyGun then
+            pcall(function() Remotes.ApplyGun:FireServer(skinName) end)
+        end
+
+        -- Fallback client-side: aplica Textura
+        if assetId and assetId ~= "" then
+            pcall(function()
                 for _, part in ipairs(tool:GetDescendants()) do
-                    if part:IsA("MeshPart") and skinObj:IsA("MeshPart") then
-                        pcall(function()
-                            part.MeshId = skinObj.MeshId
-                            part.TextureID = skinObj.TextureID
-                        end)
-                    elseif part:IsA("SpecialMesh") and skinObj:IsA("SpecialMesh") then
-                        pcall(function()
-                            part.MeshId = skinObj.MeshId
-                            part.TextureId = skinObj.TextureId
-                        end)
-                    elseif part:IsA("Texture") and skinObj:IsA("Texture") then
-                        pcall(function() part.Texture = skinObj.Texture end)
+                    if part:IsA("BasePart") then
+                        -- remove texturas antigas
+                        for _, c in ipairs(part:GetChildren()) do
+                            if c:IsA("Texture") or c:IsA("Decal") then
+                                c:Destroy()
+                            end
+                        end
+                        -- aplica nova textura
+                        local tex = Instance.new("Texture")
+                        tex.Texture = assetId
+                        tex.Face = Enum.NormalId.Top
+                        tex.Parent = part
+                    elseif part:IsA("Decal") then
+                        part.Texture = assetId
                     end
                 end
-            end
-        end)
+            end)
+        end
 
         State.customSkinName = skinName
         Notify("🎨 Skin", "Aplicado: " .. skinName, 3)
@@ -1546,66 +1511,57 @@ function Arsenal.Init(ctx)
 
     local function buildSkinMenu(tab)
         pcall(function()
-            local scrollFrame = Instance.new("ScrollingFrame", tab.container)
-            scrollFrame.Size = UDim2.new(1, -10, 0, 280)
-            scrollFrame.BackgroundColor3 = Theme.Surface
-            scrollFrame.BorderSizePixel = 0
-            scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-            scrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-            scrollFrame.ScrollBarThickness = 4
-            scrollFrame.ScrollBarImageColor3 = Theme.Primary
-            Instance.new("UICorner", scrollFrame).CornerRadius = UDim.new(0, 6)
-            local sl = Instance.new("UIListLayout", scrollFrame)
+            local statusLbl = Instance.new("TextLabel", tab.container)
+            statusLbl.Size = UDim2.new(1, -10, 0, 20)
+            statusLbl.BackgroundTransparency = 1
+            statusLbl.Font = Theme.Font
+            statusLbl.TextSize = 11
+            statusLbl.TextColor3 = Theme.TextDim
+            statusLbl.TextXAlignment = Enum.TextXAlignment.Left
+            statusLbl.Text = "Total: " .. #skinList .. " skins"
+
+            local scroll = Instance.new("ScrollingFrame", tab.container)
+            scroll.Size = UDim2.new(1, -10, 0, 280)
+            scroll.BackgroundColor3 = Theme.Surface
+            scroll.BorderSizePixel = 0
+            scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+            scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+            scroll.ScrollBarThickness = 4
+            scroll.ScrollBarImageColor3 = Theme.Primary
+            Instance.new("UICorner", scroll).CornerRadius = UDim.new(0, 6)
+            local sl = Instance.new("UIListLayout", scroll)
             sl.Padding = UDim.new(0, 3)
-            local sp = Instance.new("UIPadding", scrollFrame)
+            local sp = Instance.new("UIPadding", scroll)
             sp.PaddingTop = UDim.new(0, 4)
             sp.PaddingBottom = UDim.new(0, 4)
             sp.PaddingLeft = UDim.new(0, 4)
             sp.PaddingRight = UDim.new(0, 4)
 
-            local function refresh()
-                for _, child in ipairs(scrollFrame:GetChildren()) do
-                    if child:IsA("TextButton") then child:Destroy() end
-                end
-                skinButtons = {}
-                skinList = scanWeaponSkinsSafe()
-                if #skinList == 0 then
-                    local lbl = Instance.new("TextLabel", scrollFrame)
-                    lbl.Size = UDim2.new(1, 0, 0, 30)
-                    lbl.BackgroundTransparency = 1
-                    lbl.Font = Theme.Font
-                    lbl.TextSize = 11
-                    lbl.TextColor3 = Theme.TextDim
-                    lbl.Text = "Nenhuma skin encontrada. Tente Refresh."
-                    return
-                end
-                for _, skinName in ipairs(skinList) do
-                    local btn = Instance.new("TextButton", scrollFrame)
-                    btn.Size = UDim2.new(1, 0, 0, 26)
-                    btn.BackgroundColor3 = State.customSkinName == skinName and Theme.Success or Theme.Surface2
-                    btn.Text = "  " .. skinName
-                    btn.Font = Theme.Font
-                    btn.TextSize = 11
-                    btn.TextColor3 = Theme.Text
-                    btn.TextXAlignment = Enum.TextXAlignment.Left
-                    btn.AutoButtonColor = false
-                    btn.ZIndex = 5
-                    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
-                    btn.MouseButton1Click:Connect(function()
-                        applySkinToTool(skinName)
-                        for _, other in ipairs(skinButtons) do
-                            if other.Parent then other.BackgroundColor3 = Theme.Surface2 end
-                        end
-                        btn.BackgroundColor3 = Theme.Success
-                    end)
-                    table.insert(skinButtons, btn)
-                end
+            for _, skin in ipairs(skinList) do
+                local btn = Instance.new("TextButton", scroll)
+                btn.Size = UDim2.new(1, 0, 0, 26)
+                btn.BackgroundColor3 = Theme.Surface2
+                btn.Text = "  " .. skin.name
+                btn.Font = Theme.Font
+                btn.TextSize = 11
+                btn.TextColor3 = Theme.Text
+                btn.TextXAlignment = Enum.TextXAlignment.Left
+                btn.AutoButtonColor = false
+                Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+                btn.MouseButton1Click:Connect(function()
+                    applySkinToTool(skin.name)
+                    for _, other in ipairs(skinButtons) do
+                        if other.Parent then other.BackgroundColor3 = Theme.Surface2 end
+                    end
+                    btn.BackgroundColor3 = Theme.Success
+                end)
+                table.insert(skinButtons, btn)
             end
 
             local abtn = Instance.new("TextButton", tab.container)
             abtn.Size = UDim2.new(1, -10, 0, 30)
             abtn.BackgroundColor3 = Theme.Primary
-            abtn.Text = "✅ Apply Current"
+            abtn.Text = "Apply Current"
             abtn.Font = Theme.FontBold
             abtn.TextSize = 11
             abtn.TextColor3 = Theme.Text
@@ -1618,26 +1574,11 @@ function Arsenal.Init(ctx)
                     Notify("🎨 Skin", "Selecione uma skin", 3, true)
                 end
             end)
-
-            local rbtn = Instance.new("TextButton", tab.container)
-            rbtn.Size = UDim2.new(1, -10, 0, 30)
-            rbtn.BackgroundColor3 = Theme.Surface2
-            rbtn.Text = "🔄 Refresh Skins"
-            rbtn.Font = Theme.FontBold
-            rbtn.TextSize = 11
-            rbtn.TextColor3 = Theme.Text
-            rbtn.AutoButtonColor = false
-            Instance.new("UICorner", rbtn).CornerRadius = UDim.new(0, 6)
-            rbtn.MouseButton1Click:Connect(function()
-                refresh()
-                Notify("🔄 Skins", #skinList .. " skins encontradas", 3)
-            end)
-
-            task.defer(refresh)
         end)
     end
 
-    print("[IZ Arsenal] Skin System OK")
+    skinList = scanSkinsSafe()
+    STEP(11, "Skins escaneadas: " .. #skinList)
 
     -- ═══════════════════════════════════════════════
     -- MOVEMENT
@@ -1651,41 +1592,41 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    local flyBodyVel, flyBodyGyro = nil, nil
+    local flyV, flyG = nil, nil
     local function startFly()
         local char = LocalPlayer.Character
         if not char then return end
         local hrp = char:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
-        if flyBodyVel then flyBodyVel:Destroy() end
-        if flyBodyGyro then flyBodyGyro:Destroy() end
-        flyBodyVel = Instance.new("BodyVelocity")
-        flyBodyVel.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-        flyBodyVel.Velocity = Vector3.zero
-        flyBodyVel.Parent = hrp
-        flyBodyGyro = Instance.new("BodyGyro")
-        flyBodyGyro.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
-        flyBodyGyro.P = 1e4
-        flyBodyGyro.CFrame = hrp.CFrame
-        flyBodyGyro.Parent = hrp
+        if flyV then flyV:Destroy() end
+        if flyG then flyG:Destroy() end
+        flyV = Instance.new("BodyVelocity")
+        flyV.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+        flyV.Velocity = Vector3.zero
+        flyV.Parent = hrp
+        flyG = Instance.new("BodyGyro")
+        flyG.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
+        flyG.P = 1e4
+        flyG.CFrame = hrp.CFrame
+        flyG.Parent = hrp
     end
     local function stopFly()
-        if flyBodyVel then flyBodyVel:Destroy(); flyBodyVel = nil end
-        if flyBodyGyro then flyBodyGyro:Destroy(); flyBodyGyro = nil end
+        if flyV then flyV:Destroy(); flyV = nil end
+        if flyG then flyG:Destroy(); flyG = nil end
     end
     RunService.Heartbeat:Connect(function()
         if UNLOADED then return end
         if not State.fly then
-            if flyBodyVel then stopFly() end
+            if flyV then stopFly() end
             return
         end
         local char = LocalPlayer.Character
         if not char then return end
         local hrp = char:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
-        if not flyBodyVel then startFly() end
-        if not flyBodyVel or not flyBodyGyro then return end
-        pcall(function() flyBodyGyro.CFrame = Camera.CFrame end)
+        if not flyV then startFly() end
+        if not flyV or not flyG then return end
+        pcall(function() flyG.CFrame = Camera.CFrame end)
         local move = Vector3.zero
         if UserInputService:IsKeyDown(Enum.KeyCode.W) then move = move + Camera.CFrame.LookVector end
         if UserInputService:IsKeyDown(Enum.KeyCode.S) then move = move - Camera.CFrame.LookVector end
@@ -1694,9 +1635,9 @@ function Arsenal.Init(ctx)
         if UserInputService:IsKeyDown(Enum.KeyCode.Space) then move = move + Vector3.new(0, 1, 0) end
         if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then move = move - Vector3.new(0, 1, 0) end
         if move.Magnitude > 0 then
-            flyBodyVel.Velocity = move.Unit * State.flySpeed
+            flyV.Velocity = move.Unit * State.flySpeed
         else
-            flyBodyVel.Velocity = Vector3.zero
+            flyV.Velocity = Vector3.zero
         end
     end)
 
@@ -1753,13 +1694,11 @@ function Arsenal.Init(ctx)
         local params = RaycastParams.new()
         params.FilterType = Enum.RaycastFilterType.Exclude
         params.FilterDescendantsInstances = {char}
-        local result = workspace:Raycast(ray.Origin, ray.Direction * 1000, params)
-        if result then
-            pcall(function() hrp.CFrame = CFrame.new(result.Position + Vector3.new(0, 3, 0)) end)
-        end
+        local r = workspace:Raycast(ray.Origin, ray.Direction * 1000, params)
+        if r then pcall(function() hrp.CFrame = CFrame.new(r.Position + Vector3.new(0, 3, 0)) end) end
     end)
 
-    print("[IZ Arsenal] Movement OK")
+    STEP(12, "Movement OK")
 
     -- ═══════════════════════════════════════════════
     -- VISUALS
@@ -1774,27 +1713,27 @@ function Arsenal.Init(ctx)
         chams.OutlineColor = Color3.fromRGB(255, 255, 255); chams.OutlineTransparency = 0.3
         chams.Parent = p.Character
         data.chams = chams
-        local function newDrawing(class, props)
+        local function nd(class, props)
             local d = Drawing.new(class)
             for k, v in pairs(props) do d[k] = v end
             d.Visible = false
             return d
         end
-        data.box = newDrawing("Square", {Thickness = 1.5, Color = Theme.Primary, Filled = false, Transparency = 1})
-        data.name = newDrawing("Text", {Size = 14, Center = true, Outline = true, Color = Color3.fromRGB(255, 255, 255)})
-        data.distance = newDrawing("Text", {Size = 12, Center = true, Outline = true, Color = Theme.TitleRed})
-        data.health = newDrawing("Line", {Thickness = 3, Color = Color3.fromRGB(0, 255, 0)})
-        data.tracer = newDrawing("Line", {Thickness = 1.2, Color = Theme.Primary})
-        data.headDot = newDrawing("Circle", {Radius = 4, NumSides = 20, Thickness = 1, Filled = false, Color = Color3.fromRGB(255, 255, 255)})
-        data.weapon = newDrawing("Text", {Size = 11, Center = true, Outline = true, Color = Color3.fromRGB(255, 200, 100)})
+        data.box = nd("Square", {Thickness = 1.5, Color = Theme.Primary, Filled = false, Transparency = 1})
+        data.name = nd("Text", {Size = 14, Center = true, Outline = true, Color = Color3.fromRGB(255, 255, 255)})
+        data.distance = nd("Text", {Size = 12, Center = true, Outline = true, Color = Theme.TitleRed})
+        data.health = nd("Line", {Thickness = 3, Color = Color3.fromRGB(0, 255, 0)})
+        data.tracer = nd("Line", {Thickness = 1.2, Color = Theme.Primary})
+        data.headDot = nd("Circle", {Radius = 4, NumSides = 20, Thickness = 1, Filled = false, Color = Color3.fromRGB(255, 255, 255)})
+        data.weapon = nd("Text", {Size = 11, Center = true, Outline = true, Color = Color3.fromRGB(255, 200, 100)})
         ESP.data[p] = data
     end
     local function removeESP(p)
         local d = ESP.data[p]
         if not d then return end
         if d.chams then pcall(function() d.chams:Destroy() end) end
-        for _, key in ipairs({"box", "name", "distance", "health", "tracer", "headDot", "weapon"}) do
-            if d[key] and d[key].Remove then pcall(function() d[key]:Remove() end) end
+        for _, k in ipairs({"box", "name", "distance", "health", "tracer", "headDot", "weapon"}) do
+            if d[k] then pcall(function() d[k]:Remove() end) end
         end
         ESP.data[p] = nil
     end
@@ -1806,16 +1745,16 @@ function Arsenal.Init(ctx)
         local d = ESP.data[p]
         if not d then return end
         if not State.esp or not isEnemy(p) then
-            for _, key in ipairs({"box", "name", "distance", "health", "tracer", "headDot", "weapon"}) do
-                if d[key] then d[key].Visible = false end
+            for _, k in ipairs({"box", "name", "distance", "health", "tracer", "headDot", "weapon"}) do
+                if d[k] then d[k].Visible = false end
             end
             if d.chams then d.chams.Enabled = false end
             return
         end
         local hum = char:FindFirstChildOfClass("Humanoid")
         if not hum or hum.Health <= 0 then
-            for _, key in ipairs({"box", "name", "distance", "health", "tracer", "headDot", "weapon"}) do
-                if d[key] then d[key].Visible = false end
+            for _, k in ipairs({"box", "name", "distance", "health", "tracer", "headDot", "weapon"}) do
+                if d[k] then d[k].Visible = false end
             end
             if d.chams then d.chams.Enabled = false end
             return
@@ -1826,14 +1765,13 @@ function Arsenal.Init(ctx)
         if d.chams then d.chams.Enabled = State.espChams end
         local headSp, headOn = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
         local hrpSp, hrpOn = Camera:WorldToViewportPoint(hrp.Position)
-        local footPos = hrp.Position - Vector3.new(0, 3, 0)
-        local footSp, footOn = Camera:WorldToViewportPoint(footPos)
+        local footSp, footOn = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3, 0))
         local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         if not myHRP then return end
         local dist = math.floor((head.Position - myHRP.Position).Magnitude)
         if dist > State.espMaxDistance then
-            for _, key in ipairs({"box", "name", "distance", "health", "tracer", "headDot", "weapon"}) do
-                if d[key] then d[key].Visible = false end
+            for _, k in ipairs({"box", "name", "distance", "health", "tracer", "headDot", "weapon"}) do
+                if d[k] then d[k].Visible = false end
             end
             return
         end
@@ -1870,12 +1808,10 @@ function Arsenal.Init(ctx)
         if headOn and footOn and State.espHealth then
             local h = math.abs(footSp.Y - headSp.Y)
             local maxHP = hum.MaxHealth
-            local hr = 1
-            if maxHP and maxHP > 0 then hr = math.clamp(hum.Health / maxHP, 0, 1) end
+            local hr = (maxHP and maxHP > 0) and math.clamp(hum.Health / maxHP, 0, 1) or 1
             local bx = headSp.X + (h * 0.6) / 2 + 5
             local by = headSp.Y + h
-            local fy = by - (h * hr)
-            d.health.From = Vector2.new(bx, fy)
+            d.health.From = Vector2.new(bx, by - h * hr)
             d.health.To = Vector2.new(bx, by)
             if hr > 0.6 then d.health.Color = Color3.fromRGB(0, 255, 0)
             elseif hr > 0.3 then d.health.Color = Color3.fromRGB(255, 200, 0)
@@ -1902,15 +1838,16 @@ function Arsenal.Init(ctx)
     end)
     Players.PlayerRemoving:Connect(function(p) removeESP(p) end)
 
-    local grenadeKeywords = {"grenade", "frag", "flashbang", "smoke", "molotov", "impact", "sticky", "decoy"}
+    -- GRENADE ESP
+    local grenadeKws = {"grenade", "frag", "flashbang", "smoke", "molotov", "impact", "sticky", "decoy"}
     local grenadeDrawings = {}
     local function isGrenade(obj)
         if not obj or not obj.Parent or not obj:IsA("BasePart") then return false end
         local lower = obj.Name:lower()
-        for _, kw in ipairs(grenadeKeywords) do if lower:find(kw) then return true end end
+        for _, kw in ipairs(grenadeKws) do if lower:find(kw) then return true end end
         return false
     end
-    local function clearGrenadeDrawings()
+    local function clearGrenades()
         for _, d in pairs(grenadeDrawings) do
             if d.box then pcall(function() d.box:Remove() end) end
             if d.name then pcall(function() d.name:Remove() end) end
@@ -1918,52 +1855,52 @@ function Arsenal.Init(ctx)
         grenadeDrawings = {}
     end
     RunService.RenderStepped:Connect(function()
-        if UNLOADED or not State.grenadeEsp then clearGrenadeDrawings(); return end
+        if UNLOADED or not State.grenadeEsp then clearGrenades(); return end
         pcall(function()
-            local activeObjects = {}
+            local active = {}
             for _, obj in ipairs(workspace:GetChildren()) do
                 if isGrenade(obj) then
-                    activeObjects[obj] = true
+                    active[obj] = true
                     if not grenadeDrawings[obj] then
                         local box = Drawing.new("Square")
                         box.Thickness = 1.5; box.Color = Color3.fromRGB(255, 150, 50)
                         box.Filled = false; box.Transparency = 1
-                        local name = Drawing.new("Text")
-                        name.Size = 12; name.Center = true; name.Outline = true
-                        name.Color = Color3.fromRGB(255, 200, 100)
-                        name.Text = obj.Name
-                        grenadeDrawings[obj] = {box = box, name = name}
+                        local nm = Drawing.new("Text")
+                        nm.Size = 12; nm.Center = true; nm.Outline = true
+                        nm.Color = Color3.fromRGB(255, 200, 100)
+                        nm.Text = obj.Name
+                        grenadeDrawings[obj] = {box = box, name = nm}
                     end
-                    local data = grenadeDrawings[obj]
+                    local d = grenadeDrawings[obj]
                     local sp, onScreen = Camera:WorldToViewportPoint(obj.Position)
                     if onScreen then
                         local size = math.clamp(300 / math.max((Camera.CFrame.Position - obj.Position).Magnitude, 1), 8, 100)
-                        data.box.Size = Vector2.new(size, size)
-                        data.box.Position = Vector2.new(sp.X - size / 2, sp.Y - size / 2)
-                        data.box.Visible = true
-                        data.name.Position = Vector2.new(sp.X, sp.Y - size / 2 - 12)
-                        data.name.Visible = true
+                        d.box.Size = Vector2.new(size, size)
+                        d.box.Position = Vector2.new(sp.X - size / 2, sp.Y - size / 2)
+                        d.box.Visible = true
+                        d.name.Position = Vector2.new(sp.X, sp.Y - size / 2 - 12)
+                        d.name.Visible = true
                     else
-                        data.box.Visible = false; data.name.Visible = false
+                        d.box.Visible = false; d.name.Visible = false
                     end
                 end
             end
-            for obj, data in pairs(grenadeDrawings) do
-                if not activeObjects[obj] then
-                    if data.box then pcall(function() data.box:Remove() end) end
-                    if data.name then pcall(function() data.name:Remove() end) end
+            for obj, d in pairs(grenadeDrawings) do
+                if not active[obj] then
+                    if d.box then pcall(function() d.box:Remove() end) end
+                    if d.name then pcall(function() d.name:Remove() end) end
                     grenadeDrawings[obj] = nil
                 end
             end
         end)
     end)
 
+    -- DAMAGE INDICATOR
     local dmgArrow = Drawing.new("Triangle")
     dmgArrow.Filled = true
     dmgArrow.Color = Color3.fromRGB(255, 40, 40)
     dmgArrow.Transparency = 0.85
     dmgArrow.Visible = false
-
     local lastDamageTime = 0
     task.spawn(function()
         while not UNLOADED do
@@ -1974,9 +1911,7 @@ function Arsenal.Init(ctx)
                     local lastHealth = hum.Health
                     local conn
                     conn = hum.HealthChanged:Connect(function(newHealth)
-                        if newHealth < lastHealth and newHealth > 0 then
-                            lastDamageTime = tick()
-                        end
+                        if newHealth < lastHealth and newHealth > 0 then lastDamageTime = tick() end
                         lastHealth = newHealth
                     end)
                     hum.AncestryChanged:Wait()
@@ -1986,15 +1921,12 @@ function Arsenal.Init(ctx)
             task.wait(0.5)
         end
     end)
-
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.damageIndicator then dmgArrow.Visible = false; return end
         local now = tick()
         if now - lastDamageTime > 1.5 then dmgArrow.Visible = false; return end
         local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-        local radius = 120
-        local px = center.X
-        local py = center.Y - radius
+        local px, py = center.X, center.Y - 120
         local size = 14
         dmgArrow.PointA = Vector2.new(px, py + size)
         dmgArrow.PointB = Vector2.new(px - size * 0.7, py - size * 0.7)
@@ -2004,15 +1936,16 @@ function Arsenal.Init(ctx)
         dmgArrow.Visible = true
     end)
 
+    -- FULLBRIGHT
     local origBrightness = Lighting.Brightness
     local origAmbient = Lighting.Ambient
     local origOutdoorAmbient = Lighting.OutdoorAmbient
     local origClockTime = Lighting.ClockTime
     local origGlobalShadows = Lighting.GlobalShadows
-    local origAtmosphere = {}
+    local origAtmos = {}
     for _, c in ipairs(Lighting:GetChildren()) do
         if c:IsA("Atmosphere") then
-            table.insert(origAtmosphere, {obj = c, D = c.Density, H = c.Haze, G = c.Glare})
+            table.insert(origAtmos, {obj = c, D = c.Density, H = c.Haze, G = c.Glare})
         end
     end
     RunService.Heartbeat:Connect(function()
@@ -2034,15 +1967,16 @@ function Arsenal.Init(ctx)
         Lighting.OutdoorAmbient = origOutdoorAmbient
         Lighting.ClockTime = origClockTime
         Lighting.GlobalShadows = origGlobalShadows
-        for _, data in ipairs(origAtmosphere) do
-            if data.obj and data.obj.Parent then
+        for _, d in ipairs(origAtmos) do
+            if d.obj and d.obj.Parent then
                 pcall(function()
-                    data.obj.Density = data.D; data.obj.Haze = data.H; data.obj.Glare = data.G
+                    d.obj.Density = d.D; d.obj.Haze = d.H; d.obj.Glare = d.G
                 end)
             end
         end
     end
 
+    -- THIRD PERSON
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.thirdPerson then return end
         local char = LocalPlayer.Character
@@ -2050,12 +1984,12 @@ function Arsenal.Init(ctx)
         local hrp = char:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
         pcall(function()
-            local current = Camera.CFrame
-            local newCF = CFrame.new(hrp.Position - (current.LookVector * 8) + Vector3.new(0, 3, 0), hrp.Position + Vector3.new(0, 1.5, 0))
-            Camera.CFrame = newCF
+            local cur = Camera.CFrame
+            Camera.CFrame = CFrame.new(hrp.Position - (cur.LookVector * 8) + Vector3.new(0, 3, 0), hrp.Position + Vector3.new(0, 1.5, 0))
         end)
     end)
 
+    -- CAMERA FOV
     local origFov = Camera.FieldOfView
     RunService.Heartbeat:Connect(function()
         if UNLOADED then return end
@@ -2066,11 +2000,12 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    local flashKeywords = {"flash", "blind", "whiteout", "whitescreen", "flashbang"}
-    local function isFlashName(name)
-        if type(name) ~= "string" then return false end
-        local lower = name:lower()
-        for _, kw in ipairs(flashKeywords) do if lower:find(kw) then return true end end
+    -- ANTI-FLASH
+    local flashKws = {"flash", "blind", "whiteout", "whitescreen", "flashbang"}
+    local function isFlashName(n)
+        if type(n) ~= "string" then return false end
+        local l = n:lower()
+        for _, kw in ipairs(flashKws) do if l:find(kw) then return true end end
         return false
     end
     RunService.Heartbeat:Connect(function()
@@ -2090,25 +2025,22 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    local vkKeywords = {"votekick", "voting", "vote_kick", "kickvote"}
-    local function blockVoteKickGui(child)
-        if not child then return false end
-        local lower = child.Name:lower()
-        for _, kw in ipairs(vkKeywords) do
-            if lower:find(kw) then
-                pcall(function() child:Destroy() end)
-                return true
-            end
-        end
-        return false
+    -- ANTI-VOTEKICK
+    if Remotes.PromptVotekick then
+        pcall(function()
+            Remotes.PromptVotekick.OnClientEvent:Connect(function(...)
+                if UNLOADED or not State.antiVK then return end
+                local args = {...}
+                for _, v in ipairs(args) do
+                    if typeof(v) == "Instance" and v:IsA("Player") and v == LocalPlayer then
+                        Notify("🛡️ Anti-VK", "Votekick blocked", 3)
+                    end
+                end
+            end)
+        end)
     end
-    PlayerGui.ChildAdded:Connect(function(child)
-        if UNLOADED or not State.antiVK then return end
-        if blockVoteKickGui(child) then
-            Notify("🛡️ Anti-VK", "Votekick bloqueado", 3)
-        end
-    end)
 
+    -- ANTI AFK
     task.spawn(function()
         while not UNLOADED do
             if State.antiAFK then
@@ -2122,9 +2054,11 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    print("[IZ Arsenal] Visuals OK")
+    STEP(13, "Visuals OK")
 
+    -- ═══════════════════════════════════════════════
     -- OPTIMIZATIONS
+    -- ═══════════════════════════════════════════════
     local optBackup = {
         fogEnd = Lighting.FogEnd, fogStart = Lighting.FogStart,
         globalShadows = Lighting.GlobalShadows, qualityLevel = nil,
@@ -2183,7 +2117,9 @@ function Arsenal.Init(ctx)
         end
     end)
 
+    -- ═══════════════════════════════════════════════
     -- CONFIG SYSTEM
+    -- ═══════════════════════════════════════════════
     local BASE_FOLDER = "InfiniteZen_Configs"
     local CONFIG_FOLDER = BASE_FOLDER .. "/Arsenal"
     local AUTOLOAD_FILE = "InfiniteZen_Arsenal_Autoload.txt"
@@ -2206,9 +2142,9 @@ function Arsenal.Init(ctx)
         end
         local ok, json = pcall(function() return HttpService:JSONEncode(data) end)
         if not ok or not json then Notify("⚠️ Error", "Encode falhou", 4, true); return false end
-        local wOk, err = pcall(function() writefile(getConfigPath(name), json) end)
+        local wOk = pcall(function() writefile(getConfigPath(name), json) end)
         if wOk then Notify("💾 Config", "Saved: " .. name, 3); return true
-        else Notify("⚠️ Error", "Failed: " .. tostring(err), 4, true); return false end
+        else Notify("⚠️ Error", "Failed", 4, true); return false end
     end
 
     local function loadConfigNamed(name)
@@ -2252,8 +2188,8 @@ function Arsenal.Init(ctx)
         if listfiles and isfolder and isfolder(CONFIG_FOLDER) then
             for _, file in ipairs(listfiles(CONFIG_FOLDER)) do
                 if file:sub(-5) == ".json" then
-                    local name = file:match("([^/\\]+)%.json$")
-                    if name then table.insert(list, name) end
+                    local n = file:match("([^/\\]+)%.json$")
+                    if n then table.insert(list, n) end
                 end
             end
         end
@@ -2269,12 +2205,14 @@ function Arsenal.Init(ctx)
         Notify("🚫 Autoload", "Disabled", 3)
     end
     local function getAutoload()
-        local ok, content = pcall(function() return readfile(getAutoloadPath()) end)
-        if ok and content and content ~= "" then return content end
+        local ok, c = pcall(function() return readfile(getAutoloadPath()) end)
+        if ok and c and c ~= "" then return c end
         return nil
     end
 
-    -- TABS
+    -- ═══════════════════════════════════════════════
+    -- ABAS
+    -- ═══════════════════════════════════════════════
     local CombatTab = CreateTab("Combat", "⚔️")
     CombatTab.CreateLabel("Rage", Theme.Text)
     CombatTab.CreateToggle("kill_all", "killAll")
@@ -2294,20 +2232,19 @@ function Arsenal.Init(ctx)
     end)
     CombatTab.CreateSlider("aimbot_max_dist", 50, 2000, 500, "aimbotMaxDist")
     CombatTab.CreateToggle("aimbot_wallcheck", "aimbotWallCheck")
-    CombatTab.CreateDropdown("aimbot_hitbox", {"Head", "Torso", "Nearest", "Auto"}, "aimbotHitbox")
+    CombatTab.CreateDropdown("aimbot_hitbox", {"Head (HeadHB)", "Torso (Hitbox)", "Nearest", "Auto"}, "aimbotHitbox")
     CombatTab.CreateToggle("triggerbot", "triggerbot")
     CombatTab.CreateSlider("triggerbot_delay", 1, 100, 5, "triggerbotDelay")
     CombatTab.CreateToggle("auto_shot", "autoShot")
     CombatTab.CreateSlider("auto_shot_fov", 30, 300, 100, "autoShotFov")
     CombatTab.CreateSlider("auto_shot_delay", 10, 500, 50, "autoShotDelay")
     CombatTab.CreateLabel("Extra", Theme.Text)
-    CombatTab.CreateToggle("backtrack", "backtrack")
     CombatTab.CreateToggle("anti_aim", "antiAim")
     CombatTab.CreateDropdown("anti_aim_mode", {"Spin", "Jitter", "Down"}, "antiAimMode")
     CombatTab.CreateToggle("head_expander", "expanderEnabled", function(v)
         if not v then restoreAllHitboxes() end
     end)
-    CombatTab.CreateSlider("hitbox_size", 1, 8, 3, "hitboxSize")
+    CombatTab.CreateSlider("hitbox_size", 1, 5, 2, "hitboxSize")
     CombatTab.CreateToggle("fov_circle", "fovCircle")
 
     local WeaponTab = CreateTab("Weapon", "🔫")
@@ -2324,9 +2261,8 @@ function Arsenal.Init(ctx)
     WeaponTab.CreateToggle("auto_reload", "autoReload")
     WeaponTab.CreateLabel("Ammo / Damage", Theme.Text)
     WeaponTab.CreateToggle("infinite_ammo", "infiniteAmmo")
-    WeaponTab.CreateToggle("instant_kill", "instantKill")
     WeaponTab.CreateToggle("damage_mult", "damageMult")
-    WeaponTab.CreateSlider("damage_mult_value", 1, 50, 2, "damageMultValue")
+    WeaponTab.CreateSlider("damage_mult_value", 1, 20, 2, "damageMultValue")
     WeaponTab.CreateLabel("Bullet Mods", Theme.Text)
     WeaponTab.CreateToggle("range_extender", "rangeExtender")
     WeaponTab.CreateSlider("range_value", 500, 50000, 5000, "rangeValue")
@@ -2344,20 +2280,16 @@ function Arsenal.Init(ctx)
     WeaponTab.CreateSlider("rainbow_speed", 1, 10, 1, "rainbowSpeed", function(v)
         State.rainbowSpeed = v / 10
     end)
-    WeaponTab.CreateLabel("Feedbacks", Theme.Text)
-    WeaponTab.CreateToggle("hit_sounds", "hitSounds")
 
-    -- SKINS (protegido)
-    local okSkins, SkinsTab = pcall(function()
+    -- SKINS
+    local okSk, SkinsTab = pcall(function()
         local t = CreateTab("Skins", "🎨")
-        t.CreateLabel("Custom Weapon Skin", Theme.Text)
-        t.CreateLabel("Clique em Refresh se lista estiver vazia", Theme.TextDim)
+        t.CreateLabel("Weapon Skins", Theme.Text)
+        t.CreateLabel(#skinList .. " skins encontradas", Theme.TextDim)
         return t
     end)
-    if okSkins and SkinsTab then
+    if okSk and SkinsTab then
         buildSkinMenu(SkinsTab)
-    else
-        LOGE("Erro ao criar aba Skins: " .. tostring(SkinsTab))
     end
 
     local MovementTab = CreateTab("Movement", "🏃")
@@ -2407,7 +2339,6 @@ function Arsenal.Init(ctx)
     end)
     SettingsTab.CreateLabel(" ")
     SettingsTab.CreateLabel("Loaded Configs", Theme.Text)
-    SettingsTab.CreateLabel("Load . Autoload . Delete", Theme.TextDim)
 
     local configListFrame = Instance.new("Frame", SettingsTab.container)
     configListFrame.Size = UDim2.new(1, -10, 0, 140)
@@ -2430,69 +2361,64 @@ function Arsenal.Init(ctx)
     cl.Padding = UDim.new(0, 4)
 
     local function refreshConfigList()
-        for _, child in ipairs(configScroll:GetChildren()) do
-            if child:IsA("TextButton") or child:IsA("Frame") then child:Destroy() end
+        for _, c in ipairs(configScroll:GetChildren()) do
+            if c:IsA("TextButton") or c:IsA("Frame") then c:Destroy() end
         end
         local configs = listConfigs()
-        local currentAutoload = getAutoload()
+        local ca = getAutoload()
         if #configs == 0 then
-            local emptyLbl = Instance.new("TextLabel", configScroll)
-            emptyLbl.Size = UDim2.new(1, 0, 0, 30)
-            emptyLbl.BackgroundTransparency = 1
-            emptyLbl.Font = Theme.Font
-            emptyLbl.TextSize = 11
-            emptyLbl.TextColor3 = Theme.TextDim
-            emptyLbl.Text = "No configs saved yet."
+            local e = Instance.new("TextLabel", configScroll)
+            e.Size = UDim2.new(1, 0, 0, 30)
+            e.BackgroundTransparency = 1
+            e.Font = Theme.Font
+            e.TextSize = 11
+            e.TextColor3 = Theme.TextDim
+            e.Text = "No configs saved yet."
             return
         end
-        for _, configName in ipairs(configs) do
+        for _, cn in ipairs(configs) do
             local entry = Instance.new("Frame", configScroll)
             entry.Size = UDim2.new(1, -4, 0, 30)
             entry.BackgroundColor3 = Theme.Surface2
             entry.BorderSizePixel = 0
             Instance.new("UICorner", entry).CornerRadius = UDim.new(0, 4)
-            local nameLbl = Instance.new("TextLabel", entry)
-            nameLbl.Size = UDim2.new(0.5, 0, 1, 0)
-            nameLbl.Position = UDim2.new(0, 8, 0, 0)
-            nameLbl.BackgroundTransparency = 1
-            nameLbl.Font = Theme.Font
-            nameLbl.TextSize = 11
-            nameLbl.TextColor3 = Theme.Text
-            nameLbl.Text = configName
-            nameLbl.TextXAlignment = Enum.TextXAlignment.Left
-            if currentAutoload == configName then
-                nameLbl.Text = "⚡ " .. configName
-                nameLbl.TextColor3 = Theme.Warning
+            local nl = Instance.new("TextLabel", entry)
+            nl.Size = UDim2.new(0.5, 0, 1, 0)
+            nl.Position = UDim2.new(0, 8, 0, 0)
+            nl.BackgroundTransparency = 1
+            nl.Font = Theme.Font
+            nl.TextSize = 11
+            nl.TextColor3 = Theme.Text
+            nl.Text = cn
+            nl.TextXAlignment = Enum.TextXAlignment.Left
+            if ca == cn then
+                nl.Text = "⚡ " .. cn
+                nl.TextColor3 = Theme.Warning
             end
-            local loadBtn = Instance.new("TextButton", entry)
-            loadBtn.Size = UDim2.new(0, 50, 0, 22); loadBtn.Position = UDim2.new(1, -110, 0.5, -11)
-            loadBtn.BackgroundColor3 = Theme.Primary; loadBtn.Text = "Load"
-            loadBtn.Font = Theme.FontBold; loadBtn.TextSize = 10; loadBtn.TextColor3 = Theme.Text
-            loadBtn.AutoButtonColor = false
-            Instance.new("UICorner", loadBtn).CornerRadius = UDim.new(0, 4)
-            loadBtn.MouseButton1Click:Connect(function()
-                loadConfigNamed(configName); refreshConfigList()
-            end)
-            local autoBtn = Instance.new("TextButton", entry)
-            autoBtn.Size = UDim2.new(0, 22, 0, 22); autoBtn.Position = UDim2.new(1, -55, 0.5, -11)
-            autoBtn.BackgroundColor3 = currentAutoload == configName and Theme.Warning or Theme.Surface
-            autoBtn.Text = "⚡"; autoBtn.Font = Theme.FontBold; autoBtn.TextSize = 12
-            autoBtn.TextColor3 = Theme.Text; autoBtn.AutoButtonColor = false
-            Instance.new("UICorner", autoBtn).CornerRadius = UDim.new(0, 4)
-            autoBtn.MouseButton1Click:Connect(function()
-                if currentAutoload == configName then clearAutoload()
-                else setAutoload(configName) end
+            local lb = Instance.new("TextButton", entry)
+            lb.Size = UDim2.new(0, 50, 0, 22); lb.Position = UDim2.new(1, -110, 0.5, -11)
+            lb.BackgroundColor3 = Theme.Primary; lb.Text = "Load"
+            lb.Font = Theme.FontBold; lb.TextSize = 10; lb.TextColor3 = Theme.Text
+            lb.AutoButtonColor = false
+            Instance.new("UICorner", lb).CornerRadius = UDim.new(0, 4)
+            lb.MouseButton1Click:Connect(function() loadConfigNamed(cn); refreshConfigList() end)
+            local ab = Instance.new("TextButton", entry)
+            ab.Size = UDim2.new(0, 22, 0, 22); ab.Position = UDim2.new(1, -55, 0.5, -11)
+            ab.BackgroundColor3 = ca == cn and Theme.Warning or Theme.Surface
+            ab.Text = "⚡"; ab.Font = Theme.FontBold; ab.TextSize = 12
+            ab.TextColor3 = Theme.Text; ab.AutoButtonColor = false
+            Instance.new("UICorner", ab).CornerRadius = UDim.new(0, 4)
+            ab.MouseButton1Click:Connect(function()
+                if ca == cn then clearAutoload() else setAutoload(cn) end
                 refreshConfigList()
             end)
-            local delBtn = Instance.new("TextButton", entry)
-            delBtn.Size = UDim2.new(0, 22, 0, 22); delBtn.Position = UDim2.new(1, -28, 0.5, -11)
-            delBtn.BackgroundColor3 = Color3.fromRGB(60, 15, 20); delBtn.Text = "X"
-            delBtn.Font = Theme.FontBold; delBtn.TextSize = 14; delBtn.TextColor3 = Theme.Danger
-            delBtn.AutoButtonColor = false
-            Instance.new("UICorner", delBtn).CornerRadius = UDim.new(0, 4)
-            delBtn.MouseButton1Click:Connect(function()
-                deleteConfigNamed(configName); refreshConfigList()
-            end)
+            local db = Instance.new("TextButton", entry)
+            db.Size = UDim2.new(0, 22, 0, 22); db.Position = UDim2.new(1, -28, 0.5, -11)
+            db.BackgroundColor3 = Color3.fromRGB(60, 15, 20); db.Text = "X"
+            db.Font = Theme.FontBold; db.TextSize = 14; db.TextColor3 = Theme.Danger
+            db.AutoButtonColor = false
+            Instance.new("UICorner", db).CornerRadius = UDim.new(0, 4)
+            db.MouseButton1Click:Connect(function() deleteConfigNamed(cn); refreshConfigList() end)
         end
     end
     refreshConfigListRef = refreshConfigList
@@ -2500,19 +2426,7 @@ function Arsenal.Init(ctx)
 
     SettingsTab.CreateButton("Refresh List", function()
         refreshConfigList()
-        Notify("Refresh", "Config list updated", 2)
-    end)
-    SettingsTab.CreateLabel(" ")
-    local autoloadLabel = SettingsTab.CreateLabel("", Theme.Text)
-    registerRefresh(function()
-        local ca = getAutoload()
-        if ca then
-            autoloadLabel.Text = "⚡ Autoload: " .. ca
-            autoloadLabel.TextColor3 = Theme.Warning
-        else
-            autoloadLabel.Text = "Autoload: disabled"
-            autoloadLabel.TextColor3 = Theme.TextDim
-        end
+        Notify("Refresh", "Updated", 2)
     end)
     SettingsTab.CreateLabel(" ")
     SettingsTab.CreateButton("Disable Autoload", function()
@@ -2530,7 +2444,6 @@ function Arsenal.Init(ctx)
         toggleHandles.noShadows.SetState(true)
         toggleHandles.noFog.SetState(true)
         toggleHandles.noParticles.SetState(true)
-        Notify("Boost", "All optimizations ON", 3)
     end)
     SettingsTab.CreateButton("Reset Optimizations", function()
         toggleHandles.lowGraphics.SetState(false)
@@ -2548,7 +2461,7 @@ function Arsenal.Init(ctx)
         UNLOADED = true
         _G.IZ_RefreshLanguage = nil
         clearAllESP()
-        clearGrenadeDrawings()
+        clearGrenades()
         stopInfJump()
         stopFly()
         restoreAllHitboxes()
@@ -2569,13 +2482,13 @@ function Arsenal.Init(ctx)
     CreditsTab.CreateLabel(" ")
     CreditsTab.CreateLabel("Join our Discord", Theme.Text)
     CreditsTab.CreateLabel("https://discord.gg/ScZfU2mAGm", Theme.TextDim)
-    local discordBtn = CreditsTab.CreateButton("Join Discord Server", function()
+    local db = CreditsTab.CreateButton("Join Discord Server", function()
         if setclipboard then setclipboard("https://discord.gg/ScZfU2mAGm"); Notify("Copied", "Discord link copied!", 3) end
     end)
-    discordBtn.BackgroundColor3 = Theme.Discord
+    db.BackgroundColor3 = Theme.Discord
     CreditsTab.CreateLabel(" ")
     CreditsTab.CreateLabel(FULL_VERSION, Theme.TextDim)
-    CreditsTab.CreateLabel("Arsenal Super Edition", Theme.Warning)
+    CreditsTab.CreateLabel("Arsenal DUMP-Accurate Edition", Theme.Warning)
     CreditsTab.CreateLabel("2026 Sr Red", Theme.TextDim)
 
     local versionLabel = Instance.new("TextLabel", MainFrame)
@@ -2589,11 +2502,13 @@ function Arsenal.Init(ctx)
     versionLabel.Text = FULL_VERSION
 
     task.defer(function()
-        local autoloadName = getAutoload()
-        if autoloadName then task.wait(1); loadConfigNamed(autoloadName) end
+        local al = getAutoload()
+        if al then task.wait(1); loadConfigNamed(al) end
     end)
 
+    -- ═══════════════════════════════════════════════
     -- KEYBINDS
+    -- ═══════════════════════════════════════════════
     local MINIMIZE_KEY = Enum.KeyCode.K
     UserInputService.InputBegan:Connect(function(input, gp)
         if UNLOADED or gp then return end
@@ -2602,47 +2517,49 @@ function Arsenal.Init(ctx)
             local featId = recordingKeyFor
             if input.KeyCode == Enum.KeyCode.Escape then
                 recordingKeyFor = nil
-                local handle = toggleHandles[featId]
-                if handle then handle.SetKeybind(State.keybinds[featId]) end
+                local h = toggleHandles[featId]
+                if h then h.SetKeybind(State.keybinds[featId]) end
                 return
             end
-            local newKey = input.KeyCode.Name
-            if newKey == "K" then
+            local nk = input.KeyCode.Name
+            if nk == "K" then
                 Notify("Blocked", "K reserved", 4, true)
                 recordingKeyFor = nil
-                local handle = toggleHandles[featId]
-                if handle then handle.SetKeybind(State.keybinds[featId]) end
+                local h = toggleHandles[featId]
+                if h then h.SetKeybind(State.keybinds[featId]) end
                 return
             end
-            local conflictFeat = findFeatureWithKeybind(newKey)
-            if conflictFeat and conflictFeat ~= featId then
-                Notify("In Use", newKey .. " -> " .. (FeatureLabels[conflictFeat] or conflictFeat), 4, true)
+            local conflict = findFeatureWithKeybind(nk)
+            if conflict and conflict ~= featId then
+                Notify("In Use", nk .. " -> " .. (FeatureLabels[conflict] or conflict), 4, true)
                 recordingKeyFor = nil
-                local handle = toggleHandles[featId]
-                if handle then handle.SetKeybind(State.keybinds[featId]) end
+                local h = toggleHandles[featId]
+                if h then h.SetKeybind(State.keybinds[featId]) end
                 return
             end
-            State.keybinds[featId] = newKey
+            State.keybinds[featId] = nk
             recordingKeyFor = nil
-            local handle = toggleHandles[featId]
-            if handle then handle.SetKeybind(State.keybinds[featId]) end
+            local h = toggleHandles[featId]
+            if h then h.SetKeybind(State.keybinds[featId]) end
             return
         end
         if input.KeyCode == MINIMIZE_KEY then setMinimized(not minimized); return end
-        local keyName = input.KeyCode.Name
-        for featId, key in pairs(State.keybinds) do
-            if key and key == keyName then
-                local handle = toggleHandles[featId]
-                if handle then handle.Toggle() end
+        local kn = input.KeyCode.Name
+        for featId, k in pairs(State.keybinds) do
+            if k and k == kn then
+                local h = toggleHandles[featId]
+                if h then h.Toggle() end
             end
         end
     end)
 
+    STEP(14, "Finalizado")
+
     task.wait(0.5)
-    Notify("V2.0 - Arsenal", "Carregado!", 4)
+    Notify("🎯 " .. SHORT_VERSION, "Arsenal DUMP-ready!", 4)
 
     print("[Infinite Zen] " .. FULL_VERSION .. " carregado!")
-    print("[Infinite Zen] Configs em: InfiniteZen_Configs/Arsenal")
+    print("[Infinite Zen] Skins encontradas: " .. #skinList)
 end
 
 return Arsenal
