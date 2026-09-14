@@ -6,14 +6,16 @@
 local BloxStrike = {}
 
 function BloxStrike.Init(ctx)
+    print("[IZ BloxStrike] STEP 1: Init iniciou")
+    ctx = ctx or {}
     local Language = ctx.Language
-    local gameName = ctx.gameName
+    local gameName = ctx.gameName or "Blox Strike"
 
     local GAME_VERSION = "1.0"
     local FULL_VERSION = "Infinite Zen V" .. GAME_VERSION .. " - " .. gameName
     local SHORT_VERSION = "V" .. GAME_VERSION .. " - " .. gameName
 
-    print("[Infinite Zen] Inicializando " .. FULL_VERSION .. "...")
+    print("[IZ BloxStrike] STEP 2: " .. FULL_VERSION)
 
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -27,9 +29,67 @@ function BloxStrike.Init(ctx)
     local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
     local Camera = workspace.CurrentCamera
 
+    print("[IZ BloxStrike] STEP 3: services OK")
+
     local UNLOADED = false
     local IS_MOBILE = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
     local MOBILE_SCALE = 0.72
+
+    -- ═══════════════════════════════════════════════
+    -- SAFE WRAPPERS
+    -- ═══════════════════════════════════════════════
+    local function safeFind(parent, ...)
+        if not parent then return nil end
+        local current = parent
+        for _, name in ipairs({...}) do
+            if not current then return nil end
+            local ok, nxt = pcall(function() return current:FindFirstChild(name) end)
+            if not ok or not nxt then return nil end
+            current = nxt
+        end
+        return current
+    end
+
+    local function langGet(key)
+        if not Language then return key end
+        if type(Language.get) == "function" then
+            local ok, res = pcall(Language.get, key)
+            if ok and res then return res end
+        end
+        return key
+    end
+    local function langGetAvailable()
+        if not Language then return {} end
+        if type(Language.getAvailable) == "function" then
+            local ok, res = pcall(Language.getAvailable)
+            if ok and type(res) == "table" then return res end
+        end
+        return {}
+    end
+    local function langSet(code)
+        if not Language then return end
+        if type(Language.setLanguage) == "function" then
+            pcall(Language.setLanguage, code)
+        end
+    end
+    local function langGetCurrent()
+        if not Language then return "en" end
+        if type(Language.getCurrent) == "function" then
+            local ok, res = pcall(Language.getCurrent)
+            if ok and res then return res end
+        end
+        return "en"
+    end
+    local function langGetCurrentData()
+        if not Language then return { shortCode = "US", displayName = "English" } end
+        if type(Language.getCurrentData) == "function" then
+            local ok, res = pcall(Language.getCurrentData)
+            if ok and type(res) == "table" then return res end
+        end
+        return { shortCode = "US", displayName = "English" }
+    end
+
+    print("[IZ BloxStrike] STEP 4: lang wrappers OK")
 
     local langRefresh = {}
     local function registerRefresh(fn)
@@ -41,7 +101,8 @@ function BloxStrike.Init(ctx)
     end
 
     local function getLabel(labelKey)
-        local t = Language.get(labelKey)
+        if type(labelKey) ~= "string" then return tostring(labelKey) end
+        local t = langGet(labelKey)
         if t and t ~= labelKey then return t end
         local formatted = labelKey:gsub("_", " ")
         formatted = formatted:gsub("(%a)([%w']*)", function(a, b)
@@ -50,26 +111,28 @@ function BloxStrike.Init(ctx)
         return formatted
     end
 
-    -- REMOTES (baseado no dump)
+    print("[IZ BloxStrike] STEP 5: label system OK")
+
+    -- REMOTES
     local NetworkRemotes = ReplicatedStorage:FindFirstChild("NetworkRemotes")
     local Remotes = {
-        ShootWeapon = NetworkRemotes and NetworkRemotes:FindFirstChild("Inventory") and NetworkRemotes.Inventory:FindFirstChild("ShootWeapon"),
-        ReloadWeapon = NetworkRemotes and NetworkRemotes:FindFirstChild("Inventory") and NetworkRemotes.Inventory:FindFirstChild("ReloadWeapon"),
-        PickupWeapon = NetworkRemotes and NetworkRemotes:FindFirstChild("Inventory") and NetworkRemotes.Inventory:FindFirstChild("PickupWeapon"),
-        DropWeapon = NetworkRemotes and NetworkRemotes:FindFirstChild("Inventory") and NetworkRemotes.Inventory:FindFirstChild("DropWeapon"),
-        CreateMagazine = NetworkRemotes and NetworkRemotes:FindFirstChild("Inventory") and NetworkRemotes.Inventory:FindFirstChild("CreateMagazine"),
-        MeleeAttack = NetworkRemotes and NetworkRemotes:FindFirstChild("Melee") and NetworkRemotes.Melee:FindFirstChild("MeleeAttack"),
-        FlashPlayer = NetworkRemotes and NetworkRemotes:FindFirstChild("VFX") and NetworkRemotes.VFX:FindFirstChild("FlashPlayer"),
-        CharacterDamaged = NetworkRemotes and NetworkRemotes:FindFirstChild("Character") and NetworkRemotes.Character:FindFirstChild("CharacterDamaged"),
-        DamageIndicator = NetworkRemotes and NetworkRemotes:FindFirstChild("UI") and NetworkRemotes.UI:FindFirstChild("CreateDamageIndicator"),
-        VoteKick_StartVote = NetworkRemotes and NetworkRemotes:FindFirstChild("VoteKick") and NetworkRemotes.VoteKick:FindFirstChild("StartVote"),
-        VoteKick_CallVote = NetworkRemotes and NetworkRemotes:FindFirstChild("VoteKick") and NetworkRemotes.VoteKick:FindFirstChild("CallVote"),
-        VoteKick_VoteYesUpdate = NetworkRemotes and NetworkRemotes:FindFirstChild("VoteKick") and NetworkRemotes.VoteKick:FindFirstChild("VoteYesUpdate"),
-        VoteKick_VoteNoUpdate = NetworkRemotes and NetworkRemotes:FindFirstChild("VoteKick") and NetworkRemotes.VoteKick:FindFirstChild("VoteNoUpdate"),
+        ShootWeapon = safeFind(NetworkRemotes, "Inventory", "ShootWeapon"),
+        ReloadWeapon = safeFind(NetworkRemotes, "Inventory", "ReloadWeapon"),
+        PickupWeapon = safeFind(NetworkRemotes, "Inventory", "PickupWeapon"),
+        DropWeapon = safeFind(NetworkRemotes, "Inventory", "DropWeapon"),
+        CreateMagazine = safeFind(NetworkRemotes, "Inventory", "CreateMagazine"),
+        MeleeAttack = safeFind(NetworkRemotes, "Melee", "MeleeAttack"),
+        FlashPlayer = safeFind(NetworkRemotes, "VFX", "FlashPlayer"),
+        CharacterDamaged = safeFind(NetworkRemotes, "Character", "CharacterDamaged"),
+        DamageIndicator = safeFind(NetworkRemotes, "UI", "CreateDamageIndicator"),
+        VoteKick_StartVote = safeFind(NetworkRemotes, "VoteKick", "StartVote"),
+        VoteKick_CallVote = safeFind(NetworkRemotes, "VoteKick", "CallVote"),
+        VoteKick_VoteYesUpdate = safeFind(NetworkRemotes, "VoteKick", "VoteYesUpdate"),
+        VoteKick_VoteNoUpdate = safeFind(NetworkRemotes, "VoteKick", "VoteNoUpdate"),
     }
-    print("[Infinite Zen] Blox Strike remotes carregados")
+    print("[IZ BloxStrike] STEP 6: remotes OK")
 
-    -- TEAM DETECTION (baseado no dump - usa Attributes!)
+    -- TEAM
     local function getPlayerTeam(player)
         if not player then return nil end
         local ok, team = pcall(function() return player:GetAttribute("Team") end)
@@ -102,6 +165,8 @@ function BloxStrike.Init(ctx)
         if isDead(player) then return false end
         return not isTeammate(player)
     end
+
+    print("[IZ BloxStrike] STEP 7: team detection OK")
 
     -- STATE
     local State = {
@@ -156,6 +221,8 @@ function BloxStrike.Init(ctx)
         Font = Enum.Font.GothamMedium, FontBold = Enum.Font.GothamBlack,
     }
 
+    print("[IZ BloxStrike] STEP 8: state + theme OK")
+
     local oldMenu = PlayerGui:FindFirstChild("InfiniteZen")
     if oldMenu then oldMenu:Destroy() end
 
@@ -163,13 +230,17 @@ function BloxStrike.Init(ctx)
     GUI.Name = "InfiniteZen"
     GUI.ResetOnSpawn = false
     GUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    local parentedOk = false
     if gethui then
-        local ok = pcall(function() GUI.Parent = gethui() end)
-        if not ok then GUI.Parent = PlayerGui end
-    else
+        parentedOk = pcall(function() GUI.Parent = gethui() end)
+    end
+    if not parentedOk then
         GUI.Parent = PlayerGui
     end
 
+    print("[IZ BloxStrike] STEP 9: GUI criado")
+
+    -- NOTIFICAÇÕES
     local activeNotifs = {}
     local function Notify(title, content, duration, isError)
         duration = duration or 4
@@ -267,7 +338,11 @@ function BloxStrike.Init(ctx)
         end
     end
 
+    print("[IZ BloxStrike] STEP 10: helpers OK")
+
+    -- ═══════════════════════════════════════════════
     -- MAIN WINDOW
+    -- ═══════════════════════════════════════════════
     local MainFrame = Instance.new("Frame", GUI)
     MainFrame.Size = UDim2.new(0, 620, 0, 480)
     MainFrame.Position = UDim2.new(0.5, -310, 0.5, -240)
@@ -367,26 +442,32 @@ function BloxStrike.Init(ctx)
     dStroke.Color = Theme.Primary; dStroke.Thickness = 1; dStroke.Transparency = 0.3
     local dLayout = Instance.new("UIListLayout", LangDropdown)
     dLayout.Padding = UDim.new(0, 2)
-    for _, langData in ipairs(Language.getAvailable()) do
+
+    local availableLangs = langGetAvailable()
+    if #availableLangs == 0 then
+        availableLangs = { { code = "en", shortCode = "US", displayName = "English" } }
+    end
+    for _, langData in ipairs(availableLangs) do
         local optBtn = Instance.new("TextButton", LangDropdown)
         optBtn.Size = UDim2.new(1, -8, 0, 30); optBtn.BackgroundColor3 = Theme.Surface
-        optBtn.Text = "  [" .. langData.shortCode .. "]  " .. langData.displayName
+        optBtn.Text = "  [" .. (langData.shortCode or "??") .. "]  " .. (langData.displayName or langData.code or "Lang")
         optBtn.Font = Theme.Font; optBtn.TextSize = 12; optBtn.TextColor3 = Theme.Text
         optBtn.TextXAlignment = Enum.TextXAlignment.Left; optBtn.AutoButtonColor = false; optBtn.ZIndex = 11
         Instance.new("UICorner", optBtn).CornerRadius = UDim.new(0, 6)
         optBtn.MouseButton1Click:Connect(function()
-            Language.setLanguage(langData.code)
+            langSet(langData.code)
             LangDropdown.Visible = false
         end)
     end
-    LangDropdown.Size = UDim2.new(0, 140, 0, #Language.getAvailable() * 32 + 8)
+    LangDropdown.Size = UDim2.new(0, 140, 0, #availableLangs * 32 + 8)
     local ddOpen = false
     LangBtn.MouseButton1Click:Connect(function()
         ddOpen = not ddOpen
         LangDropdown.Visible = ddOpen
     end)
     registerRefresh(function()
-        LangBtn.Text = "[" .. Language.getCurrentData().shortCode .. "]"
+        local data = langGetCurrentData()
+        LangBtn.Text = "[" .. (data.shortCode or "US") .. "]"
     end)
 
     local MinBtn = Instance.new("TextButton", Header)
@@ -447,6 +528,8 @@ function BloxStrike.Init(ctx)
         if input == dragInput and dragging then updateDrag(input) end
     end)
     makeDraggable(Header); makeDraggable(Title); makeDraggable(Subtitle)
+
+    print("[IZ BloxStrike] STEP 11: window + header OK")
 
     -- TABS BUILDER
     local tabs, toggleHandles, sliderHandles = {}, {}, {}
@@ -704,6 +787,8 @@ function BloxStrike.Init(ctx)
         return tab
     end
 
+    print("[IZ BloxStrike] STEP 12: CreateTab OK")
+
     -- FOV CIRCLE
     local fovCircle = Drawing.new("Circle")
     fovCircle.Color = Theme.Primary; fovCircle.Thickness = 1.5
@@ -750,11 +835,9 @@ function BloxStrike.Init(ctx)
         return closest
     end
 
-    -- FIRE WEAPON
     local function fireWeapon()
         local char = LocalPlayer.Character
         if not char then return false end
-        -- Blox Strike: só dispara se tiver arma equipada
         local equipped = LocalPlayer:GetAttribute("CurrentEquipped")
         if not equipped then return false end
         if mouse1click then
@@ -868,6 +951,8 @@ function BloxStrike.Init(ctx)
         end
     end)
 
+    print("[IZ BloxStrike] STEP 13: combat loops OK")
+
     -- HEAD EXPANDER
     local hitboxSaved = {}
     local function saveOriginal(player, part)
@@ -938,32 +1023,17 @@ function BloxStrike.Init(ctx)
         end)
     end)
 
-    -- WEAPON HACKS (best effort - baseado no CurrentEquipped attribute)
-    local reloadOriginals = {}
-    RunService.Heartbeat:Connect(function()
-        if UNLOADED then return end
-        if not (State.rapidFire or State.noRecoil or State.fastReload or State.instaReload or State.noSpread or State.infiniteAmmo) then return end
-        -- Blox Strike tem arma como attribute, então a maioria desses hacks precisa
-        -- ser feita via hook. Aqui fazemos o que dá client-side.
-        if State.instaReload then
-            -- Tenta disparar reload remote
-            if Remotes.ReloadWeapon then pcall(function() Remotes.ReloadWeapon:FireServer() end) end
-        end
-    end)
-
-    -- ANTI-FLASH (bloqueia o remote FlashPlayer)
+    -- ANTI-FLASH
     if Remotes.FlashPlayer then
         pcall(function()
             Remotes.FlashPlayer.OnClientEvent:Connect(function(...)
                 if UNLOADED or not State.antiFlash then return end
-                -- Bloqueia: a gente simplesmente ignora o evento
-                -- mas se ele passa dados, podemos também passar. Aqui, só ignoramos.
             end)
         end)
     end
-    -- Também limpa ColorCorrection/BLUR com "flash" no nome
     local flashKeywords = {"flash", "blind", "whiteout", "whitescreen", "flashbang"}
     local function isFlashName(name)
+        if type(name) ~= "string" then return false end
         local lower = name:lower()
         for _, kw in ipairs(flashKeywords) do if lower:find(kw) then return true end end
         return false
@@ -1005,7 +1075,7 @@ function BloxStrike.Init(ctx)
         end
     end)
 
-    -- DAMAGE INDICATOR (usa attribute Health)
+    -- DAMAGE INDICATOR
     local dmgArrow = Drawing.new("Triangle")
     dmgArrow.Filled = true
     dmgArrow.Color = Color3.fromRGB(255, 40, 40)
@@ -1014,7 +1084,6 @@ function BloxStrike.Init(ctx)
 
     local lastDamageTime = 0
     local lastHealth = 100
-    local lastAttacker = nil
 
     task.spawn(function()
         while not UNLOADED do
@@ -1027,7 +1096,6 @@ function BloxStrike.Init(ctx)
         end
     end)
 
-    -- Tenta capturar via remote (se existir)
     if Remotes.CharacterDamaged then
         pcall(function()
             Remotes.CharacterDamaged.OnClientEvent:Connect(function(...)
@@ -1040,9 +1108,6 @@ function BloxStrike.Init(ctx)
         if UNLOADED or not State.damageIndicator then dmgArrow.Visible = false; return end
         local now = tick()
         if now - lastDamageTime > 1.5 then dmgArrow.Visible = false; return end
-        local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if not myHRP then dmgArrow.Visible = false; return end
-        -- Sem attacker conhecido, aponta pra posição genérica (topo)
         local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
         local radius = 120
         local px = center.X
@@ -1055,6 +1120,8 @@ function BloxStrike.Init(ctx)
         dmgArrow.Transparency = 0.15 + (1 - alpha) * 0.7
         dmgArrow.Visible = true
     end)
+
+    print("[IZ BloxStrike] STEP 14: security + damage OK")
 
     -- ESP
     local ESP = {data = {}}
@@ -1094,6 +1161,14 @@ function BloxStrike.Init(ctx)
     local function clearAllESP()
         for p, _ in pairs(ESP.data) do removeESP(p) end
     end
+
+    local function safeJSONDecode(str)
+        if type(str) ~= "string" then return nil end
+        local ok, decoded = pcall(function() return HttpService:JSONDecode(str) end)
+        if ok then return decoded end
+        return nil
+    end
+
     local function updateESP(p, char)
         local d = ESP.data[p]
         if not d then return end
@@ -1140,11 +1215,8 @@ function BloxStrike.Init(ctx)
             if State.espWeapon then
                 local eq = p:GetAttribute("CurrentEquipped")
                 if eq then
-                    local wname = "?"
-                    pcall(function()
-                        local ok, decoded = pcall(HttpService.JSONDecode, HttpService, eq)
-                        if ok and decoded then wname = decoded.Name or "?" end
-                    end)
+                    local decoded = safeJSONDecode(eq)
+                    local wname = decoded and decoded.Name or "?"
                     d.weapon.Position = Vector2.new(headSp.X, headSp.Y - 34)
                     d.weapon.Text = "[" .. wname .. "]"; d.weapon.Visible = true
                 else d.weapon.Visible = false end
@@ -1152,11 +1224,8 @@ function BloxStrike.Init(ctx)
             if State.espArmor then
                 local armor = p:GetAttribute("Armor")
                 if armor then
-                    local armorVal = 0
-                    pcall(function()
-                        local ok, decoded = pcall(HttpService.JSONDecode, HttpService, armor)
-                        if ok and decoded then armorVal = decoded.Health or 0 end
-                    end)
+                    local decoded = safeJSONDecode(armor)
+                    local armorVal = decoded and decoded.Health or 0
                     if armorVal > 0 then
                         d.armor.Position = Vector2.new(headSp.X, headSp.Y + 8)
                         d.armor.Text = "🛡 " .. armorVal; d.armor.Visible = true
@@ -1167,7 +1236,6 @@ function BloxStrike.Init(ctx)
             d.name.Visible = false; d.distance.Visible = false
             d.headDot.Visible = false; d.weapon.Visible = false; d.armor.Visible = false
         end
-        -- HP bar usa attribute Health
         if headOn and footOn then
             local h = math.abs(footSp.Y - headSp.Y)
             local hp = p:GetAttribute("Health") or 100
@@ -1269,6 +1337,8 @@ function BloxStrike.Init(ctx)
         Lighting.GlobalShadows = origGlobalShadows
     end
 
+    print("[IZ BloxStrike] STEP 15: movement + visuals OK")
+
     -- OPTIMIZATIONS
     local optBackup = {
         fogEnd = Lighting.FogEnd, fogStart = Lighting.FogStart,
@@ -1340,13 +1410,16 @@ function BloxStrike.Init(ctx)
 
     local function saveConfigNamed(name)
         ensureFolder()
-        local data = {version = GAME_VERSION, language = Language.getCurrent(), state = {}, keybinds = State.keybinds}
+        local data = {version = GAME_VERSION, language = langGetCurrent(), state = {}, keybinds = State.keybinds}
         for k, v in pairs(State) do
             if k ~= "keybinds" then data.state[k] = v end
         end
-        local json = HttpService:JSONEncode(data)
-        local ok, err = pcall(function() writefile(getConfigPath(name), json) end)
-        if ok then Notify("💾 Config", "Saved: " .. name, 3); return true
+        local ok, json = pcall(function() return HttpService:JSONEncode(data) end)
+        if not ok or not json then
+            Notify("⚠️ Error", "Encode falhou", 4, true); return false
+        end
+        local wOk, err = pcall(function() writefile(getConfigPath(name), json) end)
+        if wOk then Notify("💾 Config", "Saved: " .. name, 3); return true
         else Notify("⚠️ Error", "Failed: " .. tostring(err), 4, true); return false end
     end
 
@@ -1355,7 +1428,7 @@ function BloxStrike.Init(ctx)
         if not ok or not content then Notify("⚠️ Error", "Config not found", 4, true); return false end
         local success, data = pcall(function() return HttpService:JSONDecode(content) end)
         if not success or not data then Notify("⚠️ Error", "Corrupted", 4, true); return false end
-        if data.language then Language.setLanguage(data.language) end
+        if data.language then langSet(data.language) end
         if data.state then for k, v in pairs(data.state) do State[k] = v end end
         if data.keybinds then for k, v in pairs(data.keybinds) do State.keybinds[k] = v end end
         for featId, handle in pairs(toggleHandles) do
@@ -1411,8 +1484,10 @@ function BloxStrike.Init(ctx)
         return nil
     end
 
+    print("[IZ BloxStrike] STEP 16: config system OK")
+
     -- ABAS
-    local CombatTab = CreateTab("tab_combat", "⚔️")
+    local CombatTab = CreateTab("Combat", "⚔️")
     CombatTab.CreateToggle("silent_headshot", "silentHeadshot")
     CombatTab.CreateSlider("silent_fov", 30, 300, 120, "silentFov")
     CombatTab.CreateToggle("aimbot", "aimbot")
@@ -1428,7 +1503,7 @@ function BloxStrike.Init(ctx)
     end)
     CombatTab.CreateSlider("head_size", 1, 8, 3, "headExpanderSize")
 
-    local WeaponTab = CreateTab("tab_weapon", "🔫")
+    local WeaponTab = CreateTab("Weapon", "🔫")
     WeaponTab.CreateToggle("no_recoil", "noRecoil")
     WeaponTab.CreateToggle("no_spread", "noSpread")
     WeaponTab.CreateToggle("rapid_fire", "rapidFire")
@@ -1438,7 +1513,7 @@ function BloxStrike.Init(ctx)
     WeaponTab.CreateToggle("auto_shoot", "autoShoot")
     WeaponTab.CreateSlider("auto_shoot_fov", 30, 300, 100, "autoShootFov")
 
-    local MovementTab = CreateTab("tab_movement", "🏃")
+    local MovementTab = CreateTab("Movement", "🏃")
     MovementTab.CreateToggle("speed", "speed")
     MovementTab.CreateSlider("speed_value", 12, 300, 50, "speedValue")
     MovementTab.CreateToggle("air_jump", "airJump", function(v)
@@ -1449,7 +1524,7 @@ function BloxStrike.Init(ctx)
         if not v then disableFullbright() end
     end)
 
-    local VisualsTab = CreateTab("tab_visuals", "👁️")
+    local VisualsTab = CreateTab("Visuals", "👁️")
     VisualsTab.CreateToggle("esp", "esp", function(v)
         if v then
             for _, p in ipairs(Players:GetPlayers()) do
@@ -1462,7 +1537,7 @@ function BloxStrike.Init(ctx)
     VisualsTab.CreateToggle("armor_esp", "espArmor")
     VisualsTab.CreateToggle("damage_indicator", "damageIndicator")
 
-    local SettingsTab = CreateTab("tab_settings", "⚙️")
+    local SettingsTab = CreateTab("Settings", "⚙️")
     SettingsTab.CreateLabel("── Configs ──", Theme.Text)
     SettingsTab.CreateLabel("Type name and press Enter", Theme.TextDim)
     local refreshConfigListRef = nil
@@ -1617,12 +1692,12 @@ function BloxStrike.Init(ctx)
         applyNoShadows(false)
         applyNoFog(false)
         applyNoParticles(false)
-        if fovCircle then fovCircle:Remove() end
-        if dmgArrow then dmgArrow:Remove() end
+        pcall(function() if fovCircle then fovCircle:Remove() end end)
+        pcall(function() if dmgArrow then dmgArrow:Remove() end end)
         GUI:Destroy()
     end, "danger")
 
-    local CreditsTab = CreateTab("tab_credits", "➕")
+    local CreditsTab = CreateTab("Credits", "➕")
     CreditsTab.CreateCredit("FOUNDER & DEVELOPER", "Sr Red", Theme.TitleRed)
     CreditsTab.CreateLabel(" ")
     CreditsTab.CreateLabel("── Join our Discord ──", Theme.Text)
@@ -1650,6 +1725,8 @@ function BloxStrike.Init(ctx)
         local autoloadName = getAutoload()
         if autoloadName then task.wait(1); loadConfigNamed(autoloadName) end
     end)
+
+    print("[IZ BloxStrike] STEP 17: tabs OK")
 
     -- KEYBIND SYSTEM
     local MINIMIZE_KEY = Enum.KeyCode.K
@@ -1695,6 +1772,8 @@ function BloxStrike.Init(ctx)
             end
         end
     end)
+
+    print("[IZ BloxStrike] STEP 18: keybind OK")
 
     task.wait(0.5)
     Notify("🎯 " .. SHORT_VERSION, "Carregado!", 4)
