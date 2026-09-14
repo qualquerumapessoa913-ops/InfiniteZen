@@ -146,7 +146,9 @@ function Arsenal.Init(ctx)
             end
         end
     end
-    STEP(3, "Skins loaded: " .. tostring(#SkinsFolder and #SkinsFolder:GetChildren() or 0))
+      local skinCount = 0
+    if SkinsFolder then skinCount = #SkinsFolder:GetChildren() end
+    STEP(3, "Skins loaded: " .. tostring(skinCount))
 
     -- ═══════════════════════════════════════════════
     -- TEAM CHECK (usa Teams nativo do Roblox)
