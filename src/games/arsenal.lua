@@ -123,7 +123,7 @@ function Arsenal.Init(ctx)
     local Window = UI:CreateWindow({
         Title = "INFINITE ZEN",
         Subtitle = SHORT_VERSION,
-        ToggleKey = Enum.KeyCode.RightShift,
+        ToggleKey = Enum.KeyCode.K,
     })
 
     -- ═══════════════════════════════════════════════
@@ -1086,40 +1086,160 @@ function Arsenal.Init(ctx)
     -- ABA: SETTINGS
     -- ═══════════════════════════════════════════════
     local SettingsTab = Window:CreateTab("Settings", "⚙️")
-    SettingsTab:CreateSection("Configs")
+    SettingsTab:CreateSection("Create Config")
 
-    local configInput = Instance.new("Frame", SettingsTab.container)
-    configInput.Size = UDim2.new(1, 0, 0, 40)
-    configInput.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
-    configInput.BorderSizePixel = 0
-    configInput.LayoutOrder = #SettingsTab.container:GetChildren()
-    Instance.new("UICorner", configInput).CornerRadius = UDim.new(0, 8)
+    -- Input pra salvar config
+    local configInputFrame = Instance.new("Frame", SettingsTab.container)
+    configInputFrame.Size = UDim2.new(1, 0, 0, 40)
+    configInputFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
+    configInputFrame.BorderSizePixel = 0
+    configInputFrame.LayoutOrder = #SettingsTab.container:GetChildren()
+    Instance.new("UICorner", configInputFrame).CornerRadius = UDim.new(0, 8)
 
-    local cInput = Instance.new("TextBox", configInput)
+    local cInput = Instance.new("TextBox", configInputFrame)
     cInput.Size = UDim2.new(1, -20, 1, -10)
     cInput.Position = UDim2.new(0, 10, 0, 5)
     cInput.BackgroundTransparency = 1
     cInput.Font = Enum.Font.GothamMedium
     cInput.TextSize = 12
     cInput.TextColor3 = Color3.fromRGB(240, 240, 245)
-    cInput.PlaceholderText = "Type config name and press Enter..."
+    cInput.PlaceholderText = "Config name + Enter to save..."
     cInput.PlaceholderColor3 = Color3.fromRGB(90, 90, 105)
     cInput.Text = ""
     cInput.ClearTextOnFocus = false
     cInput.TextXAlignment = Enum.TextXAlignment.Left
 
+    -- Container da lista de configs (criado antes pra acessar no refresh)
+    SettingsTab:CreateSection("Saved Configs")
+
+    local configListFrame = Instance.new("Frame", SettingsTab.container)
+    configListFrame.Size = UDim2.new(1, 0, 0, 160)
+    configListFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
+    configListFrame.BorderSizePixel = 0
+    configListFrame.LayoutOrder = #SettingsTab.container:GetChildren()
+    Instance.new("UICorner", configListFrame).CornerRadius = UDim.new(0, 8)
+
+    local configScroll = Instance.new("ScrollingFrame", configListFrame)
+    configScroll.Size = UDim2.new(1, -12, 1, -12)
+    configScroll.Position = UDim2.new(0, 6, 0, 6)
+    configScroll.BackgroundTransparency = 1
+    configScroll.BorderSizePixel = 0
+    configScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    configScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    configScroll.ScrollBarThickness = 3
+    configScroll.ScrollBarImageColor3 = Color3.fromRGB(230, 40, 40)
+
+    local configListLayout = Instance.new("UIListLayout", configScroll)
+    configListLayout.Padding = UDim.new(0, 4)
+
+    -- Função de refresh
+    local function refreshConfigList()
+        -- Limpa
+        for _, child in ipairs(configScroll:GetChildren()) do
+            if child:IsA("TextButton") or child:IsA("Frame") then
+                child:Destroy()
+            end
+        end
+
+        local configs = listConfigs()
+        local currentAutoload = getAutoload()
+
+        if #configs == 0 then
+            local empty = Instance.new("TextLabel", configScroll)
+            empty.Size = UDim2.new(1, 0, 0, 30)
+            empty.BackgroundTransparency = 1
+            empty.Font = Enum.Font.Gotham
+            empty.TextSize = 11
+            empty.TextColor3 = Color3.fromRGB(90, 90, 105)
+            empty.Text = "Nenhum config salvo ainda."
+            return
+        end
+
+        for _, name in ipairs(configs) do
+            local entry = Instance.new("Frame", configScroll)
+            entry.Size = UDim2.new(1, -4, 0, 32)
+            entry.BackgroundColor3 = Color3.fromRGB(24, 24, 32)
+            entry.BorderSizePixel = 0
+            Instance.new("UICorner", entry).CornerRadius = UDim.new(0, 6)
+
+            local nameLbl = Instance.new("TextLabel", entry)
+            nameLbl.Size = UDim2.new(0.5, 0, 1, 0)
+            nameLbl.Position = UDim2.new(0, 10, 0, 0)
+            nameLbl.BackgroundTransparency = 1
+            nameLbl.Font = Enum.Font.GothamBold
+            nameLbl.TextSize = 11
+            nameLbl.TextColor3 = (currentAutoload == name) and Color3.fromRGB(255, 180, 50) or Color3.fromRGB(240, 240, 245)
+            nameLbl.Text = (currentAutoload == name and "⚡ " or "") .. name
+            nameLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+            -- Botão Load
+            local loadBtn = Instance.new("TextButton", entry)
+            loadBtn.Size = UDim2.new(0, 50, 0, 22)
+            loadBtn.Position = UDim2.new(1, -110, 0.5, -11)
+            loadBtn.BackgroundColor3 = Color3.fromRGB(230, 40, 40)
+            loadBtn.Text = "Load"
+            loadBtn.Font = Enum.Font.GothamBold
+            loadBtn.TextSize = 10
+            loadBtn.TextColor3 = Color3.fromRGB(240, 240, 245)
+            loadBtn.AutoButtonColor = false
+            Instance.new("UICorner", loadBtn).CornerRadius = UDim.new(0, 4)
+            loadBtn.MouseButton1Click:Connect(function()
+                loadConfigNamed(name)
+                refreshConfigList()
+            end)
+
+            -- Botão Autoload
+            local autoBtn = Instance.new("TextButton", entry)
+            autoBtn.Size = UDim2.new(0, 22, 0, 22)
+            autoBtn.Position = UDim2.new(1, -55, 0.5, -11)
+            autoBtn.BackgroundColor3 = (currentAutoload == name) and Color3.fromRGB(255, 180, 50) or Color3.fromRGB(35, 35, 45)
+            autoBtn.Text = "⚡"
+            autoBtn.Font = Enum.Font.GothamBold
+            autoBtn.TextSize = 11
+            autoBtn.TextColor3 = Color3.fromRGB(240, 240, 245)
+            autoBtn.AutoButtonColor = false
+            Instance.new("UICorner", autoBtn).CornerRadius = UDim.new(0, 4)
+            autoBtn.MouseButton1Click:Connect(function()
+                if currentAutoload == name then
+                    clearAutoload()
+                else
+                    setAutoload(name)
+                end
+                refreshConfigList()
+            end)
+
+            -- Botão Delete
+            local delBtn = Instance.new("TextButton", entry)
+            delBtn.Size = UDim2.new(0, 22, 0, 22)
+            delBtn.Position = UDim2.new(1, -28, 0.5, -11)
+            delBtn.BackgroundColor3 = Color3.fromRGB(60, 15, 20)
+            delBtn.Text = "×"
+            delBtn.Font = Enum.Font.GothamBold
+            delBtn.TextSize = 14
+            delBtn.TextColor3 = Color3.fromRGB(255, 40, 40)
+            delBtn.AutoButtonColor = false
+            Instance.new("UICorner", delBtn).CornerRadius = UDim.new(0, 4)
+            delBtn.MouseButton1Click:Connect(function()
+                deleteConfigNamed(name)
+                refreshConfigList()
+            end)
+        end
+    end
+
+    -- Input callback (agora com refresh)
     cInput.FocusLost:Connect(function(enterPressed)
         if enterPressed and cInput.Text ~= "" then
             saveConfigNamed(cInput.Text)
             cInput.Text = ""
+            refreshConfigList()
         end
     end)
 
     SettingsTab:CreateButton({
-        Name = "🔄 Refresh Config List",
+        Name = "🔄 Refresh List",
         Callback = function()
-            local cfgs = listConfigs()
-            Window:Notify("📂 Configs", #cfgs .. " configs saved", 3, "info")
+            refreshConfigList()
+            Window:Notify("🔄 Refresh", "Config list updated", 2, "info")
         end,
     })
 
@@ -1127,11 +1247,14 @@ function Arsenal.Init(ctx)
         Name = "🚫 Disable Autoload",
         Callback = function()
             clearAutoload()
+            refreshConfigList()
         end,
     })
 
-    SettingsTab:CreateSection("Optimizations")
+    -- Popula a lista na inicialização
+    refreshConfigList()
 
+    SettingsTab:CreateSection("Optimizations")
     SettingsTab:CreateButton({
         Name = "⚡ Max FPS Boost",
         Callback = function()
@@ -1155,7 +1278,6 @@ function Arsenal.Init(ctx)
     })
 
     SettingsTab:CreateSection("Danger Zone")
-
     SettingsTab:CreateButton({
         Name = "Unload Script",
         Danger = true,
@@ -1174,26 +1296,7 @@ function Arsenal.Init(ctx)
             Window:Destroy()
         end,
     })
-
-    -- ═══════════════════════════════════════════════
-    -- ABA: CREDITS
-    -- ═══════════════════════════════════════════════
-    local CreditsTab = Window:CreateTab("Credits", "➕")
-    CreditsTab:CreateSection("Founder & Developer")
-    CreditsTab:CreateLabel("Sr Red", Color3.fromRGB(255, 50, 50))
-
-    CreditsTab:CreateSection("Community")
-    CreditsTab:CreateLabel("discord.gg/ScZfU2mAGm", Color3.fromRGB(88, 101, 242))
-    CreditsTab:CreateButton({
-        Name = "📋 Copy Discord Link",
-        Callback = function()
-            if setclipboard then
-                setclipboard("https://discord.gg/ScZfU2mAGm")
-                Window:Notify("📋 Copied", "Discord link copied!", 3, "success")
-            end
-        end,
-    })
-
+    
     CreditsTab:CreateSection("Version")
     CreditsTab:CreateLabel(FULL_VERSION, Color3.fromRGB(140, 140, 155))
     CreditsTab:CreateLabel("© 2026 Sr Red", Color3.fromRGB(90, 90, 105))
