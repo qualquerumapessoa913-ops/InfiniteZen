@@ -1,5 +1,5 @@
 -- ============================================================
--- INFINITE ZEN - MÓDULO OPERATION ONE v1.0
+-- INFINITE ZEN - MÓDULO OPERATION ONE v1.1 (FIXED)
 -- ============================================================
 
 local OperationOne = {}
@@ -17,16 +17,18 @@ function OperationOne.Init(ctx)
     local function STEP(n, msg) pcall(function() print("[IZ OP1 Step " .. n .. "] " .. msg) end) end
     STEP(1, "Init iniciou")
 
-    local Players = game:GetService("Players")
-    local RunService = game:GetService("RunService")
+    local Players          = game:GetService("Players")
+    local RunService       = game:GetService("RunService")
     local UserInputService = game:GetService("UserInputService")
-    local VirtualInput = game:GetService("VirtualInputManager")
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    local Lighting = game:GetService("Lighting")
-    local LocalPlayer = Players.LocalPlayer
-    local Camera = workspace.CurrentCamera
+    local VirtualInput     = game:GetService("VirtualInputManager")
+    local ReplicatedStorage= game:GetService("ReplicatedStorage")
+    local Lighting         = game:GetService("Lighting")
+    local GuiService       = game:GetService("GuiService")
+    local LocalPlayer      = Players.LocalPlayer
+    local Camera           = workspace.CurrentCamera
 
     local UNLOADED = false
+    local HAS_MOUSEMOVEREL = (type(mousemoverel) == "function")
 
     -- ═══════════════════════════════════════════════
     -- HELPERS
@@ -67,6 +69,12 @@ function OperationOne.Init(ctx)
         if myTeam == nil then return true end
         if player.Team == nil then return false end
         return player.Team ~= myTeam
+    end
+
+    -- centro real da tela (usado pra FOV e crosshair)
+    local function getScreenCenter()
+        local vp = Camera.ViewportSize
+        return Vector2.new(vp.X * 0.5, vp.Y * 0.5)
     end
 
     STEP(2, "Helpers OK")
@@ -119,17 +127,22 @@ function OperationOne.Init(ctx)
         local char = LocalPlayer.Character
         if not char then return false end
         local tool = char:FindFirstChildOfClass("Tool")
-        if not tool then return false end
-        if mouse1click then
-            local ok = pcall(mouse1click)
+        -- tenta ativar a tool primeiro (mais confiável)
+        if tool then
+            local ok = pcall(function() tool:Activate() end)
             if ok then return true end
         end
+        -- fallback executor
+        if type(mouse1click) == "function" then
+            pcall(mouse1click)
+            return true
+        end
+        -- fallback virtual input
         pcall(function()
             VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-            task.wait(0.005)
+            task.wait(0.01)
             VirtualInput:SendMouseButtonEvent(0, 0, 0, false, game, 0)
         end)
-        pcall(function() tool:Activate() end)
         return true
     end
 
@@ -155,33 +168,40 @@ function OperationOne.Init(ctx)
     STEP(4, "Window OK")
 
     -- ═══════════════════════════════════════════════
-    -- FOV CIRCLE
+    -- FOV CIRCLE (agora no centro da tela, raio correto)
     -- ═══════════════════════════════════════════════
     local fovCircle = Drawing.new("Circle")
-    fovCircle.Color = Color3.fromRGB(230, 40, 40); fovCircle.Thickness = 1.5
-    fovCircle.Filled = false; fovCircle.NumSides = 100; fovCircle.Transparency = 1
-    fovCircle.Radius = 25; fovCircle.Visible = false
+    fovCircle.Color = Color3.fromRGB(230, 40, 40)
+    fovCircle.Thickness = 1.5
+    fovCircle.Filled = false
+    fovCircle.NumSides = 100
+    fovCircle.Transparency = 1
+    fovCircle.Radius = 100
+    fovCircle.Visible = false
 
-    RunService.RenderStepped:Connect(function()
+    local fovConn = RunService.RenderStepped:Connect(function()
         if UNLOADED then return end
-        local mouse = UserInputService:GetMouseLocation()
-        fovCircle.Position = Vector2.new(mouse.X, mouse.Y)
+        local c = getScreenCenter()
+        fovCircle.Position = c
         if State.silentAim then
-            fovCircle.Visible = true; fovCircle.Radius = State.silentFov / 6
+            fovCircle.Visible = true
+            fovCircle.Radius = State.silentFov
         elseif State.autoShoot then
-            fovCircle.Visible = true; fovCircle.Radius = State.autoShootFov / 6
+            fovCircle.Visible = true
+            fovCircle.Radius = State.autoShootFov
         elseif State.aimbot then
-            fovCircle.Visible = true; fovCircle.Radius = State.aimbotFov / 6
+            fovCircle.Visible = true
+            fovCircle.Radius = State.aimbotFov
         else
             fovCircle.Visible = false
         end
     end)
 
     -- ═══════════════════════════════════════════════
-    -- TARGETING
+    -- TARGETING (FOV a partir do centro da tela)
     -- ═══════════════════════════════════════════════
     local function getClosestEnemyInFov(fovRange, requireLOS)
-        local mouse = UserInputService:GetMouseLocation()
+        local center = getScreenCenter()
         local closest, minD = nil, fovRange
         for _, p in ipairs(Players:GetPlayers()) do
             if isEnemy(p) then
@@ -189,10 +209,11 @@ function OperationOne.Init(ctx)
                 if part then
                     local sp, onScreen, d = Camera:WorldToViewportPoint(part.Position)
                     if onScreen and d and d > 0 then
-                        local dist = (Vector2.new(sp.X, sp.Y) - Vector2.new(mouse.X, mouse.Y)).Magnitude
-                        if dist and dist < minD then
+                        local dist = (Vector2.new(sp.X, sp.Y) - center).Magnitude
+                        if dist < minD then
                             if not requireLOS or hasLineOfSight(Camera.CFrame.Position, part) then
-                                minD = dist; closest = p
+                                minD = dist
+                                closest = p
                             end
                         end
                     end
@@ -210,7 +231,21 @@ function OperationOne.Init(ctx)
     local ESP = { data = {} }
 
     local function createESP(p)
-        if ESP.data[p] or not p.Character then return end
+        if not p.Character then return end
+        local existing = ESP.data[p]
+        -- se já existe pra outro character, remove antes
+        if existing then
+            if existing.character == p.Character then return end
+            -- limpa referências antigas
+            if existing.chams then pcall(function() existing.chams:Destroy() end) end
+            for _, key in ipairs({ "box", "name", "distance", "health", "tracer", "headDot" }) do
+                if existing[key] and existing[key].Remove then
+                    pcall(function() existing[key]:Remove() end)
+                end
+            end
+            ESP.data[p] = nil
+        end
+
         local chams = Instance.new("Highlight")
         chams.Adornee = p.Character
         chams.FillColor = Color3.fromRGB(255, 30, 40)
@@ -218,20 +253,31 @@ function OperationOne.Init(ctx)
         chams.OutlineColor = Color3.fromRGB(255, 255, 255)
         chams.OutlineTransparency = 0.3
         chams.Parent = p.Character
-        local data = { chams = chams }
+
+        local data = { chams = chams, character = p.Character }
+
         local function nd(class, props)
             local d = Drawing.new(class)
             for k, v in pairs(props) do d[k] = v end
             d.Visible = false
             return d
         end
-        data.box = nd("Square", { Thickness = 1.5, Color = Color3.fromRGB(255, 30, 40), Filled = false, Transparency = 1 })
-        data.name = nd("Text", { Size = 14, Center = true, Outline = true, Color = Color3.fromRGB(255, 255, 255) })
-        data.distance = nd("Text", { Size = 12, Center = true, Outline = true, Color = Color3.fromRGB(255, 80, 80) })
-        data.health = nd("Line", { Thickness = 3, Color = Color3.fromRGB(0, 255, 0) })
-        data.tracer = nd("Line", { Thickness = 1.2, Color = Color3.fromRGB(255, 30, 40) })
-        data.headDot = nd("Circle", { Radius = 4, NumSides = 20, Thickness = 1, Filled = false, Color = Color3.fromRGB(255, 255, 255) })
+
+        data.box      = nd("Square", { Thickness = 1.5, Color = Color3.fromRGB(255, 30, 40), Filled = false, Transparency = 1 })
+        data.name     = nd("Text",   { Size = 14, Center = true, Outline = true, Color = Color3.fromRGB(255, 255, 255) })
+        data.distance = nd("Text",   { Size = 12, Center = true, Outline = true, Color = Color3.fromRGB(255, 80, 80) })
+        data.health   = nd("Line",   { Thickness = 3, Color = Color3.fromRGB(0, 255, 0) })
+        data.tracer   = nd("Line",   { Thickness = 1.2, Color = Color3.fromRGB(255, 30, 40) })
+        data.headDot  = nd("Circle", { Radius = 4, NumSides = 20, Thickness = 1, Filled = false, Color = Color3.fromRGB(255, 255, 255) })
+
         ESP.data[p] = data
+    end
+
+    local function hideAll(d)
+        for _, key in ipairs({ "box", "name", "distance", "health", "tracer", "headDot" }) do
+            if d[key] then d[key].Visible = false end
+        end
+        if d.chams then d.chams.Enabled = false end
     end
 
     local function removeESP(p)
@@ -245,54 +291,46 @@ function OperationOne.Init(ctx)
     end
 
     local function clearAllESP()
-        for p, _ in pairs(ESP.data) do removeESP(p) end
+        for p in pairs(ESP.data) do removeESP(p) end
     end
 
-    local function updateESP(p, char)
+    local function updateESP(p)
         local d = ESP.data[p]
         if not d then return end
-        if not State.esp or not isEnemy(p) then
-            for _, key in ipairs({ "box", "name", "distance", "health", "tracer", "headDot" }) do
-                if d[key] then d[key].Visible = false end
-            end
-            if d.chams then d.chams.Enabled = false end
-            return
-        end
+        local char = p.Character
+        if not char then hideAll(d); return end
+        if not State.esp or not isEnemy(p) then hideAll(d); return end
         local hum = char:FindFirstChildOfClass("Humanoid")
-        if not hum or hum.Health <= 0 then
-            for _, key in ipairs({ "box", "name", "distance", "health", "tracer", "headDot" }) do
-                if d[key] then d[key].Visible = false end
-            end
-            if d.chams then d.chams.Enabled = false end
-            return
-        end
+        if not hum or hum.Health <= 0 then hideAll(d); return end
         local head = char:FindFirstChild("Head")
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        if not head or not hrp then return end
+        local hrp  = char:FindFirstChild("HumanoidRootPart")
+        if not head or not hrp then hideAll(d); return end
+
         if d.chams then d.chams.Enabled = true end
+
         local hSp, hOn = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
         local rSp, rOn = Camera:WorldToViewportPoint(hrp.Position)
         local fSp, fOn = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3, 0))
+
         local myR = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if not myR then return end
+        if not myR then hideAll(d); return end
         local dist = math.floor((head.Position - myR.Position).Magnitude)
-        if dist > State.espMaxDistance then
-            for _, key in ipairs({ "box", "name", "distance", "health", "tracer", "headDot" }) do
-                if d[key] then d[key].Visible = false end
-            end
-            return
-        end
+        if dist > State.espMaxDistance then hideAll(d); return end
+
+        -- BOX
         if hOn and fOn and State.espBox then
             local h = math.abs(fSp.Y - hSp.Y)
             local w = h * 0.6
-            local cx = (hSp.X + fSp.X) / 2
-            local cy = (hSp.Y + fSp.Y) / 2
-            d.box.Position = Vector2.new(cx - w / 2, cy - h / 2)
+            local cx = (hSp.X + fSp.X) * 0.5
+            local cy = (hSp.Y + fSp.Y) * 0.5
+            d.box.Position = Vector2.new(cx - w * 0.5, cy - h * 0.5)
             d.box.Size = Vector2.new(w, h)
             d.box.Visible = true
         else
             d.box.Visible = false
         end
+
+        -- NAME / DISTANCE / HEADDOT
         if hOn then
             if State.espName then
                 d.name.Position = Vector2.new(hSp.X, hSp.Y - 20)
@@ -315,18 +353,18 @@ function OperationOne.Init(ctx)
             d.distance.Visible = false
             d.headDot.Visible = false
         end
+
+        -- HEALTH
         if hOn and fOn and State.espHealth then
             local h = math.abs(fSp.Y - hSp.Y)
             local maxHP = hum.MaxHealth
             local hr = 1
-            if maxHP and maxHP > 0 then
-                hr = math.clamp(hum.Health / maxHP, 0, 1)
-            end
-            local bx = hSp.X + (h * 0.6) / 2 + 5
+            if maxHP and maxHP > 0 then hr = math.clamp(hum.Health / maxHP, 0, 1) end
+            local bx = hSp.X + (h * 0.6) * 0.5 + 5
             local by = hSp.Y + h
             local fy = by - (h * hr)
             d.health.From = Vector2.new(bx, fy)
-            d.health.To = Vector2.new(bx, by)
+            d.health.To   = Vector2.new(bx, by)
             if hr > 0.6 then d.health.Color = Color3.fromRGB(0, 255, 0)
             elseif hr > 0.3 then d.health.Color = Color3.fromRGB(255, 200, 0)
             else d.health.Color = Color3.fromRGB(255, 40, 40) end
@@ -334,9 +372,11 @@ function OperationOne.Init(ctx)
         else
             d.health.Visible = false
         end
+
+        -- TRACER
         if rOn and State.espTracer then
-            d.tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
-            d.tracer.To = Vector2.new(rSp.X, rSp.Y)
+            d.tracer.From = Vector2.new(Camera.ViewportSize.X * 0.5, Camera.ViewportSize.Y)
+            d.tracer.To   = Vector2.new(rSp.X, rSp.Y)
             d.tracer.Visible = true
         else
             d.tracer.Visible = false
@@ -346,7 +386,7 @@ function OperationOne.Init(ctx)
     STEP(6, "ESP setup OK")
 
     -- ═══════════════════════════════════════════════
-    -- MOVEMENT + OPTIMIZATION FUNCTIONS
+    -- MOVEMENT + OTIMIZAÇÕES
     -- ═══════════════════════════════════════════════
     local airJumpConn = nil
     local function startAirJump()
@@ -366,12 +406,12 @@ function OperationOne.Init(ctx)
         if airJumpConn then airJumpConn:Disconnect(); airJumpConn = nil end
     end
 
-    local origBrightness = Lighting.Brightness
-    local origAmbient = Lighting.Ambient
-    local origOutdoorAmbient = Lighting.OutdoorAmbient
-    local origClockTime = Lighting.ClockTime
-    local origGlobalShadows = Lighting.GlobalShadows
-    local origAtmosphere = {}
+    local origBrightness      = Lighting.Brightness
+    local origAmbient         = Lighting.Ambient
+    local origOutdoorAmbient  = Lighting.OutdoorAmbient
+    local origClockTime       = Lighting.ClockTime
+    local origGlobalShadows   = Lighting.GlobalShadows
+    local origAtmosphere      = {}
     for _, c in ipairs(Lighting:GetChildren()) do
         if c:IsA("Atmosphere") then
             table.insert(origAtmosphere, { obj = c, D = c.Density, H = c.Haze, G = c.Glare })
@@ -443,87 +483,42 @@ function OperationOne.Init(ctx)
     -- ABA: COMBAT
     -- ═══════════════════════════════════════════════
     local CombatTab = Window:CreateTab("Combat", "⚔️")
-    if not CombatTab then
-        warn("[IZ OP1] Falha ao criar CombatTab")
-        return
-    end
+    if not CombatTab then warn("[IZ OP1] Falha ao criar CombatTab"); return end
 
     CombatTab:CreateSection("Aim")
-    CombatTab:CreateToggle({
-        Name = "Silent Aim",
-        Description = "Lock aim when holding click",
-        Icon = "🎯", Default = false,
-        Callback = function(v) State.silentAim = v end,
-    })
-    CombatTab:CreateSlider({
-        Name = "Silent FOV", Description = "Field of view radius",
-        Icon = "📐", Min = 30, Max = 300, Default = 120,
-        Callback = function(v) State.silentFov = v end,
-    })
-    CombatTab:CreateToggle({
-        Name = "Aimbot", Description = "Continuous aim at closest enemy",
-        Icon = "🤖", Default = false,
-        Callback = function(v) State.aimbot = v end,
-    })
-    CombatTab:CreateSlider({
-        Name = "Aimbot FOV", Description = "Field of view radius",
-        Icon = "📐", Min = 30, Max = 300, Default = 100,
-        Callback = function(v) State.aimbotFov = v end,
-    })
-    CombatTab:CreateSlider({
-        Name = "Aimbot Smoothness", Description = "Lower = snappier",
-        Icon = "🎚️", Min = 5, Max = 100, Default = 30,
-        Callback = function(v) State.aimbotSmooth = v / 100 end,
-    })
-    CombatTab:CreateSlider({
-        Name = "Aimbot Max Distance", Description = "Max range",
-        Icon = "📏", Min = 50, Max = 2000, Default = 500,
-        Callback = function(v) State.aimbotMaxDist = v end,
-    })
-    CombatTab:CreateToggle({
-        Name = "Aimbot Wall Check", Description = "Only aim if visible",
-        Icon = "🧱", Default = true,
-        Callback = function(v) State.aimbotWallCheck = v end,
-    })
-    CombatTab:CreateDropdown({
-        Name = "Hitbox", Description = "Which part to target",
-        Icon = "🎯", Options = { "Head", "Torso", "Nearest", "Auto" }, Default = 1,
-        Callback = function(opt, idx) State.aimbotHitbox = idx end,
-    })
+    CombatTab:CreateToggle({ Name = "Silent Aim", Description = "Lock aim when holding click", Icon = "🎯", Default = false,
+        Callback = function(v) State.silentAim = v end })
+    CombatTab:CreateSlider({ Name = "Silent FOV", Description = "Field of view radius", Icon = "📐", Min = 30, Max = 300, Default = 120,
+        Callback = function(v) State.silentFov = v end })
+    CombatTab:CreateToggle({ Name = "Aimbot", Description = "Continuous aim at closest enemy", Icon = "🤖", Default = false,
+        Callback = function(v) State.aimbot = v end })
+    CombatTab:CreateSlider({ Name = "Aimbot FOV", Description = "Field of view radius", Icon = "📐", Min = 30, Max = 300, Default = 100,
+        Callback = function(v) State.aimbotFov = v end })
+    CombatTab:CreateSlider({ Name = "Aimbot Smoothness", Description = "Lower = snappier", Icon = "🎚️", Min = 5, Max = 100, Default = 30,
+        Callback = function(v) State.aimbotSmooth = v / 100 end })
+    CombatTab:CreateSlider({ Name = "Aimbot Max Distance", Description = "Max range", Icon = "📏", Min = 50, Max = 2000, Default = 500,
+        Callback = function(v) State.aimbotMaxDist = v end })
+    CombatTab:CreateToggle({ Name = "Aimbot Wall Check", Description = "Only aim if visible", Icon = "🧱", Default = true,
+        Callback = function(v) State.aimbotWallCheck = v end })
+    CombatTab:CreateDropdown({ Name = "Hitbox", Description = "Which part to target", Icon = "🎯",
+        Options = { "Head", "Torso", "Nearest", "Auto" }, Default = 1,
+        Callback = function(opt, idx) State.aimbotHitbox = idx end })
 
     CombatTab:CreateSection("Auto")
-    CombatTab:CreateToggle({
-        Name = "Triggerbot", Description = "Auto-fire when crosshair over target",
-        Icon = "🎯", Default = false,
-        Callback = function(v) State.triggerbot = v end,
-    })
-    CombatTab:CreateSlider({
-        Name = "Triggerbot Delay", Description = "Reaction delay (ms)",
-        Icon = "⏱️", Min = 1, Max = 100, Default = 5,
-        Callback = function(v) State.triggerbotDelay = v end,
-    })
-    CombatTab:CreateToggle({
-        Name = "Auto Shoot", Description = "Auto-fire on visible enemies",
-        Icon = "🔥", Default = false,
-        Callback = function(v) State.autoShoot = v end,
-    })
-    CombatTab:CreateSlider({
-        Name = "Auto Shoot FOV", Description = "FOV for auto-fire",
-        Icon = "📐", Min = 30, Max = 300, Default = 100,
-        Callback = function(v) State.autoShootFov = v end,
-    })
+    CombatTab:CreateToggle({ Name = "Triggerbot", Description = "Auto-fire when crosshair over target", Icon = "🎯", Default = false,
+        Callback = function(v) State.triggerbot = v end })
+    CombatTab:CreateSlider({ Name = "Triggerbot Delay", Description = "Reaction delay (ms)", Icon = "⏱️", Min = 1, Max = 100, Default = 5,
+        Callback = function(v) State.triggerbotDelay = v end })
+    CombatTab:CreateToggle({ Name = "Auto Shoot", Description = "Auto-fire on visible enemies", Icon = "🔥", Default = false,
+        Callback = function(v) State.autoShoot = v end })
+    CombatTab:CreateSlider({ Name = "Auto Shoot FOV", Description = "FOV for auto-fire", Icon = "📐", Min = 30, Max = 300, Default = 100,
+        Callback = function(v) State.autoShootFov = v end })
 
     CombatTab:CreateSection("Hitbox")
-    CombatTab:CreateToggle({
-        Name = "Head Expander", Description = "Enlarge enemy hitboxes",
-        Icon = "🔴", Default = false,
-        Callback = function(v) State.headExpander = v end,
-    })
-    CombatTab:CreateSlider({
-        Name = "Hitbox Size", Description = "Multiplier",
-        Icon = "📏", Min = 1, Max = 5, Default = 3,
-        Callback = function(v) State.headExpanderSize = v end,
-    })
+    CombatTab:CreateToggle({ Name = "Head Expander", Description = "Enlarge enemy hitboxes", Icon = "🔴", Default = false,
+        Callback = function(v) State.headExpander = v end })
+    CombatTab:CreateSlider({ Name = "Hitbox Size", Description = "Multiplier", Icon = "📏", Min = 1, Max = 5, Default = 3,
+        Callback = function(v) State.headExpanderSize = v end })
 
     STEP(8, "Combat tab OK")
 
@@ -532,52 +527,28 @@ function OperationOne.Init(ctx)
     -- ═══════════════════════════════════════════════
     local WeaponTab = Window:CreateTab("Weapon", "🔫")
     WeaponTab:CreateSection("Recoil")
-    WeaponTab:CreateToggle({
-        Name = "No Recoil", Description = "Remove weapon recoil",
-        Icon = "🎯", Default = false,
-        Callback = function(v) State.noRecoil = v end,
-    })
+    WeaponTab:CreateToggle({ Name = "No Recoil", Description = "Remove weapon recoil", Icon = "🎯", Default = false,
+        Callback = function(v) State.noRecoil = v end })
 
     -- ═══════════════════════════════════════════════
     -- ABA: MOVEMENT
     -- ═══════════════════════════════════════════════
     local MoveTab = Window:CreateTab("Movement", "🏃")
     MoveTab:CreateSection("Speed")
-    MoveTab:CreateToggle({
-        Name = "Speed", Description = "Custom walkspeed",
-        Icon = "⚡", Default = false,
-        Callback = function(v) State.speed = v end,
-    })
-    MoveTab:CreateSlider({
-        Name = "Speed Value", Description = "WalkSpeed value",
-        Icon = "📏", Min = 16, Max = 300, Default = 50,
-        Callback = function(v) State.speedValue = v end,
-    })
+    MoveTab:CreateToggle({ Name = "Speed", Description = "Custom walkspeed", Icon = "⚡", Default = false,
+        Callback = function(v) State.speed = v end })
+    MoveTab:CreateSlider({ Name = "Speed Value", Description = "WalkSpeed value", Icon = "📏", Min = 16, Max = 300, Default = 50,
+        Callback = function(v) State.speedValue = v end })
 
     MoveTab:CreateSection("Jump")
-    MoveTab:CreateToggle({
-        Name = "Infinite Jump", Description = "Jump mid-air infinitely",
-        Icon = "🦘", Default = false,
-        Callback = function(v)
-            State.airJump = v
-            if v then startAirJump() else stopAirJump() end
-        end,
-    })
-    MoveTab:CreateSlider({
-        Name = "Jump Power", Description = "Jump velocity",
-        Icon = "📏", Min = 30, Max = 300, Default = 50,
-        Callback = function(v) State.jumpPower = v end,
-    })
-    MoveTab:CreateToggle({
-        Name = "Auto Bhop", Description = "Auto-jump while holding space",
-        Icon = "🏃", Default = false,
-        Callback = function(v) State.autoBhop = v end,
-    })
-    MoveTab:CreateToggle({
-        Name = "Noclip", Description = "Walk through walls",
-        Icon = "👻", Default = false,
-        Callback = function(v) State.noclip = v end,
-    })
+    MoveTab:CreateToggle({ Name = "Infinite Jump", Description = "Jump mid-air infinitely", Icon = "🦘", Default = false,
+        Callback = function(v) State.airJump = v; if v then startAirJump() else stopAirJump() end end })
+    MoveTab:CreateSlider({ Name = "Jump Power", Description = "Jump velocity", Icon = "📏", Min = 30, Max = 300, Default = 50,
+        Callback = function(v) State.jumpPower = v end })
+    MoveTab:CreateToggle({ Name = "Auto Bhop", Description = "Auto-jump while holding space", Icon = "🏃", Default = false,
+        Callback = function(v) State.autoBhop = v end })
+    MoveTab:CreateToggle({ Name = "Noclip", Description = "Walk through walls", Icon = "👻", Default = false,
+        Callback = function(v) State.noclip = v end })
 
     STEP(9, "Movement tab OK")
 
@@ -586,9 +557,7 @@ function OperationOne.Init(ctx)
     -- ═══════════════════════════════════════════════
     local VisualsTab = Window:CreateTab("Visuals", "👁️")
     VisualsTab:CreateSection("ESP")
-    VisualsTab:CreateToggle({
-        Name = "Player ESP", Description = "Highlight enemies",
-        Icon = "👤", Default = false,
+    VisualsTab:CreateToggle({ Name = "Player ESP", Description = "Highlight enemies", Icon = "👤", Default = false,
         Callback = function(v)
             State.esp = v
             if v then
@@ -598,68 +567,31 @@ function OperationOne.Init(ctx)
             else
                 clearAllESP()
             end
-        end,
-    })
-    VisualsTab:CreateSlider({
-        Name = "ESP Max Distance", Description = "Render range",
-        Icon = "📐", Min = 100, Max = 5000, Default = 1000,
-        Callback = function(v) State.espMaxDistance = v end,
-    })
-    VisualsTab:CreateToggle({
-        Name = "ESP Box", Description = "Show box around enemies",
-        Icon = "⬜", Default = true,
-        Callback = function(v) State.espBox = v end,
-    })
-    VisualsTab:CreateToggle({
-        Name = "ESP Name", Description = "Show player names",
-        Icon = "📛", Default = true,
-        Callback = function(v) State.espName = v end,
-    })
-    VisualsTab:CreateToggle({
-        Name = "ESP Health", Description = "Show health bar",
-        Icon = "❤️", Default = true,
-        Callback = function(v) State.espHealth = v end,
-    })
-    VisualsTab:CreateToggle({
-        Name = "ESP Distance", Description = "Show distance",
-        Icon = "📏", Default = true,
-        Callback = function(v) State.espDistance = v end,
-    })
-    VisualsTab:CreateToggle({
-        Name = "ESP Tracer", Description = "Draw tracer lines",
-        Icon = "📡", Default = false,
-        Callback = function(v) State.espTracer = v end,
-    })
+        end })
+    VisualsTab:CreateSlider({ Name = "ESP Max Distance", Description = "Render range", Icon = "📐", Min = 100, Max = 5000, Default = 1000,
+        Callback = function(v) State.espMaxDistance = v end })
+    VisualsTab:CreateToggle({ Name = "ESP Box", Description = "Show box around enemies", Icon = "⬜", Default = true,
+        Callback = function(v) State.espBox = v end })
+    VisualsTab:CreateToggle({ Name = "ESP Name", Description = "Show player names", Icon = "📛", Default = true,
+        Callback = function(v) State.espName = v end })
+    VisualsTab:CreateToggle({ Name = "ESP Health", Description = "Show health bar", Icon = "❤️", Default = true,
+        Callback = function(v) State.espHealth = v end })
+    VisualsTab:CreateToggle({ Name = "ESP Distance", Description = "Show distance", Icon = "📏", Default = true,
+        Callback = function(v) State.espDistance = v end })
+    VisualsTab:CreateToggle({ Name = "ESP Tracer", Description = "Draw tracer lines", Icon = "📡", Default = false,
+        Callback = function(v) State.espTracer = v end })
 
     VisualsTab:CreateSection("Environment")
-    VisualsTab:CreateToggle({
-        Name = "Fullbright", Description = "Map always bright",
-        Icon = "💡", Default = false,
-        Callback = function(v)
-            State.fullbright = v
-            if not v then disableFullbright() end
-        end,
-    })
-    VisualsTab:CreateToggle({
-        Name = "Low Graphics", Description = "Reduce rendering quality",
-        Icon = "📉", Default = false,
-        Callback = function(v) State.lowGraphics = v; applyLowGraphics(v) end,
-    })
-    VisualsTab:CreateToggle({
-        Name = "No Shadows", Description = "Remove all shadows",
-        Icon = "🌑", Default = false,
-        Callback = function(v) State.noShadows = v; applyNoShadows(v) end,
-    })
-    VisualsTab:CreateToggle({
-        Name = "No Fog", Description = "Remove fog",
-        Icon = "🌫️", Default = false,
-        Callback = function(v) State.noFog = v; applyNoFog(v) end,
-    })
-    VisualsTab:CreateToggle({
-        Name = "No Particles", Description = "Remove particle effects",
-        Icon = "✨", Default = false,
-        Callback = function(v) State.noParticles = v; applyNoParticles(v) end,
-    })
+    VisualsTab:CreateToggle({ Name = "Fullbright", Description = "Map always bright", Icon = "💡", Default = false,
+        Callback = function(v) State.fullbright = v; if not v then disableFullbright() end end })
+    VisualsTab:CreateToggle({ Name = "Low Graphics", Description = "Reduce rendering quality", Icon = "📉", Default = false,
+        Callback = function(v) State.lowGraphics = v; applyLowGraphics(v) end })
+    VisualsTab:CreateToggle({ Name = "No Shadows", Description = "Remove all shadows", Icon = "🌑", Default = false,
+        Callback = function(v) State.noShadows = v; applyNoShadows(v) end })
+    VisualsTab:CreateToggle({ Name = "No Fog", Description = "Remove fog", Icon = "🌫️", Default = false,
+        Callback = function(v) State.noFog = v; applyNoFog(v) end })
+    VisualsTab:CreateToggle({ Name = "No Particles", Description = "Remove particle effects", Icon = "✨", Default = false,
+        Callback = function(v) State.noParticles = v; applyNoParticles(v) end })
 
     STEP(10, "Visuals tab OK")
 
@@ -668,31 +600,25 @@ function OperationOne.Init(ctx)
     -- ═══════════════════════════════════════════════
     local SettingsTab = Window:CreateTab("Settings", "⚙️")
     SettingsTab:CreateSection("Optimizations")
-    SettingsTab:CreateButton({
-        Name = "⚡ Max FPS Boost",
+    SettingsTab:CreateButton({ Name = "⚡ Max FPS Boost",
         Callback = function()
             State.lowGraphics = true; applyLowGraphics(true)
             State.noShadows = true; applyNoShadows(true)
             State.noFog = true; applyNoFog(true)
             State.noParticles = true; applyNoParticles(true)
             Window:Notify("⚡ Boost", "All optimizations ON", 3, "success")
-        end,
-    })
-    SettingsTab:CreateButton({
-        Name = "🔄 Reset Optimizations",
+        end })
+    SettingsTab:CreateButton({ Name = "🔄 Reset Optimizations",
         Callback = function()
             State.lowGraphics = false; applyLowGraphics(false)
             State.noShadows = false; applyNoShadows(false)
             State.noFog = false; applyNoFog(false)
             State.noParticles = false; applyNoParticles(false)
             Window:Notify("Reset", "Optimizations reset", 3, "info")
-        end,
-    })
+        end })
 
     SettingsTab:CreateSection("Danger Zone")
-    SettingsTab:CreateButton({
-        Name = "Unload Script",
-        Danger = true,
+    SettingsTab:CreateButton({ Name = "Unload Script", Danger = true,
         Callback = function()
             UNLOADED = true
             clearAllESP()
@@ -702,12 +628,14 @@ function OperationOne.Init(ctx)
             applyNoShadows(false)
             applyNoFog(false)
             applyNoParticles(false)
-            if fovCircle then fovCircle:Remove() end
+            pcall(function() RunService:UnbindFromRenderStep("IZ_Aimbot") end)
+            pcall(function() RunService:UnbindFromRenderStep("IZ_Silent") end)
+            if fovConn then fovConn:Disconnect() end
+            if fovCircle then pcall(function() fovCircle:Remove() end) end
             Window:Notify("Unload", "Script unloaded", 2, "warning")
             task.wait(0.3)
             Window:Destroy()
-        end,
-    })
+        end })
 
     -- ═══════════════════════════════════════════════
     -- ABA: CREDITS
@@ -715,19 +643,15 @@ function OperationOne.Init(ctx)
     local CreditsTab = Window:CreateTab("Credits", "➕")
     CreditsTab:CreateSection("Founder & Developer")
     CreditsTab:CreateLabel("Sr Red", Color3.fromRGB(255, 50, 50))
-
     CreditsTab:CreateSection("Community")
     CreditsTab:CreateLabel("discord.gg/ScZfU2mAGm", Color3.fromRGB(88, 101, 242))
-    CreditsTab:CreateButton({
-        Name = "📋 Copy Discord Link",
+    CreditsTab:CreateButton({ Name = "📋 Copy Discord Link",
         Callback = function()
             if setclipboard then
                 setclipboard("https://discord.gg/ScZfU2mAGm")
                 Window:Notify("📋 Copied", "Discord link copied!", 3, "success")
             end
-        end,
-    })
-
+        end })
     CreditsTab:CreateSection("Version")
     CreditsTab:CreateLabel(FULL_VERSION, Color3.fromRGB(140, 140, 155))
     CreditsTab:CreateLabel("© 2026 Sr Red", Color3.fromRGB(90, 90, 105))
@@ -735,11 +659,46 @@ function OperationOne.Init(ctx)
     STEP(11, "All tabs OK")
 
     -- ═══════════════════════════════════════════════
-    -- COMBAT LOOPS
+    -- COMBAT LOOPS  (CORRIGIDO: usa centro da tela)
     -- ═══════════════════════════════════════════════
+
+    -- AIMBOT (prioridade acima da câmera do jogo)
+    RunService:BindToRenderStep("IZ_Aimbot", Enum.RenderPriority.Camera.Value + 1, function()
+        if UNLOADED or not State.aimbot then return end
+        local target = getClosestEnemyInFov(State.aimbotFov, State.aimbotWallCheck)
+        if not target then return end
+        local part = getTargetPart(target)
+        if not part then return end
+        local myR = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if not myR then return end
+        local d3 = (part.Position - myR.Position).Magnitude
+        if d3 > State.aimbotMaxDist then return end
+
+        local camPos = Camera.CFrame.Position
+        local targetDir = (part.Position - camPos).Unit
+        local currentDir = Camera.CFrame.LookVector
+        local alpha = 1 - State.aimbotSmooth
+        if alpha <= 0 then alpha = 0.02 end
+        if alpha > 1 then alpha = 1 end
+
+        if HAS_MOUSEMOVEREL then
+            local sp = Camera:WorldToViewportPoint(part.Position)
+            local center = getScreenCenter()
+            local dx = (sp.X - center.X) * alpha
+            local dy = (sp.Y - center.Y) * alpha
+            pcall(mousemoverel, dx, dy)
+        else
+            local newDir = currentDir:Lerp(targetDir, alpha)
+            pcall(function()
+                Camera.CFrame = CFrame.lookAt(camPos, camPos + newDir)
+            end)
+        end
+    end)
+
+    -- SILENT AIM (câmera do jogo também é override via BindToRenderStep)
     local silentHolding, silentTarget = false, nil
 
-    RunService.RenderStepped:Connect(function()
+    RunService:BindToRenderStep("IZ_Silent", Enum.RenderPriority.Camera.Value + 2, function()
         if UNLOADED or not silentHolding then return end
         if not silentTarget or not silentTarget.Character then silentHolding = false; return end
         local part = getTargetPart(silentTarget)
@@ -751,7 +710,8 @@ function OperationOne.Init(ctx)
 
     UserInputService.InputBegan:Connect(function(input, gp)
         if UNLOADED or gp or not State.silentAim then return end
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1
+           and input.UserInputType ~= Enum.UserInputType.Touch then return end
         local target = getClosestEnemyInFov(State.silentFov, State.aimbotWallCheck)
         if target then
             silentTarget = target
@@ -761,46 +721,18 @@ function OperationOne.Init(ctx)
 
     UserInputService.InputEnded:Connect(function(input, gp)
         if UNLOADED or gp then return end
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
-        if silentHolding then
-            silentHolding = false
-            silentTarget = nil
-        end
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1
+           and input.UserInputType ~= Enum.UserInputType.Touch then return end
+        silentHolding = false
+        silentTarget = nil
     end)
 
-    RunService.RenderStepped:Connect(function()
-        if UNLOADED or not State.aimbot then return end
-        local target = getClosestEnemyInFov(State.aimbotFov, State.aimbotWallCheck)
-        if target then
-            local part = getTargetPart(target)
-            if part then
-                local myR = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                if myR then
-                    local d3 = (part.Position - myR.Position).Magnitude
-                    if d3 <= State.aimbotMaxDist then
-                        local sp, onScreen = Camera:WorldToViewportPoint(part.Position)
-                        if onScreen then
-                            local m = UserInputService:GetMouseLocation()
-                            if mousemoverel then
-                                pcall(function()
-                                    mousemoverel(
-                                        (sp.X - m.X) * State.aimbotSmooth,
-                                        (sp.Y - m.Y) * State.aimbotSmooth
-                                    )
-                                end)
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end)
-
+    -- TRIGGERBOT (usa centro da tela corretamente)
     local triggerLast = 0
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.triggerbot then return end
         if tick() - triggerLast < (State.triggerbotDelay / 1000) then return end
-        local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+        local center = getScreenCenter()
         for _, p in ipairs(Players:GetPlayers()) do
             if isEnemy(p) then
                 local part = getTargetPart(p)
@@ -818,6 +750,7 @@ function OperationOne.Init(ctx)
         end
     end)
 
+    -- AUTO SHOOT
     local lastAutoShot = 0
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.autoShoot then return end
@@ -915,13 +848,17 @@ function OperationOne.Init(ctx)
 
     local heTick = 0
     RunService.Heartbeat:Connect(function()
-        if UNLOADED or not State.headExpander then return end
+        if UNLOADED then return end
+        if not State.headExpander then
+            -- restaura tudo quando desligar
+            for p in pairs(hitboxSaved) do restorePlayer(p) end
+            return
+        end
         heTick = heTick + 1
         if heTick % 3 ~= 0 then return end
         pcall(function()
             for _, p in ipairs(Players:GetPlayers()) do
-                if p == LocalPlayer then
-                elseif isEnemy(p) then
+                if p ~= LocalPlayer and isEnemy(p) then
                     if p.Character then expandPlayer(p, State.headExpanderSize) end
                 else
                     if hitboxSaved[p] then restorePlayer(p) end
@@ -974,13 +911,19 @@ function OperationOne.Init(ctx)
         pcall(function()
             for _, p in ipairs(Players:GetPlayers()) do
                 if p ~= LocalPlayer and p.Character then
-                    if not ESP.data[p] then createESP(p) end
-                    updateESP(p, p.Character)
+                    createESP(p)  -- já lida com respawn internamente
+                    updateESP(p)
                 end
             end
         end)
     end)
     Players.PlayerRemoving:Connect(function(p) removeESP(p) end)
+    Players.PlayerAdded:Connect(function(p)
+        p.CharacterAdded:Connect(function()
+            if ESP.data[p] then removeESP(p) end
+            if State.esp then createESP(p) end
+        end)
+    end)
 
     -- ═══════════════════════════════════════════════
     -- MOVEMENT LOOPS
@@ -1018,7 +961,7 @@ function OperationOne.Init(ctx)
     end)
 
     -- ═══════════════════════════════════════════════
-    -- FULLBRIGHT LOOP
+    -- FULLBRIGHT + PARTICLES LOOP
     -- ═══════════════════════════════════════════════
     RunService.Heartbeat:Connect(function()
         if UNLOADED then return end
