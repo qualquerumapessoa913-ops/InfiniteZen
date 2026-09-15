@@ -15,12 +15,10 @@ local CONFIG = {
     REPO = "https://raw.githubusercontent.com/qualquerumapessoa913-ops/InfiniteZen/Moon-Angel",
     DEFAULT_LANG = "en",
     SUPPORTED_GAMES = {
-        -- PlaceIds
         [286090429] = {name = "Arsenal", module = "arsenal"},
         [14939963714] = {name = "Jailbird", module = "jailbird"},
         [142823291] = {name = "Murder Mystery 2", module = "mm2"},
         [114234929420007] = {name = "BloxStrike", module = "bloxstrike"},
-        -- GameIds (pra jogos com múltiplos lugares)
         [8307114974] = {name = "Operation One", module = "OperationOne"},
     }
 }
@@ -47,7 +45,43 @@ local function loadModule(path)
     return fn
 end
 
--- Carrega UI Library
+-- ═══ LOAD COMPAT LAYER ═══
+local Compat
+local okCompat, CompatResult = pcall(function()
+    return loadModule("utils/compat.lua")()
+end)
+if okCompat and CompatResult then
+    Compat = CompatResult
+    print("[Infinite Zen] ✅ Compat layer carregada")
+    Compat.report()
+else
+    warn("[Infinite Zen] ⚠️ Compat layer falhou, usando fallbacks internos")
+    Compat = {
+        getExecutor = function() return "Unknown" end,
+        getHWID = function() return tostring(LocalPlayer.UserId) end,
+        mouseClick = function() if mouse1click then pcall(mouse1click) end end,
+        mouseMove = function(dx, dy) if mousemoverel then pcall(mousemoverel, dx, dy) end end,
+        fireTouch = function(p, t, toggle) if firetouchinterest then pcall(firetouchinterest, p, t, toggle) end end,
+        writeFile = function(p, c) if writefile then pcall(writefile, p, c) end end,
+        readFile = function(p) if readfile then local ok, r = pcall(readfile, p); return ok and r or nil end end,
+        fileExists = function(p) if isfile then local ok, r = pcall(isfile, p); return ok and r or false end end,
+        folderExists = function(p) if isfolder then local ok, r = pcall(isfolder, p); return ok and r or false end end,
+        makeFolder = function(p) if makefolder then pcall(makefolder, p) end end,
+        deleteFile = function(p) if delfile then pcall(delfile, p) end end,
+        listFiles = function(p) if listfiles then local ok, r = pcall(listfiles, p); return ok and r or {} end end,
+        setClipboard = function(t) if setclipboard then pcall(setclipboard, t) end end,
+        hasDrawing = function() return Drawing ~= nil end,
+        newDrawing = function(class, props)
+            if not Drawing then return nil end
+            local d = Drawing.new(class)
+            if props then for k, v in pairs(props) do d[k] = v end end
+            return d
+        end,
+        report = function() return {} end,
+    }
+end
+
+-- ═══ LOAD UI LIBRARY ═══
 local UI = loadModule("InfiniteZen_UI.lua")
 if UI then
     UI = UI()
@@ -56,11 +90,11 @@ else
     warn("[Infinite Zen] ⚠️ Falha ao carregar UI Library")
 end
 
--- Carrega Language
+-- ═══ LOAD LANGUAGE ═══
 local Language = loadModule("src/utils/language.lua")()
 Language.setLanguage(CONFIG.DEFAULT_LANG)
 
--- Jogo não suportado
+-- ═══ UNSUPPORTED GAME ═══
 if not gameInfo then
     warn("[Infinite Zen] Jogo não suportado! PlaceId: " .. placeId .. " | GameId: " .. gameId)
     local gui = Instance.new("ScreenGui")
@@ -134,6 +168,7 @@ print("[Infinite Zen] 🎮 Jogo detectado: " .. gameInfo.name)
 print("[Infinite Zen] 📦 Carregando módulo: " .. gameInfo.module)
 print("============================================")
 
+-- ═══ LOAD GAME MODULE ═══
 local gameModule = loadModule("src/games/" .. gameInfo.module .. ".lua")()
 if not gameModule then
     warn("[Infinite Zen] ⚠️ Falha ao carregar módulo do jogo.")
@@ -144,6 +179,7 @@ if gameModule.Init then
     gameModule.Init({
         Language = Language,
         UI = UI,
+        Compat = Compat,   -- ⬅️ NOVO
         gameName = gameInfo.name,
         placeId = placeId,
     })

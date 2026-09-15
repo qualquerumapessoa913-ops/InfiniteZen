@@ -7,6 +7,7 @@ local OperationOne = {}
 function OperationOne.Init(ctx)
     local Language = ctx.Language
     local UI = ctx.UI
+    local Compat = ctx.Compat
     local gameName = ctx.gameName
 
     local GAME_VERSION = "1.0"
