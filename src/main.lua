@@ -15,10 +15,12 @@ local CONFIG = {
     REPO = "https://raw.githubusercontent.com/qualquerumapessoa913-ops/InfiniteZen/Moon-Angel",
     DEFAULT_LANG = "en",
     SUPPORTED_GAMES = {
+        -- PlaceIds
         [286090429] = {name = "Arsenal", module = "arsenal"},
         [14939963714] = {name = "Jailbird", module = "jailbird"},
         [142823291] = {name = "Murder Mystery 2", module = "mm2"},
         [114234929420007] = {name = "BloxStrike", module = "bloxstrike"},
+        -- GameIds (pra jogos com múltiplos lugares)
         [8307114974] = {name = "Operation One", module = "operationone"},
     }
 }
@@ -28,9 +30,10 @@ local gameId = game.GameId
 local gameInfo = CONFIG.SUPPORTED_GAMES[placeId] or CONFIG.SUPPORTED_GAMES[gameId]
 
 local function loadModule(path)
-    local url = CONFIG.REPO .. "/" .. path
+    local cacheBuster = "?t=" .. tostring(math.floor(tick() * 1000))
+    local url = CONFIG.REPO .. "/" .. path .. cacheBuster
     local success, result = pcall(function()
-        return game:HttpGet(url)
+        return game:HttpGet(url, true)
     end)
     if not success or not result or result == "" then
         warn("[Infinite Zen] Falha ao carregar: " .. path)
@@ -44,7 +47,7 @@ local function loadModule(path)
     return fn
 end
 
--- Carrega UI Library (NOVO)
+-- Carrega UI Library
 local UI = loadModule("InfiniteZen_UI.lua")
 if UI then
     UI = UI()
@@ -59,8 +62,7 @@ Language.setLanguage(CONFIG.DEFAULT_LANG)
 
 -- Jogo não suportado
 if not gameInfo then
-    warnwarn("[Infinite Zen] Jogo não suportado! PlaceId: " .. placeId .. " | GameId: " .. gameId)
-
+    warn("[Infinite Zen] Jogo não suportado! PlaceId: " .. placeId .. " | GameId: " .. gameId)
     local gui = Instance.new("ScreenGui")
     gui.Name = "InfiniteZen_Unsupported"
     gui.ResetOnSpawn = false
@@ -141,7 +143,7 @@ end
 if gameModule.Init then
     gameModule.Init({
         Language = Language,
-        UI = UI,  -- ⬅️ passa a UI
+        UI = UI,
         gameName = gameInfo.name,
         placeId = placeId,
     })
