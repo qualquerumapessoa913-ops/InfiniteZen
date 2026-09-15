@@ -1,6 +1,5 @@
 -- ============================================================
--- INFINITE ZEN - MÓDULO OPERATION ONE v1.0 (UI Nova)
--- PlaceId: 72920620366355
+-- INFINITE ZEN - MÓDULO OPERATION ONE v1.0
 -- ============================================================
 
 local OperationOne = {}
@@ -14,7 +13,8 @@ function OperationOne.Init(ctx)
     local FULL_VERSION = "Infinite Zen V" .. GAME_VERSION .. " - " .. gameName
     local SHORT_VERSION = "V" .. GAME_VERSION .. " - " .. gameName
 
-    print("[Infinite Zen] Inicializando " .. FULL_VERSION .. "...")
+    local function STEP(n, msg) pcall(function() print("[IZ OP1 Step " .. n .. "] " .. msg) end) end
+    STEP(1, "Init iniciou")
 
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
@@ -27,45 +27,7 @@ function OperationOne.Init(ctx)
 
     local UNLOADED = false
 
-    -- Team check
-    local function isEnemy(player)
-        if player == LocalPlayer then return false end
-        if not player.Character then return false end
-        local hum = player.Character:FindFirstChildOfClass("Humanoid")
-        if not hum or hum.Health <= 0 then return false end
-        local myTeam = LocalPlayer.Team
-        if myTeam == nil then return true end
-        if player.Team == nil then return false end
-        return player.Team ~= myTeam
-    end
-
-    -- State
-    local State = {
-        silentAim = false, silentFov = 120,
-        aimbot = false, aimbotFov = 100, aimbotSmooth = 0.3,
-        aimbotMaxDist = 500, aimbotHitbox = 1, aimbotWallCheck = true,
-        triggerbot = false, triggerbotDelay = 5,
-        autoShoot = false, autoShootFov = 100,
-        headExpander = false, headExpanderSize = 3,
-        noRecoil = false,
-        speed = false, speedValue = 50,
-        airJump = false, jumpPower = 50,
-        autoBhop = false, noclip = false,
-        esp = false, espMaxDistance = 1000,
-        espBox = true, espName = true, espHealth = true,
-        espDistance = true, espTracer = false,
-        fullbright = false,
-        lowGraphics = false, noShadows = false, noFog = false, noParticles = false,
-    }
-
-    -- Window
-    local Window = UI:CreateWindow({
-        Title = "INFINITE ZEN",
-        Subtitle = SHORT_VERSION,
-        ToggleKey = Enum.KeyCode.K,
-    })
-
-    -- Helpers
+    -- Helper functions
     local function getBasePart(parent, ...)
         if not parent then return nil end
         for _, name in ipairs({...}) do
@@ -93,6 +55,38 @@ function OperationOne.Init(ctx)
         if rayLen <= 0 then return true end
         return workspace:Raycast(fromPos + dir.Unit * 2, dir.Unit * rayLen, params) == nil
     end
+
+    local function isEnemy(player)
+        if player == LocalPlayer then return false end
+        if not player.Character then return false end
+        local hum = player.Character:FindFirstChildOfClass("Humanoid")
+        if not hum or hum.Health <= 0 then return false end
+        local myTeam = LocalPlayer.Team
+        if myTeam == nil then return true end
+        if player.Team == nil then return false end
+        return player.Team ~= myTeam
+    end
+
+    STEP(2, "Helpers OK")
+
+    -- State
+    local State = {
+        silentAim = false, silentFov = 120,
+        aimbot = false, aimbotFov = 100, aimbotSmooth = 0.3,
+        aimbotMaxDist = 500, aimbotHitbox = 1, aimbotWallCheck = true,
+        triggerbot = false, triggerbotDelay = 5,
+        autoShoot = false, autoShootFov = 100,
+        headExpander = false, headExpanderSize = 3,
+        noRecoil = false,
+        speed = false, speedValue = 50,
+        airJump = false, jumpPower = 50,
+        autoBhop = false, noclip = false,
+        esp = false, espMaxDistance = 1000,
+        espBox = true, espName = true, espHealth = true,
+        espDistance = true, espTracer = false,
+        fullbright = false,
+        lowGraphics = false, noShadows = false, noFog = false, noParticles = false,
+    }
 
     local function getTargetPart(p)
         if not p.Character then return nil end
@@ -135,7 +129,26 @@ function OperationOne.Init(ctx)
         return true
     end
 
-    -- FOV Circle
+    STEP(3, "State + helpers OK")
+
+    -- Window
+    if not UI or type(UI.CreateWindow) ~= "function" then
+        warn("[IZ OP1] UI library não encontrada ou sem CreateWindow")
+        return
+    end
+    local Window = UI:CreateWindow({
+        Title = "INFINITE ZEN",
+        Subtitle = SHORT_VERSION,
+        ToggleKey = Enum.KeyCode.K,
+    })
+    if not Window then
+        warn("[IZ OP1] Falha ao criar Window")
+        return
+    end
+
+    STEP(4, "Window OK")
+
+    -- FOV circle
     local fovCircle = Drawing.new("Circle")
     fovCircle.Color = Color3.fromRGB(230, 40, 40); fovCircle.Thickness = 1.5
     fovCircle.Filled = false; fovCircle.NumSides = 100; fovCircle.Transparency = 1
@@ -156,7 +169,7 @@ function OperationOne.Init(ctx)
         end
     end)
 
-    -- Targeting
+    -- Target getter
     local function getClosestEnemyInFov(fovRange, requireLOS)
         local mouse = UserInputService:GetMouseLocation()
         local closest, minD = nil, fovRange
@@ -179,8 +192,10 @@ function OperationOne.Init(ctx)
         return closest
     end
 
-    -- ESP setup (antes das toggles)
-    local ESP = {data = {}}
+    STEP(5, "Targeting OK")
+
+    -- ESP system
+    local ESP = { data = {} }
 
     local function createESP(p)
         if ESP.data[p] or not p.Character then return end
@@ -191,28 +206,28 @@ function OperationOne.Init(ctx)
         chams.OutlineColor = Color3.fromRGB(255, 255, 255)
         chams.OutlineTransparency = 0.3
         chams.Parent = p.Character
-        local data = {chams = chams}
+        local data = { chams = chams }
         local function nd(class, props)
             local d = Drawing.new(class)
             for k, v in pairs(props) do d[k] = v end
             d.Visible = false
             return d
         end
-        data.box = nd("Square", {Thickness = 1.5, Color = Color3.fromRGB(255, 30, 40), Filled = false, Transparency = 1})
-        data.name = nd("Text", {Size = 14, Center = true, Outline = true, Color = Color3.fromRGB(255, 255, 255)})
-        data.distance = nd("Text", {Size = 12, Center = true, Outline = true, Color = Color3.fromRGB(255, 80, 80)})
-        data.health = nd("Line", {Thickness = 3, Color = Color3.fromRGB(0, 255, 0)})
-        data.tracer = nd("Line", {Thickness = 1.2, Color = Color3.fromRGB(255, 30, 40)})
-        data.headDot = nd("Circle", {Radius = 4, NumSides = 20, Thickness = 1, Filled = false, Color = Color3.fromRGB(255, 255, 255)})
+        data.box = nd("Square", { Thickness = 1.5, Color = Color3.fromRGB(255, 30, 40), Filled = false, Transparency = 1 })
+        data.name = nd("Text", { Size = 14, Center = true, Outline = true, Color = Color3.fromRGB(255, 255, 255) })
+        data.distance = nd("Text", { Size = 12, Center = true, Outline = true, Color = Color3.fromRGB(255, 80, 80) })
+        data.health = nd("Line", { Thickness = 3, Color = Color3.fromRGB(0, 255, 0) })
+        data.tracer = nd("Line", { Thickness = 1.2, Color = Color3.fromRGB(255, 30, 40) })
+        data.headDot = nd("Circle", { Radius = 4, NumSides = 20, Thickness = 1, Filled = false, Color = Color3.fromRGB(255, 255, 255) })
         ESP.data[p] = data
     end
 
     local function removeESP(p)
         local d = ESP.data[p]
         if not d then return end
-        if d.chams then d.chams:Destroy() end
-        for _, key in ipairs({"box", "name", "distance", "health", "tracer", "headDot"}) do
-            if d[key] and d[key].Remove then d[key]:Remove() end
+        if d.chams then pcall(function() d.chams:Destroy() end) end
+        for _, key in ipairs({ "box", "name", "distance", "health", "tracer", "headDot" }) do
+            if d[key] and d[key].Remove then pcall(function() d[key]:Remove() end) end
         end
         ESP.data[p] = nil
     end
@@ -225,7 +240,7 @@ function OperationOne.Init(ctx)
         local d = ESP.data[p]
         if not d then return end
         if not State.esp or not isEnemy(p) then
-            for _, key in ipairs({"box", "name", "distance", "health", "tracer", "headDot"}) do
+            for _, key in ipairs({ "box", "name", "distance", "health", "tracer", "headDot" }) do
                 if d[key] then d[key].Visible = false end
             end
             if d.chams then d.chams.Enabled = false end
@@ -233,7 +248,7 @@ function OperationOne.Init(ctx)
         end
         local hum = char:FindFirstChildOfClass("Humanoid")
         if not hum or hum.Health <= 0 then
-            for _, key in ipairs({"box", "name", "distance", "health", "tracer", "headDot"}) do
+            for _, key in ipairs({ "box", "name", "distance", "health", "tracer", "headDot" }) do
                 if d[key] then d[key].Visible = false end
             end
             if d.chams then d.chams.Enabled = false end
@@ -250,7 +265,7 @@ function OperationOne.Init(ctx)
         if not myR then return end
         local dist = math.floor((head.Position - myR.Position).Magnitude)
         if dist > State.espMaxDistance then
-            for _, key in ipairs({"box", "name", "distance", "health", "tracer", "headDot"}) do
+            for _, key in ipairs({ "box", "name", "distance", "health", "tracer", "headDot" }) do
                 if d[key] then d[key].Visible = false end
             end
             return
@@ -263,18 +278,24 @@ function OperationOne.Init(ctx)
             d.box.Position = Vector2.new(cx - w / 2, cy - h / 2)
             d.box.Size = Vector2.new(w, h)
             d.box.Visible = true
-        else d.box.Visible = false end
+        else
+            d.box.Visible = false
+        end
         if hOn then
             if State.espName then
                 d.name.Position = Vector2.new(hSp.X, hSp.Y - 20)
                 d.name.Text = p.Name
                 d.name.Visible = true
-            else d.name.Visible = false end
+            else
+                d.name.Visible = false
+            end
             if State.espDistance then
                 d.distance.Position = Vector2.new(hSp.X, hSp.Y - 6)
                 d.distance.Text = dist .. "m"
                 d.distance.Visible = true
-            else d.distance.Visible = false end
+            else
+                d.distance.Visible = false
+            end
             d.headDot.Position = Vector2.new(hSp.X, hSp.Y)
             d.headDot.Visible = true
         else
@@ -298,15 +319,21 @@ function OperationOne.Init(ctx)
             elseif hr > 0.3 then d.health.Color = Color3.fromRGB(255, 200, 0)
             else d.health.Color = Color3.fromRGB(255, 40, 40) end
             d.health.Visible = true
-        else d.health.Visible = false end
+        else
+            d.health.Visible = false
+        end
         if rOn and State.espTracer then
             d.tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
             d.tracer.To = Vector2.new(rSp.X, rSp.Y)
             d.tracer.Visible = true
-        else d.tracer.Visible = false end
+        else
+            d.tracer.Visible = false
+        end
     end
 
-    -- Movement functions (definidas ANTES das toggles usarem)
+    STEP(6, "ESP setup OK")
+
+    -- Movement functions
     local airJumpConn = nil
     local function startAirJump()
         if airJumpConn then airJumpConn:Disconnect() end
@@ -325,7 +352,7 @@ function OperationOne.Init(ctx)
         if airJumpConn then airJumpConn:Disconnect(); airJumpConn = nil end
     end
 
-    -- Fullbright / Optimizations functions
+    -- Optimization functions
     local origBrightness = Lighting.Brightness
     local origAmbient = Lighting.Ambient
     local origOutdoorAmbient = Lighting.OutdoorAmbient
@@ -334,7 +361,7 @@ function OperationOne.Init(ctx)
     local origAtmosphere = {}
     for _, c in ipairs(Lighting:GetChildren()) do
         if c:IsA("Atmosphere") then
-            table.insert(origAtmosphere, {obj = c, D = c.Density, H = c.Haze, G = c.Glare})
+            table.insert(origAtmosphere, { obj = c, D = c.Density, H = c.Haze, G = c.Glare })
         end
     end
 
@@ -397,11 +424,18 @@ function OperationOne.Init(ctx)
         end
     end
 
+    STEP(7, "Optimization functions OK")
+
     -- ═══════════════════════════════════════════════
-    -- TABS
+    -- ABA COMBAT
     -- ═══════════════════════════════════════════════
     local CombatTab = Window:CreateTab("Combat", "⚔️")
-    CombatTab:CreateSection("Aim")
+    if not CombatTab then
+        warn("[IZ OP1] Falha ao criar CombatTab")
+        return
+    end
+
+    CombatTab:CreateLabel("── AIM ──", Color3.fromRGB(140, 140, 155))
 
     CombatTab:CreateToggle({
         Name = "Silent Aim",
@@ -410,7 +444,6 @@ function OperationOne.Init(ctx)
         Default = false,
         Callback = function(v) State.silentAim = v end,
     })
-
     CombatTab:CreateSlider({
         Name = "Silent FOV",
         Description = "Field of view radius",
@@ -418,7 +451,6 @@ function OperationOne.Init(ctx)
         Min = 30, Max = 300, Default = 120,
         Callback = function(v) State.silentFov = v end,
     })
-
     CombatTab:CreateToggle({
         Name = "Aimbot",
         Description = "Continuous aim at closest enemy",
@@ -426,7 +458,6 @@ function OperationOne.Init(ctx)
         Default = false,
         Callback = function(v) State.aimbot = v end,
     })
-
     CombatTab:CreateSlider({
         Name = "Aimbot FOV",
         Description = "Field of view radius",
@@ -434,7 +465,6 @@ function OperationOne.Init(ctx)
         Min = 30, Max = 300, Default = 100,
         Callback = function(v) State.aimbotFov = v end,
     })
-
     CombatTab:CreateSlider({
         Name = "Aimbot Smoothness",
         Description = "Lower = snappier",
@@ -442,7 +472,6 @@ function OperationOne.Init(ctx)
         Min = 5, Max = 100, Default = 30,
         Callback = function(v) State.aimbotSmooth = v / 100 end,
     })
-
     CombatTab:CreateSlider({
         Name = "Aimbot Max Distance",
         Description = "Max range",
@@ -450,7 +479,6 @@ function OperationOne.Init(ctx)
         Min = 50, Max = 2000, Default = 500,
         Callback = function(v) State.aimbotMaxDist = v end,
     })
-
     CombatTab:CreateToggle({
         Name = "Aimbot Wall Check",
         Description = "Only aim if visible",
@@ -458,16 +486,15 @@ function OperationOne.Init(ctx)
         Default = true,
         Callback = function(v) State.aimbotWallCheck = v end,
     })
-
     CombatTab:CreateSlider({
-        Name = "Hitbox (1=Head 2=Torso 3=Nearest 4=Auto)",
+        Name = "Hitbox (1=Head 2=Torso 3=Near 4=Auto)",
         Description = "Which part to target",
         Icon = "🎯",
         Min = 1, Max = 4, Default = 1,
         Callback = function(v) State.aimbotHitbox = v end,
     })
 
-    CombatTab:CreateSection("Auto")
+    CombatTab:CreateLabel("── AUTO ──", Color3.fromRGB(140, 140, 155))
 
     CombatTab:CreateToggle({
         Name = "Triggerbot",
@@ -476,7 +503,6 @@ function OperationOne.Init(ctx)
         Default = false,
         Callback = function(v) State.triggerbot = v end,
     })
-
     CombatTab:CreateSlider({
         Name = "Triggerbot Delay",
         Description = "Reaction delay (ms)",
@@ -484,7 +510,6 @@ function OperationOne.Init(ctx)
         Min = 1, Max = 100, Default = 5,
         Callback = function(v) State.triggerbotDelay = v end,
     })
-
     CombatTab:CreateToggle({
         Name = "Auto Shoot",
         Description = "Auto-fire on visible enemies",
@@ -492,7 +517,6 @@ function OperationOne.Init(ctx)
         Default = false,
         Callback = function(v) State.autoShoot = v end,
     })
-
     CombatTab:CreateSlider({
         Name = "Auto Shoot FOV",
         Description = "FOV for auto-fire",
@@ -501,7 +525,7 @@ function OperationOne.Init(ctx)
         Callback = function(v) State.autoShootFov = v end,
     })
 
-    CombatTab:CreateSection("Hitbox")
+    CombatTab:CreateLabel("── HITBOX ──", Color3.fromRGB(140, 140, 155))
 
     CombatTab:CreateToggle({
         Name = "Head Expander",
@@ -510,7 +534,6 @@ function OperationOne.Init(ctx)
         Default = false,
         Callback = function(v) State.headExpander = v end,
     })
-
     CombatTab:CreateSlider({
         Name = "Hitbox Size",
         Description = "Multiplier",
@@ -519,10 +542,13 @@ function OperationOne.Init(ctx)
         Callback = function(v) State.headExpanderSize = v end,
     })
 
-    -- WEAPON TAB
-    local WeaponTab = Window:CreateTab("Weapon", "🔫")
-    WeaponTab:CreateSection("Recoil")
+    STEP(8, "Combat tab OK")
 
+    -- ═══════════════════════════════════════════════
+    -- ABA WEAPON
+    -- ═══════════════════════════════════════════════
+    local WeaponTab = Window:CreateTab("Weapon", "🔫")
+    WeaponTab:CreateLabel("── RECOIL ──", Color3.fromRGB(140, 140, 155))
     WeaponTab:CreateToggle({
         Name = "No Recoil",
         Description = "Remove weapon recoil",
@@ -531,10 +557,11 @@ function OperationOne.Init(ctx)
         Callback = function(v) State.noRecoil = v end,
     })
 
-    -- MOVEMENT TAB
+    -- ═══════════════════════════════════════════════
+    -- ABA MOVEMENT
+    -- ═══════════════════════════════════════════════
     local MoveTab = Window:CreateTab("Movement", "🏃")
-    MoveTab:CreateSection("Speed")
-
+    MoveTab:CreateLabel("── SPEED ──", Color3.fromRGB(140, 140, 155))
     MoveTab:CreateToggle({
         Name = "Speed",
         Description = "Custom walkspeed",
@@ -542,7 +569,6 @@ function OperationOne.Init(ctx)
         Default = false,
         Callback = function(v) State.speed = v end,
     })
-
     MoveTab:CreateSlider({
         Name = "Speed Value",
         Description = "WalkSpeed value",
@@ -551,8 +577,7 @@ function OperationOne.Init(ctx)
         Callback = function(v) State.speedValue = v end,
     })
 
-    MoveTab:CreateSection("Jump")
-
+    MoveTab:CreateLabel("── JUMP ──", Color3.fromRGB(140, 140, 155))
     MoveTab:CreateToggle({
         Name = "Infinite Jump",
         Description = "Jump mid-air infinitely",
@@ -563,7 +588,6 @@ function OperationOne.Init(ctx)
             if v then startAirJump() else stopAirJump() end
         end,
     })
-
     MoveTab:CreateSlider({
         Name = "Jump Power",
         Description = "Jump velocity",
@@ -571,7 +595,6 @@ function OperationOne.Init(ctx)
         Min = 30, Max = 300, Default = 50,
         Callback = function(v) State.jumpPower = v end,
     })
-
     MoveTab:CreateToggle({
         Name = "Auto Bhop",
         Description = "Auto-jump while holding space",
@@ -579,7 +602,6 @@ function OperationOne.Init(ctx)
         Default = false,
         Callback = function(v) State.autoBhop = v end,
     })
-
     MoveTab:CreateToggle({
         Name = "Noclip",
         Description = "Walk through walls",
@@ -588,9 +610,13 @@ function OperationOne.Init(ctx)
         Callback = function(v) State.noclip = v end,
     })
 
-    -- VISUALS TAB
+    STEP(9, "Movement tab OK")
+
+    -- ═══════════════════════════════════════════════
+    -- ABA VISUALS
+    -- ═══════════════════════════════════════════════
     local VisualsTab = Window:CreateTab("Visuals", "👁️")
-    VisualsTab:CreateSection("ESP")
+    VisualsTab:CreateLabel("── ESP ──", Color3.fromRGB(140, 140, 155))
 
     VisualsTab:CreateToggle({
         Name = "Player ESP",
@@ -603,10 +629,11 @@ function OperationOne.Init(ctx)
                 for _, p in ipairs(Players:GetPlayers()) do
                     if p ~= LocalPlayer and p.Character then createESP(p) end
                 end
-            else clearAllESP() end
+            else
+                clearAllESP()
+            end
         end,
     })
-
     VisualsTab:CreateSlider({
         Name = "ESP Max Distance",
         Description = "Render range",
@@ -614,7 +641,6 @@ function OperationOne.Init(ctx)
         Min = 100, Max = 5000, Default = 1000,
         Callback = function(v) State.espMaxDistance = v end,
     })
-
     VisualsTab:CreateToggle({
         Name = "ESP Box",
         Description = "Show box around enemies",
@@ -622,7 +648,6 @@ function OperationOne.Init(ctx)
         Default = true,
         Callback = function(v) State.espBox = v end,
     })
-
     VisualsTab:CreateToggle({
         Name = "ESP Name",
         Description = "Show player names",
@@ -630,7 +655,6 @@ function OperationOne.Init(ctx)
         Default = true,
         Callback = function(v) State.espName = v end,
     })
-
     VisualsTab:CreateToggle({
         Name = "ESP Health",
         Description = "Show health bar",
@@ -638,7 +662,6 @@ function OperationOne.Init(ctx)
         Default = true,
         Callback = function(v) State.espHealth = v end,
     })
-
     VisualsTab:CreateToggle({
         Name = "ESP Distance",
         Description = "Show distance",
@@ -646,7 +669,6 @@ function OperationOne.Init(ctx)
         Default = true,
         Callback = function(v) State.espDistance = v end,
     })
-
     VisualsTab:CreateToggle({
         Name = "ESP Tracer",
         Description = "Draw tracer lines",
@@ -655,7 +677,7 @@ function OperationOne.Init(ctx)
         Callback = function(v) State.espTracer = v end,
     })
 
-    VisualsTab:CreateSection("Environment")
+    VisualsTab:CreateLabel("── ENVIRONMENT ──", Color3.fromRGB(140, 140, 155))
 
     VisualsTab:CreateToggle({
         Name = "Fullbright",
@@ -667,7 +689,6 @@ function OperationOne.Init(ctx)
             if not v then disableFullbright() end
         end,
     })
-
     VisualsTab:CreateToggle({
         Name = "Low Graphics",
         Description = "Reduce rendering quality",
@@ -675,7 +696,6 @@ function OperationOne.Init(ctx)
         Default = false,
         Callback = function(v) State.lowGraphics = v; applyLowGraphics(v) end,
     })
-
     VisualsTab:CreateToggle({
         Name = "No Shadows",
         Description = "Remove all shadows",
@@ -683,7 +703,6 @@ function OperationOne.Init(ctx)
         Default = false,
         Callback = function(v) State.noShadows = v; applyNoShadows(v) end,
     })
-
     VisualsTab:CreateToggle({
         Name = "No Fog",
         Description = "Remove fog",
@@ -691,7 +710,6 @@ function OperationOne.Init(ctx)
         Default = false,
         Callback = function(v) State.noFog = v; applyNoFog(v) end,
     })
-
     VisualsTab:CreateToggle({
         Name = "No Particles",
         Description = "Remove particle effects",
@@ -700,9 +718,13 @@ function OperationOne.Init(ctx)
         Callback = function(v) State.noParticles = v; applyNoParticles(v) end,
     })
 
-    -- SETTINGS TAB
+    STEP(10, "Visuals tab OK")
+
+    -- ═══════════════════════════════════════════════
+    -- ABA SETTINGS
+    -- ═══════════════════════════════════════════════
     local SettingsTab = Window:CreateTab("Settings", "⚙️")
-    SettingsTab:CreateSection("Optimizations")
+    SettingsTab:CreateLabel("── OPTIMIZATIONS ──", Color3.fromRGB(140, 140, 155))
 
     SettingsTab:CreateButton({
         Name = "⚡ Max FPS Boost",
@@ -714,7 +736,6 @@ function OperationOne.Init(ctx)
             Window:Notify("⚡ Boost", "All optimizations ON", 3, "success")
         end,
     })
-
     SettingsTab:CreateButton({
         Name = "🔄 Reset Optimizations",
         Callback = function()
@@ -726,8 +747,7 @@ function OperationOne.Init(ctx)
         end,
     })
 
-    SettingsTab:CreateSection("Danger Zone")
-
+    SettingsTab:CreateLabel("── DANGER ZONE ──", Color3.fromRGB(230, 40, 40))
     SettingsTab:CreateButton({
         Name = "Unload Script",
         Danger = true,
@@ -747,12 +767,13 @@ function OperationOne.Init(ctx)
         end,
     })
 
-    -- CREDITS TAB
+    -- ═══════════════════════════════════════════════
+    -- ABA CREDITS
+    -- ═══════════════════════════════════════════════
     local CreditsTab = Window:CreateTab("Credits", "➕")
-    CreditsTab:CreateSection("Founder & Developer")
+    CreditsTab:CreateLabel("── FOUNDER & DEVELOPER ──", Color3.fromRGB(140, 140, 155))
     CreditsTab:CreateLabel("Sr Red", Color3.fromRGB(255, 50, 50))
-
-    CreditsTab:CreateSection("Community")
+    CreditsTab:CreateLabel("── COMMUNITY ──", Color3.fromRGB(140, 140, 155))
     CreditsTab:CreateLabel("discord.gg/ScZfU2mAGm", Color3.fromRGB(88, 101, 242))
     CreditsTab:CreateButton({
         Name = "📋 Copy Discord Link",
@@ -763,17 +784,17 @@ function OperationOne.Init(ctx)
             end
         end,
     })
-
-    CreditsTab:CreateSection("Version")
+    CreditsTab:CreateLabel("── VERSION ──", Color3.fromRGB(140, 140, 155))
     CreditsTab:CreateLabel(FULL_VERSION, Color3.fromRGB(140, 140, 155))
     CreditsTab:CreateLabel("© 2026 Sr Red", Color3.fromRGB(90, 90, 105))
+
+    STEP(11, "All tabs OK")
 
     -- ═══════════════════════════════════════════════
     -- COMBAT LOOPS
     -- ═══════════════════════════════════════════════
-
-    -- Silent Aim
     local silentHolding, silentTarget = false, nil
+
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not silentHolding then return end
         if not silentTarget or not silentTarget.Character then silentHolding = false; return end
@@ -793,6 +814,7 @@ function OperationOne.Init(ctx)
             silentHolding = true
         end
     end)
+
     UserInputService.InputEnded:Connect(function(input, gp)
         if UNLOADED or gp then return end
         if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
@@ -802,7 +824,6 @@ function OperationOne.Init(ctx)
         end
     end)
 
-    -- Aimbot
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.aimbot then return end
         local target = getClosestEnemyInFov(State.aimbotFov, State.aimbotWallCheck)
@@ -831,7 +852,6 @@ function OperationOne.Init(ctx)
         end
     end)
 
-    -- Triggerbot
     local triggerLast = 0
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.triggerbot then return end
@@ -854,7 +874,6 @@ function OperationOne.Init(ctx)
         end
     end)
 
-    -- Auto Shoot
     local lastAutoShot = 0
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.autoShoot then return end
@@ -866,8 +885,11 @@ function OperationOne.Init(ctx)
         end
     end)
 
+    STEP(12, "Combat loops OK")
+
     -- Head Expander
     local hitboxSaved = {}
+
     local function saveOrig(player, part)
         if not player or not part or not part:IsA("BasePart") then return end
         if not hitboxSaved[player] then hitboxSaved[player] = {} end
@@ -876,6 +898,7 @@ function OperationOne.Init(ctx)
             if ok and sz then hitboxSaved[player][part] = sz end
         end
     end
+
     local function restorePlayer(player)
         if not hitboxSaved[player] then return end
         for part, size in pairs(hitboxSaved[player]) do
@@ -885,13 +908,9 @@ function OperationOne.Init(ctx)
         end
         hitboxSaved[player] = nil
     end
-    local function restoreAllHitboxes()
-        for player, _ in pairs(hitboxSaved) do restorePlayer(player) end
-        hitboxSaved = {}
-    end
+
     local function expandPlayer(p, size)
         if not p.Character then return end
-
         local head = getBasePart(p.Character, "Head")
         if head then
             saveOrig(p, head)
@@ -905,7 +924,6 @@ function OperationOne.Init(ctx)
                 end)
             end
         end
-
         local headHB = getBasePart(p.Character, "HeadHB")
         if headHB then
             saveOrig(p, headHB)
@@ -920,7 +938,6 @@ function OperationOne.Init(ctx)
                 end)
             end
         end
-
         local hitbox = getBasePart(p.Character, "Hitbox")
         if hitbox then
             saveOrig(p, hitbox)
@@ -934,7 +951,6 @@ function OperationOne.Init(ctx)
                 end)
             end
         end
-
         local torso = getBasePart(p.Character, "UpperTorso", "Torso")
         if torso then
             saveOrig(p, torso)
@@ -1000,6 +1016,8 @@ function OperationOne.Init(ctx)
         end
     end)
 
+    STEP(13, "Head Expander + No Recoil OK")
+
     -- ESP loop
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.esp then return end
@@ -1047,7 +1065,7 @@ function OperationOne.Init(ctx)
         end
     end)
 
-    -- Fullbright loop
+    -- Fullbright
     RunService.Heartbeat:Connect(function()
         if UNLOADED then return end
         if State.fullbright then
@@ -1070,6 +1088,8 @@ function OperationOne.Init(ctx)
             end
         end
     end)
+
+    STEP(14, "✅ TUDO CARREGADO")
 
     Window:Notify("✅ " .. SHORT_VERSION, "Operation One loaded", 4, "success")
     print("[Infinite Zen] ✅ " .. FULL_VERSION .. " carregado!")
