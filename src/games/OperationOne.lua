@@ -21,17 +21,13 @@ function OperationOne.Init(ctx)
     local UserInputService = game:GetService("UserInputService")
     local VirtualInput = game:GetService("VirtualInputManager")
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    local HttpService = game:GetService("HttpService")
     local Lighting = game:GetService("Lighting")
     local LocalPlayer = Players.LocalPlayer
-    local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
     local Camera = workspace.CurrentCamera
 
     local UNLOADED = false
 
-    -- ═══════════════════════════════════════════════
-    -- TEAM CHECK
-    -- ═══════════════════════════════════════════════
+    -- Team check
     local function isEnemy(player)
         if player == LocalPlayer then return false end
         if not player.Character then return false end
@@ -43,44 +39,33 @@ function OperationOne.Init(ctx)
         return player.Team ~= myTeam
     end
 
-    -- ═══════════════════════════════════════════════
-    -- STATE
-    -- ═══════════════════════════════════════════════
+    -- State
     local State = {
-        -- Combat
         silentAim = false, silentFov = 120,
         aimbot = false, aimbotFov = 100, aimbotSmooth = 0.3,
         aimbotMaxDist = 500, aimbotHitbox = 1, aimbotWallCheck = true,
         triggerbot = false, triggerbotDelay = 5,
         autoShoot = false, autoShootFov = 100,
         headExpander = false, headExpanderSize = 3,
-        -- Weapon
         noRecoil = false,
-        -- Movement
         speed = false, speedValue = 50,
         airJump = false, jumpPower = 50,
         autoBhop = false, noclip = false,
-        -- Visuals
         esp = false, espMaxDistance = 1000,
         espBox = true, espName = true, espHealth = true,
         espDistance = true, espTracer = false,
         fullbright = false,
-        -- Optimization
         lowGraphics = false, noShadows = false, noFog = false, noParticles = false,
     }
 
-    -- ═══════════════════════════════════════════════
-    -- WINDOW
-    -- ═══════════════════════════════════════════════
+    -- Window
     local Window = UI:CreateWindow({
         Title = "INFINITE ZEN",
         Subtitle = SHORT_VERSION,
         ToggleKey = Enum.KeyCode.K,
     })
 
-    -- ═══════════════════════════════════════════════
-    -- HELPERS
-    -- ═══════════════════════════════════════════════
+    -- Helpers
     local function getBasePart(parent, ...)
         if not parent then return nil end
         for _, name in ipairs({...}) do
@@ -150,9 +135,7 @@ function OperationOne.Init(ctx)
         return true
     end
 
-    -- ═══════════════════════════════════════════════
-    -- FOV CIRCLE
-    -- ═══════════════════════════════════════════════
+    -- FOV Circle
     local fovCircle = Drawing.new("Circle")
     fovCircle.Color = Color3.fromRGB(230, 40, 40); fovCircle.Thickness = 1.5
     fovCircle.Filled = false; fovCircle.NumSides = 100; fovCircle.Transparency = 1
@@ -173,9 +156,7 @@ function OperationOne.Init(ctx)
         end
     end)
 
-    -- ═══════════════════════════════════════════════
-    -- TARGETING
-    -- ═══════════════════════════════════════════════
+    -- Targeting
     local function getClosestEnemyInFov(fovRange, requireLOS)
         local mouse = UserInputService:GetMouseLocation()
         local closest, minD = nil, fovRange
@@ -198,8 +179,226 @@ function OperationOne.Init(ctx)
         return closest
     end
 
+    -- ESP setup (antes das toggles)
+    local ESP = {data = {}}
+
+    local function createESP(p)
+        if ESP.data[p] or not p.Character then return end
+        local chams = Instance.new("Highlight")
+        chams.Adornee = p.Character
+        chams.FillColor = Color3.fromRGB(255, 30, 40)
+        chams.FillTransparency = 0.6
+        chams.OutlineColor = Color3.fromRGB(255, 255, 255)
+        chams.OutlineTransparency = 0.3
+        chams.Parent = p.Character
+        local data = {chams = chams}
+        local function nd(class, props)
+            local d = Drawing.new(class)
+            for k, v in pairs(props) do d[k] = v end
+            d.Visible = false
+            return d
+        end
+        data.box = nd("Square", {Thickness = 1.5, Color = Color3.fromRGB(255, 30, 40), Filled = false, Transparency = 1})
+        data.name = nd("Text", {Size = 14, Center = true, Outline = true, Color = Color3.fromRGB(255, 255, 255)})
+        data.distance = nd("Text", {Size = 12, Center = true, Outline = true, Color = Color3.fromRGB(255, 80, 80)})
+        data.health = nd("Line", {Thickness = 3, Color = Color3.fromRGB(0, 255, 0)})
+        data.tracer = nd("Line", {Thickness = 1.2, Color = Color3.fromRGB(255, 30, 40)})
+        data.headDot = nd("Circle", {Radius = 4, NumSides = 20, Thickness = 1, Filled = false, Color = Color3.fromRGB(255, 255, 255)})
+        ESP.data[p] = data
+    end
+
+    local function removeESP(p)
+        local d = ESP.data[p]
+        if not d then return end
+        if d.chams then d.chams:Destroy() end
+        for _, key in ipairs({"box", "name", "distance", "health", "tracer", "headDot"}) do
+            if d[key] and d[key].Remove then d[key]:Remove() end
+        end
+        ESP.data[p] = nil
+    end
+
+    local function clearAllESP()
+        for p, _ in pairs(ESP.data) do removeESP(p) end
+    end
+
+    local function updateESP(p, char)
+        local d = ESP.data[p]
+        if not d then return end
+        if not State.esp or not isEnemy(p) then
+            for _, key in ipairs({"box", "name", "distance", "health", "tracer", "headDot"}) do
+                if d[key] then d[key].Visible = false end
+            end
+            if d.chams then d.chams.Enabled = false end
+            return
+        end
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if not hum or hum.Health <= 0 then
+            for _, key in ipairs({"box", "name", "distance", "health", "tracer", "headDot"}) do
+                if d[key] then d[key].Visible = false end
+            end
+            if d.chams then d.chams.Enabled = false end
+            return
+        end
+        local head = char:FindFirstChild("Head")
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if not head or not hrp then return end
+        if d.chams then d.chams.Enabled = true end
+        local hSp, hOn = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
+        local rSp, rOn = Camera:WorldToViewportPoint(hrp.Position)
+        local fSp, fOn = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3, 0))
+        local myR = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if not myR then return end
+        local dist = math.floor((head.Position - myR.Position).Magnitude)
+        if dist > State.espMaxDistance then
+            for _, key in ipairs({"box", "name", "distance", "health", "tracer", "headDot"}) do
+                if d[key] then d[key].Visible = false end
+            end
+            return
+        end
+        if hOn and fOn and State.espBox then
+            local h = math.abs(fSp.Y - hSp.Y)
+            local w = h * 0.6
+            local cx = (hSp.X + fSp.X) / 2
+            local cy = (hSp.Y + fSp.Y) / 2
+            d.box.Position = Vector2.new(cx - w / 2, cy - h / 2)
+            d.box.Size = Vector2.new(w, h)
+            d.box.Visible = true
+        else d.box.Visible = false end
+        if hOn then
+            if State.espName then
+                d.name.Position = Vector2.new(hSp.X, hSp.Y - 20)
+                d.name.Text = p.Name
+                d.name.Visible = true
+            else d.name.Visible = false end
+            if State.espDistance then
+                d.distance.Position = Vector2.new(hSp.X, hSp.Y - 6)
+                d.distance.Text = dist .. "m"
+                d.distance.Visible = true
+            else d.distance.Visible = false end
+            d.headDot.Position = Vector2.new(hSp.X, hSp.Y)
+            d.headDot.Visible = true
+        else
+            d.name.Visible = false
+            d.distance.Visible = false
+            d.headDot.Visible = false
+        end
+        if hOn and fOn and State.espHealth then
+            local h = math.abs(fSp.Y - hSp.Y)
+            local maxHP = hum.MaxHealth
+            local hr = 1
+            if maxHP and maxHP > 0 then
+                hr = math.clamp(hum.Health / maxHP, 0, 1)
+            end
+            local bx = hSp.X + (h * 0.6) / 2 + 5
+            local by = hSp.Y + h
+            local fy = by - (h * hr)
+            d.health.From = Vector2.new(bx, fy)
+            d.health.To = Vector2.new(bx, by)
+            if hr > 0.6 then d.health.Color = Color3.fromRGB(0, 255, 0)
+            elseif hr > 0.3 then d.health.Color = Color3.fromRGB(255, 200, 0)
+            else d.health.Color = Color3.fromRGB(255, 40, 40) end
+            d.health.Visible = true
+        else d.health.Visible = false end
+        if rOn and State.espTracer then
+            d.tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+            d.tracer.To = Vector2.new(rSp.X, rSp.Y)
+            d.tracer.Visible = true
+        else d.tracer.Visible = false end
+    end
+
+    -- Movement functions (definidas ANTES das toggles usarem)
+    local airJumpConn = nil
+    local function startAirJump()
+        if airJumpConn then airJumpConn:Disconnect() end
+        airJumpConn = UserInputService.JumpRequest:Connect(function()
+            if UNLOADED or not State.airJump then return end
+            local char = LocalPlayer.Character
+            if not char then return end
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if not hrp or not hum then return end
+            if hum:GetState() == Enum.HumanoidStateType.Dead then return end
+            hrp.Velocity = Vector3.new(hrp.Velocity.X, State.jumpPower, hrp.Velocity.Z)
+        end)
+    end
+    local function stopAirJump()
+        if airJumpConn then airJumpConn:Disconnect(); airJumpConn = nil end
+    end
+
+    -- Fullbright / Optimizations functions
+    local origBrightness = Lighting.Brightness
+    local origAmbient = Lighting.Ambient
+    local origOutdoorAmbient = Lighting.OutdoorAmbient
+    local origClockTime = Lighting.ClockTime
+    local origGlobalShadows = Lighting.GlobalShadows
+    local origAtmosphere = {}
+    for _, c in ipairs(Lighting:GetChildren()) do
+        if c:IsA("Atmosphere") then
+            table.insert(origAtmosphere, {obj = c, D = c.Density, H = c.Haze, G = c.Glare})
+        end
+    end
+
+    local function disableFullbright()
+        Lighting.Brightness = origBrightness
+        Lighting.Ambient = origAmbient
+        Lighting.OutdoorAmbient = origOutdoorAmbient
+        Lighting.ClockTime = origClockTime
+        Lighting.GlobalShadows = origGlobalShadows
+        for _, data in ipairs(origAtmosphere) do
+            if data.obj and data.obj.Parent then
+                pcall(function()
+                    data.obj.Density = data.D; data.obj.Haze = data.H; data.obj.Glare = data.G
+                end)
+            end
+        end
+    end
+
+    local optBackup = {
+        fogEnd = Lighting.FogEnd, fogStart = Lighting.FogStart,
+        qualityLevel = nil, particles = {},
+    }
+    pcall(function() optBackup.qualityLevel = settings().Rendering.QualityLevel end)
+
+    local function applyLowGraphics(v)
+        if v then pcall(function() settings().Rendering.QualityLevel = Enum.QualityLevel.Level01 end)
+        elseif optBackup.qualityLevel then pcall(function() settings().Rendering.QualityLevel = optBackup.qualityLevel end) end
+    end
+    local function applyNoShadows(v)
+        pcall(function() Lighting.GlobalShadows = not v end)
+        for _, d in ipairs(workspace:GetDescendants()) do
+            if d:IsA("BasePart") and d.Name ~= "HumanoidRootPart" then
+                pcall(function() d.CastShadow = not v end)
+            end
+        end
+    end
+    local function applyNoFog(v)
+        if v then
+            Lighting.FogEnd = 100000; Lighting.FogStart = 0
+            for _, c in ipairs(Lighting:GetChildren()) do
+                if c:IsA("Atmosphere") then c.Density = 0; c.Haze = 0; c.Glare = 0 end
+            end
+        else
+            Lighting.FogEnd = optBackup.fogEnd; Lighting.FogStart = optBackup.fogStart
+        end
+    end
+    local function applyNoParticles(v)
+        if v then
+            for _, d in ipairs(workspace:GetDescendants()) do
+                if d:IsA("ParticleEmitter") or d:IsA("Fire") or d:IsA("Smoke") or d:IsA("Sparkles") or d:IsA("Trail") then
+                    if optBackup.particles[d] == nil then optBackup.particles[d] = d.Enabled end
+                    pcall(function() d.Enabled = false end)
+                end
+            end
+        else
+            for obj, orig in pairs(optBackup.particles) do
+                if obj and obj.Parent then pcall(function() obj.Enabled = orig end) end
+            end
+            optBackup.particles = {}
+        end
+    end
+
     -- ═══════════════════════════════════════════════
-    -- ABA: COMBAT
+    -- TABS
     -- ═══════════════════════════════════════════════
     local CombatTab = Window:CreateTab("Combat", "⚔️")
     CombatTab:CreateSection("Aim")
@@ -260,13 +459,12 @@ function OperationOne.Init(ctx)
         Callback = function(v) State.aimbotWallCheck = v end,
     })
 
-    CombatTab:CreateDropdown({
-        Name = "Hitbox",
+    CombatTab:CreateSlider({
+        Name = "Hitbox (1=Head 2=Torso 3=Nearest 4=Auto)",
         Description = "Which part to target",
         Icon = "🎯",
-        Options = {"Head", "Torso", "Nearest", "Auto"},
-        Default = 1,
-        Callback = function(_, idx) State.aimbotHitbox = idx end,
+        Min = 1, Max = 4, Default = 1,
+        Callback = function(v) State.aimbotHitbox = v end,
     })
 
     CombatTab:CreateSection("Auto")
@@ -281,7 +479,7 @@ function OperationOne.Init(ctx)
 
     CombatTab:CreateSlider({
         Name = "Triggerbot Delay",
-        Description = "Reaction delay",
+        Description = "Reaction delay (ms)",
         Icon = "⏱️",
         Min = 1, Max = 100, Default = 5,
         Callback = function(v) State.triggerbotDelay = v end,
@@ -321,9 +519,7 @@ function OperationOne.Init(ctx)
         Callback = function(v) State.headExpanderSize = v end,
     })
 
-    -- ═══════════════════════════════════════════════
-    -- ABA: WEAPON
-    -- ═══════════════════════════════════════════════
+    -- WEAPON TAB
     local WeaponTab = Window:CreateTab("Weapon", "🔫")
     WeaponTab:CreateSection("Recoil")
 
@@ -335,9 +531,7 @@ function OperationOne.Init(ctx)
         Callback = function(v) State.noRecoil = v end,
     })
 
-    -- ═══════════════════════════════════════════════
-    -- ABA: MOVEMENT
-    -- ═══════════════════════════════════════════════
+    -- MOVEMENT TAB
     local MoveTab = Window:CreateTab("Movement", "🏃")
     MoveTab:CreateSection("Speed")
 
@@ -394,9 +588,7 @@ function OperationOne.Init(ctx)
         Callback = function(v) State.noclip = v end,
     })
 
-    -- ═══════════════════════════════════════════════
-    -- ABA: VISUALS
-    -- ═══════════════════════════════════════════════
+    -- VISUALS TAB
     local VisualsTab = Window:CreateTab("Visuals", "👁️")
     VisualsTab:CreateSection("ESP")
 
@@ -508,9 +700,7 @@ function OperationOne.Init(ctx)
         Callback = function(v) State.noParticles = v; applyNoParticles(v) end,
     })
 
-    -- ═══════════════════════════════════════════════
-    -- ABA: SETTINGS
-    -- ═══════════════════════════════════════════════
+    -- SETTINGS TAB
     local SettingsTab = Window:CreateTab("Settings", "⚙️")
     SettingsTab:CreateSection("Optimizations")
 
@@ -557,9 +747,7 @@ function OperationOne.Init(ctx)
         end,
     })
 
-    -- ═══════════════════════════════════════════════
-    -- ABA: CREDITS
-    -- ═══════════════════════════════════════════════
+    -- CREDITS TAB
     local CreditsTab = Window:CreateTab("Credits", "➕")
     CreditsTab:CreateSection("Founder & Developer")
     CreditsTab:CreateLabel("Sr Red", Color3.fromRGB(255, 50, 50))
@@ -704,7 +892,6 @@ function OperationOne.Init(ctx)
     local function expandPlayer(p, size)
         if not p.Character then return end
 
-        -- Head
         local head = getBasePart(p.Character, "Head")
         if head then
             saveOrig(p, head)
@@ -719,7 +906,6 @@ function OperationOne.Init(ctx)
             end
         end
 
-        -- HeadHB (hitbox extra)
         local headHB = getBasePart(p.Character, "HeadHB")
         if headHB then
             saveOrig(p, headHB)
@@ -735,7 +921,6 @@ function OperationOne.Init(ctx)
             end
         end
 
-        -- Hitbox
         local hitbox = getBasePart(p.Character, "Hitbox")
         if hitbox then
             saveOrig(p, hitbox)
@@ -750,7 +935,6 @@ function OperationOne.Init(ctx)
             end
         end
 
-        -- Torso
         local torso = getBasePart(p.Character, "UpperTorso", "Torso")
         if torso then
             saveOrig(p, torso)
@@ -801,9 +985,10 @@ function OperationOne.Init(ctx)
                 end
             end
         end)
-        if ReplicatedStorage:FindFirstChild("Weapons") then
+        local rsWeapons = ReplicatedStorage:FindFirstChild("Weapons")
+        if rsWeapons then
             pcall(function()
-                for _, d in ipairs(ReplicatedStorage.Weapons:GetDescendants()) do
+                for _, d in ipairs(rsWeapons:GetDescendants()) do
                     if d:IsA("NumberValue") or d:IsA("IntValue") then
                         local n = d.Name:lower()
                         if n:find("recoil") or n:find("kick") or n:find("spread") then
@@ -815,135 +1000,7 @@ function OperationOne.Init(ctx)
         end
     end)
 
-    -- ═══════════════════════════════════════════════
-    -- ESP
-    -- ═══════════════════════════════════════════════
-    local ESP = {data = {}}
-
-    function createESP(p)
-        if ESP.data[p] or not p.Character then return end
-        local chams = Instance.new("Highlight")
-        chams.Adornee = p.Character
-        chams.FillColor = Color3.fromRGB(255, 30, 40)
-        chams.FillTransparency = 0.6
-        chams.OutlineColor = Color3.fromRGB(255, 255, 255)
-        chams.OutlineTransparency = 0.3
-        chams.Parent = p.Character
-        local data = {chams = chams}
-        local function nd(class, props)
-            local d = Drawing.new(class)
-            for k, v in pairs(props) do d[k] = v end
-            d.Visible = false
-            return d
-        end
-        data.box = nd("Square", {Thickness = 1.5, Color = Color3.fromRGB(255, 30, 40), Filled = false, Transparency = 1})
-        data.name = nd("Text", {Size = 14, Center = true, Outline = true, Color = Color3.fromRGB(255, 255, 255)})
-        data.distance = nd("Text", {Size = 12, Center = true, Outline = true, Color = Color3.fromRGB(255, 80, 80)})
-        data.health = nd("Line", {Thickness = 3, Color = Color3.fromRGB(0, 255, 0)})
-        data.tracer = nd("Line", {Thickness = 1.2, Color = Color3.fromRGB(255, 30, 40)})
-        data.headDot = nd("Circle", {Radius = 4, NumSides = 20, Thickness = 1, Filled = false, Color = Color3.fromRGB(255, 255, 255)})
-        ESP.data[p] = data
-    end
-
-    function removeESP(p)
-        local d = ESP.data[p]
-        if not d then return end
-        if d.chams then d.chams:Destroy() end
-        for _, key in ipairs({"box", "name", "distance", "health", "tracer", "headDot"}) do
-            if d[key] and d[key].Remove then d[key]:Remove() end
-        end
-        ESP.data[p] = nil
-    end
-
-    function clearAllESP()
-        for p, _ in pairs(ESP.data) do removeESP(p) end
-    end
-
-    function updateESP(p, char)
-        local d = ESP.data[p]
-        if not d then return end
-        if not State.esp or not isEnemy(p) then
-            for _, key in ipairs({"box", "name", "distance", "health", "tracer", "headDot"}) do
-                if d[key] then d[key].Visible = false end
-            end
-            if d.chams then d.chams.Enabled = false end
-            return
-        end
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if not hum or hum.Health <= 0 then
-            for _, key in ipairs({"box", "name", "distance", "health", "tracer", "headDot"}) do
-                if d[key] then d[key].Visible = false end
-            end
-            if d.chams then d.chams.Enabled = false end
-            return
-        end
-        local head = char:FindFirstChild("Head")
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        if not head or not hrp then return end
-        if d.chams then d.chams.Enabled = true end
-        local hSp, hOn = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
-        local rSp, rOn = Camera:WorldToViewportPoint(hrp.Position)
-        local fSp, fOn = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3, 0))
-        local myR = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if not myR then return end
-        local dist = math.floor((head.Position - myR.Position).Magnitude)
-        if dist > State.espMaxDistance then
-            for _, key in ipairs({"box", "name", "distance", "health", "tracer", "headDot"}) do
-                if d[key] then d[key].Visible = false end
-            end
-            return
-        end
-        if hOn and fOn and State.espBox then
-            local h = math.abs(fSp.Y - hSp.Y)
-            local w = h * 0.6
-            local cx = (hSp.X + fSp.X) / 2
-            local cy = (hSp.Y + fSp.Y) / 2
-            d.box.Position = Vector2.new(cx - w / 2, cy - h / 2)
-            d.box.Size = Vector2.new(w, h)
-            d.box.Visible = true
-        else d.box.Visible = false end
-        if hOn then
-            if State.espName then
-                d.name.Position = Vector2.new(hSp.X, hSp.Y - 20)
-                d.name.Text = p.Name
-                d.name.Visible = true
-            else d.name.Visible = false end
-            if State.espDistance then
-                d.distance.Position = Vector2.new(hSp.X, hSp.Y - 6)
-                d.distance.Text = dist .. "m"
-                d.distance.Visible = true
-            else d.distance.Visible = false end
-            d.headDot.Position = Vector2.new(hSp.X, hSp.Y)
-            d.headDot.Visible = true
-        else
-            d.name.Visible = false
-            d.distance.Visible = false
-            d.headDot.Visible = false
-        end
-        if hOn and fOn and State.espHealth then
-            local h = math.abs(fSp.Y - hSp.Y)
-            local maxHP = hum.MaxHealth
-            local hr = 1
-            if maxHP and maxHP > 0 then
-                hr = math.clamp(hum.Health / maxHP, 0, 1)
-            end
-            local bx = hSp.X + (h * 0.6) / 2 + 5
-            local by = hSp.Y + h
-            local fy = by - (h * hr)
-            d.health.From = Vector2.new(bx, fy)
-            d.health.To = Vector2.new(bx, by)
-            if hr > 0.6 then d.health.Color = Color3.fromRGB(0, 255, 0)
-            elseif hr > 0.3 then d.health.Color = Color3.fromRGB(255, 200, 0)
-            else d.health.Color = Color3.fromRGB(255, 40, 40) end
-            d.health.Visible = true
-        else d.health.Visible = false end
-        if rOn and State.espTracer then
-            d.tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
-            d.tracer.To = Vector2.new(rSp.X, rSp.Y)
-            d.tracer.Visible = true
-        else d.tracer.Visible = false end
-    end
-
+    -- ESP loop
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.esp then return end
         pcall(function()
@@ -957,9 +1014,7 @@ function OperationOne.Init(ctx)
     end)
     Players.PlayerRemoving:Connect(function(p) removeESP(p) end)
 
-    -- ═══════════════════════════════════════════════
-    -- MOVEMENT
-    -- ═══════════════════════════════════════════════
+    -- Movement loops
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.speed then return end
         local char = LocalPlayer.Character
@@ -968,24 +1023,6 @@ function OperationOne.Init(ctx)
             if hum and hum.WalkSpeed ~= State.speedValue then hum.WalkSpeed = State.speedValue end
         end
     end)
-
-    local airJumpConn = nil
-    function startAirJump()
-        if airJumpConn then airJumpConn:Disconnect() end
-        airJumpConn = UserInputService.JumpRequest:Connect(function()
-            if UNLOADED or not State.airJump then return end
-            local char = LocalPlayer.Character
-            if not char then return end
-            local hrp = char:FindFirstChild("HumanoidRootPart")
-            local hum = char:FindFirstChildOfClass("Humanoid")
-            if not hrp or not hum then return end
-            if hum:GetState() == Enum.HumanoidStateType.Dead then return end
-            hrp.Velocity = Vector3.new(hrp.Velocity.X, State.jumpPower, hrp.Velocity.Z)
-        end)
-    end
-    function stopAirJump()
-        if airJumpConn then airJumpConn:Disconnect(); airJumpConn = nil end
-    end
 
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.autoBhop then return end
@@ -1010,21 +1047,7 @@ function OperationOne.Init(ctx)
         end
     end)
 
-    -- ═══════════════════════════════════════════════
-    -- FULLBRIGHT / OPTIMIZATIONS
-    -- ═══════════════════════════════════════════════
-    local origBrightness = Lighting.Brightness
-    local origAmbient = Lighting.Ambient
-    local origOutdoorAmbient = Lighting.OutdoorAmbient
-    local origClockTime = Lighting.ClockTime
-    local origGlobalShadows = Lighting.GlobalShadows
-    local origAtmosphere = {}
-    for _, c in ipairs(Lighting:GetChildren()) do
-        if c:IsA("Atmosphere") then
-            table.insert(origAtmosphere, {obj = c, D = c.Density, H = c.Haze, G = c.Glare})
-        end
-    end
-
+    -- Fullbright loop
     RunService.Heartbeat:Connect(function()
         if UNLOADED then return end
         if State.fullbright then
@@ -1039,65 +1062,6 @@ function OperationOne.Init(ctx)
         end
     end)
 
-    function disableFullbright()
-        Lighting.Brightness = origBrightness
-        Lighting.Ambient = origAmbient
-        Lighting.OutdoorAmbient = origOutdoorAmbient
-        Lighting.ClockTime = origClockTime
-        Lighting.GlobalShadows = origGlobalShadows
-        for _, data in ipairs(origAtmosphere) do
-            if data.obj and data.obj.Parent then
-                pcall(function()
-                    data.obj.Density = data.D; data.obj.Haze = data.H; data.obj.Glare = data.G
-                end)
-            end
-        end
-    end
-
-    local optBackup = {
-        fogEnd = Lighting.FogEnd, fogStart = Lighting.FogStart,
-        qualityLevel = nil, particles = {},
-    }
-    pcall(function() optBackup.qualityLevel = settings().Rendering.QualityLevel end)
-
-    function applyLowGraphics(v)
-        if v then pcall(function() settings().Rendering.QualityLevel = Enum.QualityLevel.Level01 end)
-        elseif optBackup.qualityLevel then pcall(function() settings().Rendering.QualityLevel = optBackup.qualityLevel end) end
-    end
-    function applyNoShadows(v)
-        pcall(function() Lighting.GlobalShadows = not v end)
-        for _, d in ipairs(workspace:GetDescendants()) do
-            if d:IsA("BasePart") and d.Name ~= "HumanoidRootPart" then
-                pcall(function() d.CastShadow = not v end)
-            end
-        end
-    end
-    function applyNoFog(v)
-        if v then
-            Lighting.FogEnd = 100000; Lighting.FogStart = 0
-            for _, c in ipairs(Lighting:GetChildren()) do
-                if c:IsA("Atmosphere") then c.Density = 0; c.Haze = 0; c.Glare = 0 end
-            end
-        else
-            Lighting.FogEnd = optBackup.fogEnd; Lighting.FogStart = optBackup.fogStart
-        end
-    end
-    function applyNoParticles(v)
-        if v then
-            for _, d in ipairs(workspace:GetDescendants()) do
-                if d:IsA("ParticleEmitter") or d:IsA("Fire") or d:IsA("Smoke") or d:IsA("Sparkles") or d:IsA("Trail") then
-                    if optBackup.particles[d] == nil then optBackup.particles[d] = d.Enabled end
-                    pcall(function() d.Enabled = false end)
-                end
-            end
-        else
-            for obj, orig in pairs(optBackup.particles) do
-                if obj and obj.Parent then pcall(function() obj.Enabled = orig end) end
-            end
-            optBackup.particles = {}
-        end
-    end
-
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.noParticles then return end
         for _, d in ipairs(workspace:GetDescendants()) do
@@ -1107,7 +1071,7 @@ function OperationOne.Init(ctx)
         end
     end)
 
-    Window:Notify("✅ " .. SHORT_VERSION, "Operation One loaded successfully", 4, "success")
+    Window:Notify("✅ " .. SHORT_VERSION, "Operation One loaded", 4, "success")
     print("[Infinite Zen] ✅ " .. FULL_VERSION .. " carregado!")
 end
 
