@@ -19,12 +19,13 @@ local CONFIG = {
         [14939963714] = {name = "Jailbird", module = "jailbird"},
         [142823291] = {name = "Murder Mystery 2", module = "mm2"},
         [114234929420007] = {name = "BloxStrike", module = "bloxstrike"},
-        [72920620366355] = {name = "Operation One", module = "operationone"},
+        [8307114974] = {name = "Operation One", module = "operationone"},
     }
 }
 
 local placeId = game.PlaceId
-local gameInfo = CONFIG.SUPPORTED_GAMES[placeId]
+local gameId = game.GameId
+local gameInfo = CONFIG.SUPPORTED_GAMES[placeId] or CONFIG.SUPPORTED_GAMES[gameId]
 
 local function loadModule(path)
     local url = CONFIG.REPO .. "/" .. path
@@ -58,7 +59,7 @@ Language.setLanguage(CONFIG.DEFAULT_LANG)
 
 -- Jogo não suportado
 if not gameInfo then
-    warn("[Infinite Zen] Jogo não suportado! PlaceId: " .. placeId)
+    warnwarn("[Infinite Zen] Jogo não suportado! PlaceId: " .. placeId .. " | GameId: " .. gameId)
 
     local gui = Instance.new("ScreenGui")
     gui.Name = "InfiniteZen_Unsupported"
@@ -107,7 +108,7 @@ if not gameInfo then
     pid.Size = UDim2.new(1, -40, 0, 16)
     pid.Position = UDim2.new(0, 20, 0, 120)
     pid.BackgroundTransparency = 1
-    pid.Text = "PlaceId: " .. placeId
+    pid.Text = "PlaceId: " .. placeId .. " | GameId: " .. gameId
     pid.TextColor3 = Color3.fromRGB(100, 105, 120)
     pid.TextSize = 11
     pid.Font = Enum.Font.Gotham
