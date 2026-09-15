@@ -18,7 +18,8 @@ local CONFIG = {
         [286090429] = {name = "Arsenal", module = "arsenal"},
         [14939963714] = {name = "Jailbird", module = "jailbird"},
         [142823291] = {name = "Murder Mystery 2", module = "mm2"},
-        [114234929420007] = {name = "BloxStrike", module = "bloxstrike"}
+        [114234929420007] = {name = "BloxStrike", module = "bloxstrike"},
+        [72920620366355] = {name = "Operation One", module = "operationone"},
     }
 }
 
