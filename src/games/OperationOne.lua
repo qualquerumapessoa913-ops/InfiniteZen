@@ -27,9 +27,9 @@ function OperationOne.Init(ctx)
 
     local UNLOADED = false
 
-    -- ============================================
+    -- ═══════════════════════════════════════════════
     -- HELPERS
-    -- ============================================
+    -- ═══════════════════════════════════════════════
     local function getBasePart(parent, ...)
         if not parent then return nil end
         for _, name in ipairs({...}) do
@@ -70,9 +70,9 @@ function OperationOne.Init(ctx)
 
     STEP(2, "Helpers OK")
 
-    -- ============================================
+    -- ═══════════════════════════════════════════════
     -- STATE
-    -- ============================================
+    -- ═══════════════════════════════════════════════
     local State = {
         silentAim = false, silentFov = 120,
         aimbot = false, aimbotFov = 100, aimbotSmooth = 0.3,
@@ -134,9 +134,9 @@ function OperationOne.Init(ctx)
 
     STEP(3, "State + helpers OK")
 
-    -- ============================================
+    -- ═══════════════════════════════════════════════
     -- WINDOW
-    -- ============================================
+    -- ═══════════════════════════════════════════════
     if not UI or type(UI.CreateWindow) ~= "function" then
         warn("[IZ OP1] UI inválida")
         return
@@ -153,9 +153,9 @@ function OperationOne.Init(ctx)
     end
     STEP(4, "Window OK")
 
-    -- ============================================
+    -- ═══════════════════════════════════════════════
     -- FOV CIRCLE
-    -- ============================================
+    -- ═══════════════════════════════════════════════
     local fovCircle = Drawing.new("Circle")
     fovCircle.Color = Color3.fromRGB(230, 40, 40); fovCircle.Thickness = 1.5
     fovCircle.Filled = false; fovCircle.NumSides = 100; fovCircle.Transparency = 1
@@ -176,9 +176,9 @@ function OperationOne.Init(ctx)
         end
     end)
 
-    -- ============================================
+    -- ═══════════════════════════════════════════════
     -- TARGETING
-    -- ============================================
+    -- ═══════════════════════════════════════════════
     local function getClosestEnemyInFov(fovRange, requireLOS)
         local mouse = UserInputService:GetMouseLocation()
         local closest, minD = nil, fovRange
@@ -203,9 +203,9 @@ function OperationOne.Init(ctx)
 
     STEP(5, "Targeting OK")
 
-    -- ============================================
+    -- ═══════════════════════════════════════════════
     -- ESP
-    -- ============================================
+    -- ═══════════════════════════════════════════════
     local ESP = { data = {} }
 
     local function createESP(p)
@@ -344,9 +344,9 @@ function OperationOne.Init(ctx)
 
     STEP(6, "ESP setup OK")
 
-    -- ============================================
-    -- MOVEMENT FUNCTIONS
-    -- ============================================
+    -- ═══════════════════════════════════════════════
+    -- MOVEMENT + OPTIMIZATION FUNCTIONS
+    -- ═══════════════════════════════════════════════
     local airJumpConn = nil
     local function startAirJump()
         if airJumpConn then airJumpConn:Disconnect() end
@@ -365,9 +365,6 @@ function OperationOne.Init(ctx)
         if airJumpConn then airJumpConn:Disconnect(); airJumpConn = nil end
     end
 
-    -- ============================================
-    -- OPTIMIZATION FUNCTIONS
-    -- ============================================
     local origBrightness = Lighting.Brightness
     local origAmbient = Lighting.Ambient
     local origOutdoorAmbient = Lighting.OutdoorAmbient
@@ -441,9 +438,9 @@ function OperationOne.Init(ctx)
 
     STEP(7, "Functions OK")
 
-    -- ============================================
-    -- TAB COMBAT
-    -- ============================================
+    -- ═══════════════════════════════════════════════
+    -- ABA: COMBAT
+    -- ═══════════════════════════════════════════════
     local CombatTab = Window:CreateTab("Combat", "⚔️")
     if not CombatTab then
         warn("[IZ OP1] Falha ao criar CombatTab")
@@ -451,194 +448,146 @@ function OperationOne.Init(ctx)
     end
 
     CombatTab:CreateSection("Aim")
-
     CombatTab:CreateToggle({
         Name = "Silent Aim",
         Description = "Lock aim when holding click",
-        Icon = "🎯",
-        Default = false,
+        Icon = "🎯", Default = false,
         Callback = function(v) State.silentAim = v end,
     })
     CombatTab:CreateSlider({
-        Name = "Silent FOV",
-        Description = "Field of view radius",
-        Icon = "📐",
-        Min = 30, Max = 300, Default = 120,
+        Name = "Silent FOV", Description = "Field of view radius",
+        Icon = "📐", Min = 30, Max = 300, Default = 120,
         Callback = function(v) State.silentFov = v end,
     })
     CombatTab:CreateToggle({
-        Name = "Aimbot",
-        Description = "Continuous aim at closest enemy",
-        Icon = "🤖",
-        Default = false,
+        Name = "Aimbot", Description = "Continuous aim at closest enemy",
+        Icon = "🤖", Default = false,
         Callback = function(v) State.aimbot = v end,
     })
     CombatTab:CreateSlider({
-        Name = "Aimbot FOV",
-        Description = "Field of view radius",
-        Icon = "📐",
-        Min = 30, Max = 300, Default = 100,
+        Name = "Aimbot FOV", Description = "Field of view radius",
+        Icon = "📐", Min = 30, Max = 300, Default = 100,
         Callback = function(v) State.aimbotFov = v end,
     })
     CombatTab:CreateSlider({
-        Name = "Aimbot Smoothness",
-        Description = "Lower = snappier",
-        Icon = "🎚️",
-        Min = 5, Max = 100, Default = 30,
+        Name = "Aimbot Smoothness", Description = "Lower = snappier",
+        Icon = "🎚️", Min = 5, Max = 100, Default = 30,
         Callback = function(v) State.aimbotSmooth = v / 100 end,
     })
     CombatTab:CreateSlider({
-        Name = "Aimbot Max Distance",
-        Description = "Max range",
-        Icon = "📏",
-        Min = 50, Max = 2000, Default = 500,
+        Name = "Aimbot Max Distance", Description = "Max range",
+        Icon = "📏", Min = 50, Max = 2000, Default = 500,
         Callback = function(v) State.aimbotMaxDist = v end,
     })
     CombatTab:CreateToggle({
-        Name = "Aimbot Wall Check",
-        Description = "Only aim if visible",
-        Icon = "🧱",
-        Default = true,
+        Name = "Aimbot Wall Check", Description = "Only aim if visible",
+        Icon = "🧱", Default = true,
         Callback = function(v) State.aimbotWallCheck = v end,
     })
     CombatTab:CreateDropdown({
-        Name = "Hitbox",
-        Description = "Which part to target",
-        Icon = "🎯",
-        Options = { "Head", "Torso", "Nearest", "Auto" },
-        Default = 1,
+        Name = "Hitbox", Description = "Which part to target",
+        Icon = "🎯", Options = { "Head", "Torso", "Nearest", "Auto" }, Default = 1,
         Callback = function(opt, idx) State.aimbotHitbox = idx end,
     })
 
     CombatTab:CreateSection("Auto")
-
     CombatTab:CreateToggle({
-        Name = "Triggerbot",
-        Description = "Auto-fire when crosshair over target",
-        Icon = "🎯",
-        Default = false,
+        Name = "Triggerbot", Description = "Auto-fire when crosshair over target",
+        Icon = "🎯", Default = false,
         Callback = function(v) State.triggerbot = v end,
     })
     CombatTab:CreateSlider({
-        Name = "Triggerbot Delay",
-        Description = "Reaction delay (ms)",
-        Icon = "⏱️",
-        Min = 1, Max = 100, Default = 5,
+        Name = "Triggerbot Delay", Description = "Reaction delay (ms)",
+        Icon = "⏱️", Min = 1, Max = 100, Default = 5,
         Callback = function(v) State.triggerbotDelay = v end,
     })
     CombatTab:CreateToggle({
-        Name = "Auto Shoot",
-        Description = "Auto-fire on visible enemies",
-        Icon = "🔥",
-        Default = false,
+        Name = "Auto Shoot", Description = "Auto-fire on visible enemies",
+        Icon = "🔥", Default = false,
         Callback = function(v) State.autoShoot = v end,
     })
     CombatTab:CreateSlider({
-        Name = "Auto Shoot FOV",
-        Description = "FOV for auto-fire",
-        Icon = "📐",
-        Min = 30, Max = 300, Default = 100,
+        Name = "Auto Shoot FOV", Description = "FOV for auto-fire",
+        Icon = "📐", Min = 30, Max = 300, Default = 100,
         Callback = function(v) State.autoShootFov = v end,
     })
 
     CombatTab:CreateSection("Hitbox")
-
     CombatTab:CreateToggle({
-        Name = "Head Expander",
-        Description = "Enlarge enemy hitboxes",
-        Icon = "🔴",
-        Default = false,
+        Name = "Head Expander", Description = "Enlarge enemy hitboxes",
+        Icon = "🔴", Default = false,
         Callback = function(v) State.headExpander = v end,
     })
     CombatTab:CreateSlider({
-        Name = "Hitbox Size",
-        Description = "Multiplier",
-        Icon = "📏",
-        Min = 1, Max = 5, Default = 3,
+        Name = "Hitbox Size", Description = "Multiplier",
+        Icon = "📏", Min = 1, Max = 5, Default = 3,
         Callback = function(v) State.headExpanderSize = v end,
     })
 
     STEP(8, "Combat tab OK")
 
-    -- ============================================
-    -- TAB WEAPON
-    -- ============================================
+    -- ═══════════════════════════════════════════════
+    -- ABA: WEAPON
+    -- ═══════════════════════════════════════════════
     local WeaponTab = Window:CreateTab("Weapon", "🔫")
     WeaponTab:CreateSection("Recoil")
     WeaponTab:CreateToggle({
-        Name = "No Recoil",
-        Description = "Remove weapon recoil",
-        Icon = "🎯",
-        Default = false,
+        Name = "No Recoil", Description = "Remove weapon recoil",
+        Icon = "🎯", Default = false,
         Callback = function(v) State.noRecoil = v end,
     })
 
-    -- ============================================
-    -- TAB MOVEMENT
-    -- ============================================
+    -- ═══════════════════════════════════════════════
+    -- ABA: MOVEMENT
+    -- ═══════════════════════════════════════════════
     local MoveTab = Window:CreateTab("Movement", "🏃")
     MoveTab:CreateSection("Speed")
     MoveTab:CreateToggle({
-        Name = "Speed",
-        Description = "Custom walkspeed",
-        Icon = "⚡",
-        Default = false,
+        Name = "Speed", Description = "Custom walkspeed",
+        Icon = "⚡", Default = false,
         Callback = function(v) State.speed = v end,
     })
     MoveTab:CreateSlider({
-        Name = "Speed Value",
-        Description = "WalkSpeed value",
-        Icon = "📏",
-        Min = 16, Max = 300, Default = 50,
+        Name = "Speed Value", Description = "WalkSpeed value",
+        Icon = "📏", Min = 16, Max = 300, Default = 50,
         Callback = function(v) State.speedValue = v end,
     })
 
     MoveTab:CreateSection("Jump")
     MoveTab:CreateToggle({
-        Name = "Infinite Jump",
-        Description = "Jump mid-air infinitely",
-        Icon = "🦘",
-        Default = false,
+        Name = "Infinite Jump", Description = "Jump mid-air infinitely",
+        Icon = "🦘", Default = false,
         Callback = function(v)
             State.airJump = v
             if v then startAirJump() else stopAirJump() end
         end,
     })
     MoveTab:CreateSlider({
-        Name = "Jump Power",
-        Description = "Jump velocity",
-        Icon = "📏",
-        Min = 30, Max = 300, Default = 50,
+        Name = "Jump Power", Description = "Jump velocity",
+        Icon = "📏", Min = 30, Max = 300, Default = 50,
         Callback = function(v) State.jumpPower = v end,
     })
     MoveTab:CreateToggle({
-        Name = "Auto Bhop",
-        Description = "Auto-jump while holding space",
-        Icon = "🏃",
-        Default = false,
+        Name = "Auto Bhop", Description = "Auto-jump while holding space",
+        Icon = "🏃", Default = false,
         Callback = function(v) State.autoBhop = v end,
     })
     MoveTab:CreateToggle({
-        Name = "Noclip",
-        Description = "Walk through walls",
-        Icon = "👻",
-        Default = false,
+        Name = "Noclip", Description = "Walk through walls",
+        Icon = "👻", Default = false,
         Callback = function(v) State.noclip = v end,
     })
 
     STEP(9, "Movement tab OK")
 
-    -- ============================================
-    -- TAB VISUALS
-    -- ============================================
+    -- ═══════════════════════════════════════════════
+    -- ABA: VISUALS
+    -- ═══════════════════════════════════════════════
     local VisualsTab = Window:CreateTab("Visuals", "👁️")
     VisualsTab:CreateSection("ESP")
-
     VisualsTab:CreateToggle({
-        Name = "Player ESP",
-        Description = "Highlight enemies",
-        Icon = "👤",
-        Default = false,
+        Name = "Player ESP", Description = "Highlight enemies",
+        Icon = "👤", Default = false,
         Callback = function(v)
             State.esp = v
             if v then
@@ -651,97 +600,73 @@ function OperationOne.Init(ctx)
         end,
     })
     VisualsTab:CreateSlider({
-        Name = "ESP Max Distance",
-        Description = "Render range",
-        Icon = "📐",
-        Min = 100, Max = 5000, Default = 1000,
+        Name = "ESP Max Distance", Description = "Render range",
+        Icon = "📐", Min = 100, Max = 5000, Default = 1000,
         Callback = function(v) State.espMaxDistance = v end,
     })
     VisualsTab:CreateToggle({
-        Name = "ESP Box",
-        Description = "Show box around enemies",
-        Icon = "⬜",
-        Default = true,
+        Name = "ESP Box", Description = "Show box around enemies",
+        Icon = "⬜", Default = true,
         Callback = function(v) State.espBox = v end,
     })
     VisualsTab:CreateToggle({
-        Name = "ESP Name",
-        Description = "Show player names",
-        Icon = "📛",
-        Default = true,
+        Name = "ESP Name", Description = "Show player names",
+        Icon = "📛", Default = true,
         Callback = function(v) State.espName = v end,
     })
     VisualsTab:CreateToggle({
-        Name = "ESP Health",
-        Description = "Show health bar",
-        Icon = "❤️",
-        Default = true,
+        Name = "ESP Health", Description = "Show health bar",
+        Icon = "❤️", Default = true,
         Callback = function(v) State.espHealth = v end,
     })
     VisualsTab:CreateToggle({
-        Name = "ESP Distance",
-        Description = "Show distance",
-        Icon = "📏",
-        Default = true,
+        Name = "ESP Distance", Description = "Show distance",
+        Icon = "📏", Default = true,
         Callback = function(v) State.espDistance = v end,
     })
     VisualsTab:CreateToggle({
-        Name = "ESP Tracer",
-        Description = "Draw tracer lines",
-        Icon = "📡",
-        Default = false,
+        Name = "ESP Tracer", Description = "Draw tracer lines",
+        Icon = "📡", Default = false,
         Callback = function(v) State.espTracer = v end,
     })
 
     VisualsTab:CreateSection("Environment")
-
     VisualsTab:CreateToggle({
-        Name = "Fullbright",
-        Description = "Map always bright",
-        Icon = "💡",
-        Default = false,
+        Name = "Fullbright", Description = "Map always bright",
+        Icon = "💡", Default = false,
         Callback = function(v)
             State.fullbright = v
             if not v then disableFullbright() end
         end,
     })
     VisualsTab:CreateToggle({
-        Name = "Low Graphics",
-        Description = "Reduce rendering quality",
-        Icon = "📉",
-        Default = false,
+        Name = "Low Graphics", Description = "Reduce rendering quality",
+        Icon = "📉", Default = false,
         Callback = function(v) State.lowGraphics = v; applyLowGraphics(v) end,
     })
     VisualsTab:CreateToggle({
-        Name = "No Shadows",
-        Description = "Remove all shadows",
-        Icon = "🌑",
-        Default = false,
+        Name = "No Shadows", Description = "Remove all shadows",
+        Icon = "🌑", Default = false,
         Callback = function(v) State.noShadows = v; applyNoShadows(v) end,
     })
     VisualsTab:CreateToggle({
-        Name = "No Fog",
-        Description = "Remove fog",
-        Icon = "🌫️",
-        Default = false,
+        Name = "No Fog", Description = "Remove fog",
+        Icon = "🌫️", Default = false,
         Callback = function(v) State.noFog = v; applyNoFog(v) end,
     })
     VisualsTab:CreateToggle({
-        Name = "No Particles",
-        Description = "Remove particle effects",
-        Icon = "✨",
-        Default = false,
+        Name = "No Particles", Description = "Remove particle effects",
+        Icon = "✨", Default = false,
         Callback = function(v) State.noParticles = v; applyNoParticles(v) end,
     })
 
     STEP(10, "Visuals tab OK")
 
-    -- ============================================
-    -- TAB SETTINGS
-    -- ============================================
+    -- ═══════════════════════════════════════════════
+    -- ABA: SETTINGS
+    -- ═══════════════════════════════════════════════
     local SettingsTab = Window:CreateTab("Settings", "⚙️")
     SettingsTab:CreateSection("Optimizations")
-
     SettingsTab:CreateButton({
         Name = "⚡ Max FPS Boost",
         Callback = function()
@@ -764,7 +689,6 @@ function OperationOne.Init(ctx)
     })
 
     SettingsTab:CreateSection("Danger Zone")
-
     SettingsTab:CreateButton({
         Name = "Unload Script",
         Danger = true,
@@ -784,12 +708,13 @@ function OperationOne.Init(ctx)
         end,
     })
 
-    -- ============================================
-    -- TAB CREDITS
-    -- ============================================
+    -- ═══════════════════════════════════════════════
+    -- ABA: CREDITS
+    -- ═══════════════════════════════════════════════
     local CreditsTab = Window:CreateTab("Credits", "➕")
     CreditsTab:CreateSection("Founder & Developer")
     CreditsTab:CreateLabel("Sr Red", Color3.fromRGB(255, 50, 50))
+
     CreditsTab:CreateSection("Community")
     CreditsTab:CreateLabel("discord.gg/ScZfU2mAGm", Color3.fromRGB(88, 101, 242))
     CreditsTab:CreateButton({
@@ -801,15 +726,16 @@ function OperationOne.Init(ctx)
             end
         end,
     })
+
     CreditsTab:CreateSection("Version")
     CreditsTab:CreateLabel(FULL_VERSION, Color3.fromRGB(140, 140, 155))
     CreditsTab:CreateLabel("© 2026 Sr Red", Color3.fromRGB(90, 90, 105))
 
     STEP(11, "All tabs OK")
 
-    -- ============================================
+    -- ═══════════════════════════════════════════════
     -- COMBAT LOOPS
-    -- ============================================
+    -- ═══════════════════════════════════════════════
     local silentHolding, silentTarget = false, nil
 
     RunService.RenderStepped:Connect(function()
@@ -904,9 +830,9 @@ function OperationOne.Init(ctx)
 
     STEP(12, "Combat loops OK")
 
-    -- ============================================
+    -- ═══════════════════════════════════════════════
     -- HEAD EXPANDER
-    -- ============================================
+    -- ═══════════════════════════════════════════════
     local hitboxSaved = {}
 
     local function saveOrig(player, part)
@@ -1005,9 +931,9 @@ function OperationOne.Init(ctx)
 
     STEP(13, "Head Expander OK")
 
-    -- ============================================
+    -- ═══════════════════════════════════════════════
     -- NO RECOIL
-    -- ============================================
+    -- ═══════════════════════════════════════════════
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.noRecoil then return end
         local char = LocalPlayer.Character
@@ -1039,9 +965,9 @@ function OperationOne.Init(ctx)
         end
     end)
 
-    -- ============================================
+    -- ═══════════════════════════════════════════════
     -- ESP LOOP
-    -- ============================================
+    -- ═══════════════════════════════════════════════
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.esp then return end
         pcall(function()
@@ -1055,9 +981,9 @@ function OperationOne.Init(ctx)
     end)
     Players.PlayerRemoving:Connect(function(p) removeESP(p) end)
 
-    -- ============================================
+    -- ═══════════════════════════════════════════════
     -- MOVEMENT LOOPS
-    -- ============================================
+    -- ═══════════════════════════════════════════════
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.speed then return end
         local char = LocalPlayer.Character
@@ -1090,9 +1016,9 @@ function OperationOne.Init(ctx)
         end
     end)
 
-    -- ============================================
+    -- ═══════════════════════════════════════════════
     -- FULLBRIGHT LOOP
-    -- ============================================
+    -- ═══════════════════════════════════════════════
     RunService.Heartbeat:Connect(function()
         if UNLOADED then return end
         if State.fullbright then

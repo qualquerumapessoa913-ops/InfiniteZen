@@ -21,7 +21,7 @@ local CONFIG = {
         [142823291] = {name = "Murder Mystery 2", module = "mm2"},
         [114234929420007] = {name = "BloxStrike", module = "bloxstrike"},
         -- GameIds (pra jogos com múltiplos lugares)
-        [8307114974] = {name = "Operation One", module = "operationone"},
+        [8307114974] = {name = "Operation One", module = "OperationOne"},
     }
 }
 
