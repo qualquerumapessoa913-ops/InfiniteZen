@@ -1,5 +1,5 @@
 -- ============================================================
--- INFINITE ZEN - ARSENAL v1.3 (UI Sync Fix Final)
+-- INFINITE ZEN - ARSENAL v1.3 (UI Sync Fix)
 -- ============================================================
 
 local Arsenal = {}
@@ -31,41 +31,20 @@ function Arsenal.Init(ctx)
     local IS_MOBILE = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
     -- ═══════════════════════════════════════════════
-    -- UI ELEMENTS REGISTRY (compatível com Infinite Zen UI Lib)
+    -- UI ELEMENTS REGISTRY
+    -- UI Lib expõe SetState/SetValue como funções SEM self,
+    -- então chamamos com PONTO (.) e não dois pontos (:)
     -- ═══════════════════════════════════════════════
     local Elements = {}
 
-    -- Toggles: chama SetState(v) — o callback interna roda os efeitos colaterais
     local function setToggle(el, val)
-        if not el then return false end
-        if type(el.SetState) == "function" then
-            return pcall(function() el:SetState(val) end)
-        end
-        return false
+        if not el or type(el.SetState) ~= "function" then return false end
+        return pcall(function() el.SetState(val) end)
     end
 
-    -- Sliders: chama SetValue(v)
     local function setSlider(el, val)
-        if not el then return false end
-        if type(el.SetValue) == "function" then
-            return pcall(function() el:SetValue(val) end)
-        end
-        return false
-    end
-
-    -- Fallback genérico
-    local function setElementValue(el, val)
-        if not el then return false end
-        if type(el.SetState) == "function" then
-            return pcall(function() el:SetState(val) end)
-        end
-        if type(el.SetValue) == "function" then
-            return pcall(function() el:SetValue(val) end)
-        end
-        if type(el.Set) == "function" then
-            return pcall(function() el:Set(val) end)
-        end
-        return false
+        if not el or type(el.SetValue) ~= "function" then return false end
+        return pcall(function() el.SetValue(val) end)
     end
 
     local function reg(id, el)
@@ -823,7 +802,6 @@ function Arsenal.Init(ctx)
     local function syncUIFromState()
         local okCount, failCount = 0, 0
 
-        -- TOGGLES (usa SetState)
         local toggles = {
             "silentHeadshot", "aimbot", "headExpander", "backstab",
             "noRecoil", "rapidFire", "fastReload", "instaReload",
@@ -843,7 +821,6 @@ function Arsenal.Init(ctx)
             end
         end
 
-        -- SLIDERS (usa SetValue)
         local sliders = {
             "silentFov", "headExpanderSize", "autoShootFov",
             "speedValue", "espMaxDistance",
@@ -889,13 +866,11 @@ function Arsenal.Init(ctx)
             for k, v in pairs(data.keybinds) do State.keybinds[k] = v end
         end
 
-        -- Aplica efeitos de otimização ANTES da UI
         if State.lowGraphics then applyLowGraphics(true) end
         if State.noShadows then applyNoShadows(true) end
         if State.noFog then applyNoFog(true) end
         if State.noParticles then applyNoParticles(true) end
 
-        -- 🔧 Sincroniza a UI imediatamente
         syncUIFromState()
 
         Window:Notify("📂 Load", "Loaded: " .. name, 3, "info")
@@ -1351,7 +1326,6 @@ function Arsenal.Init(ctx)
             State.noShadows = true; applyNoShadows(true)
             State.noFog = true; applyNoFog(true)
             State.noParticles = true; applyNoParticles(true)
-            -- Sincroniza a UI também
             syncUIFromState()
             Window:Notify("⚡ Boost", "All optimizations ON", 3, "success")
         end,
@@ -1364,7 +1338,6 @@ function Arsenal.Init(ctx)
             State.noShadows = false; applyNoShadows(false)
             State.noFog = false; applyNoFog(false)
             State.noParticles = false; applyNoParticles(false)
-            -- Sincroniza a UI também
             syncUIFromState()
             Window:Notify("Reset", "Optimizations reset", 3, "info")
         end,
@@ -1438,10 +1411,7 @@ function Arsenal.Init(ctx)
             task.wait(1)
             local ok = loadConfigNamed(autoloadName)
             if ok then
-                -- Reforça sync em múltiplos frames pra garantir que os callbacks rodaram
                 task.wait(0.1)
-                pcall(syncUIFromState)
-                task.wait(0.3)
                 pcall(syncUIFromState)
                 Window:Notify("⚡ Autoload", "Config aplicado: " .. autoloadName, 3, "success")
             end
