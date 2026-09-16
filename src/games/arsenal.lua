@@ -1,5 +1,5 @@
 -- ============================================================
--- INFINITE ZEN - ARSENAL v1.3 (UI Sync Fix)
+-- INFINITE ZEN - ARSENAL v1.3 (UI Sync Fix Final)
 -- ============================================================
 
 local Arsenal = {}
@@ -31,35 +31,43 @@ function Arsenal.Init(ctx)
     local IS_MOBILE = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
     -- ═══════════════════════════════════════════════
-    -- UI ELEMENTS REGISTRY (NOVO)
-    -- Guarda referência de cada toggle/slider pra sincronizar depois
+    -- UI ELEMENTS REGISTRY (compatível com Infinite Zen UI Lib)
     -- ═══════════════════════════════════════════════
     local Elements = {}
 
-    -- Helper: tenta vários métodos comuns de libs de UI (Obsidian, etc)
-    local function setElementValue(el, val)
+    -- Toggles: chama SetState(v) — o callback interna roda os efeitos colaterais
+    local function setToggle(el, val)
         if not el then return false end
-        local ok = false
-        -- Obsidian usa :Set(value)
-        if type(el.Set) == "function" then
-            ok = pcall(function() el:Set(val) end)
+        if type(el.SetState) == "function" then
+            return pcall(function() el:SetState(val) end)
         end
-        -- fallback :SetValue
-        if not ok and type(el.SetValue) == "function" then
-            ok = pcall(function() el:SetValue(val) end)
-        end
-        -- fallback :SetState
-        if not ok and type(el.SetState) == "function" then
-            ok = pcall(function() el:SetState(val) end)
-        end
-        -- fallback: propriedade direta .Value
-        if not ok and type(el) == "table" and rawget(el, "Value") ~= nil then
-            ok = pcall(function() el.Value = val end)
-        end
-        return ok
+        return false
     end
 
-    -- Helper: registra elemento + retorna
+    -- Sliders: chama SetValue(v)
+    local function setSlider(el, val)
+        if not el then return false end
+        if type(el.SetValue) == "function" then
+            return pcall(function() el:SetValue(val) end)
+        end
+        return false
+    end
+
+    -- Fallback genérico
+    local function setElementValue(el, val)
+        if not el then return false end
+        if type(el.SetState) == "function" then
+            return pcall(function() el:SetState(val) end)
+        end
+        if type(el.SetValue) == "function" then
+            return pcall(function() el:SetValue(val) end)
+        end
+        if type(el.Set) == "function" then
+            return pcall(function() el:Set(val) end)
+        end
+        return false
+    end
+
     local function reg(id, el)
         if id and el then Elements[id] = el end
         return el
@@ -810,50 +818,50 @@ function Arsenal.Init(ctx)
     local function getAutoloadPath() return AUTOLOAD_FILE end
 
     -- ═══════════════════════════════════════════════
-    -- 🔧 SINCRONIZAÇÃO DA UI (NOVO - CORREÇÃO DO BUG)
-    -- Aplica State nos elementos visuais da UI sem disparar efeitos colaterais errados
+    -- SINCRONIZA A UI COM O STATE
     -- ═══════════════════════════════════════════════
     local function syncUIFromState()
-        -- Toggles
-        local toggleMap = {
-            silentHeadshot = "silentHeadshot",
-            aimbot = "aimbot",
-            headExpander = "headExpander",
-            backstab = "backstab",
-            noRecoil = "noRecoil",
-            rapidFire = "rapidFire",
-            fastReload = "fastReload",
-            instaReload = "instaReload",
-            autoShoot = "autoShoot",
-            speed = "speed",
-            airJump = "airJump",
-            esp = "esp",
-            lowGraphics = "lowGraphics",
-            noShadows = "noShadows",
-            noFog = "noFog",
-            noParticles = "noParticles",
+        local okCount, failCount = 0, 0
+
+        -- TOGGLES (usa SetState)
+        local toggles = {
+            "silentHeadshot", "aimbot", "headExpander", "backstab",
+            "noRecoil", "rapidFire", "fastReload", "instaReload",
+            "autoShoot", "speed", "airJump", "esp",
+            "lowGraphics", "noShadows", "noFog", "noParticles",
         }
-        for stateKey, elemKey in pairs(toggleMap) do
-            local el = Elements[elemKey]
-            if el and State[stateKey] ~= nil then
-                setElementValue(el, State[stateKey])
+        for _, key in ipairs(toggles) do
+            local el = Elements[key]
+            local val = State[key]
+            if el and val ~= nil then
+                if setToggle(el, val) then
+                    okCount = okCount + 1
+                else
+                    failCount = failCount + 1
+                    warn("[IZ Sync] Falha ao sincronizar toggle: " .. key)
+                end
             end
         end
 
-        -- Sliders
-        local sliderMap = {
-            silentFov = "silentFov",
-            headExpanderSize = "headExpanderSize",
-            autoShootFov = "autoShootFov",
-            speedValue = "speedValue",
-            espMaxDistance = "espMaxDistance",
+        -- SLIDERS (usa SetValue)
+        local sliders = {
+            "silentFov", "headExpanderSize", "autoShootFov",
+            "speedValue", "espMaxDistance",
         }
-        for stateKey, elemKey in pairs(sliderMap) do
-            local el = Elements[elemKey]
-            if el and State[stateKey] ~= nil then
-                setElementValue(el, State[stateKey])
+        for _, key in ipairs(sliders) do
+            local el = Elements[key]
+            local val = State[key]
+            if el and val ~= nil then
+                if setSlider(el, val) then
+                    okCount = okCount + 1
+                else
+                    failCount = failCount + 1
+                    warn("[IZ Sync] Falha ao sincronizar slider: " .. key)
+                end
             end
         end
+
+        print(string.format("[IZ Sync] UI sincronizada: %d OK, %d falhas", okCount, failCount))
     end
 
     local function saveConfigNamed(name)
@@ -873,6 +881,7 @@ function Arsenal.Init(ctx)
         if not ok or not content then Window:Notify("⚠️ Error", "Config not found", 4, "error"); return false end
         local success, data = pcall(function() return HttpService:JSONDecode(content) end)
         if not success or not data then Window:Notify("⚠️ Error", "Corrupted", 4, "error"); return false end
+
         if data.state then
             for k, v in pairs(data.state) do State[k] = v end
         end
@@ -880,20 +889,14 @@ function Arsenal.Init(ctx)
             for k, v in pairs(data.keybinds) do State.keybinds[k] = v end
         end
 
-        -- Aplica efeitos de otimização
+        -- Aplica efeitos de otimização ANTES da UI
         if State.lowGraphics then applyLowGraphics(true) end
         if State.noShadows then applyNoShadows(true) end
         if State.noFog then applyNoFog(true) end
         if State.noParticles then applyNoParticles(true) end
 
-        -- 🔧 CORREÇÃO: sincroniza a UI visual com o State carregado
-        task.defer(function()
-            syncUIFromState()
-        end)
-        -- Fallback: agenda também no próximo frame, caso elementos ainda não estejam prontos
-        task.delay(0.1, function()
-            pcall(syncUIFromState)
-        end)
+        -- 🔧 Sincroniza a UI imediatamente
+        syncUIFromState()
 
         Window:Notify("📂 Load", "Loaded: " .. name, 3, "info")
         return true
@@ -1348,7 +1351,7 @@ function Arsenal.Init(ctx)
             State.noShadows = true; applyNoShadows(true)
             State.noFog = true; applyNoFog(true)
             State.noParticles = true; applyNoParticles(true)
-            -- 🔧 sincroniza a UI
+            -- Sincroniza a UI também
             syncUIFromState()
             Window:Notify("⚡ Boost", "All optimizations ON", 3, "success")
         end,
@@ -1361,7 +1364,7 @@ function Arsenal.Init(ctx)
             State.noShadows = false; applyNoShadows(false)
             State.noFog = false; applyNoFog(false)
             State.noParticles = false; applyNoParticles(false)
-            -- 🔧 sincroniza a UI
+            -- Sincroniza a UI também
             syncUIFromState()
             Window:Notify("Reset", "Optimizations reset", 3, "info")
         end,
@@ -1433,7 +1436,15 @@ function Arsenal.Init(ctx)
         local autoloadName = getAutoload()
         if autoloadName then
             task.wait(1)
-            loadConfigNamed(autoloadName)
+            local ok = loadConfigNamed(autoloadName)
+            if ok then
+                -- Reforça sync em múltiplos frames pra garantir que os callbacks rodaram
+                task.wait(0.1)
+                pcall(syncUIFromState)
+                task.wait(0.3)
+                pcall(syncUIFromState)
+                Window:Notify("⚡ Autoload", "Config aplicado: " .. autoloadName, 3, "success")
+            end
         end
     end)
 
