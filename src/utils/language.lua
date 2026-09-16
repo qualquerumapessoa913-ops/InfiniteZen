@@ -1,16 +1,16 @@
 -- ============================================================
--- INFINITE ZEN - SISTEMA DE IDIOMAS (MULTI-LANG) v3.1
+-- INFINITE ZEN - SISTEMA DE IDIOMAS v3.2
+-- Lista fixa + Emoji + Auto-download do JSON
 -- ============================================================
 
 local HttpService = game:GetService("HttpService")
 
 local Language = {}
-
 Language.current = "en"
 Language.listeners = {}
 
 -- ═══════════════════════════════════════════════════════════
--- REGISTRO DE IDIOMAS (SEMPRE APARECEM NA LISTA)
+-- LISTA FIXA (SEMPRE APARECE — COM EMOJI)
 -- ═══════════════════════════════════════════════════════════
 Language.languages = {
     { code="en",    flag="🇺🇸", displayName="English (US)" },
@@ -34,24 +34,17 @@ Language.languages = {
     { code="se",    flag="🇸🇪", displayName="Svenska (SE)" },
     { code="ro",    flag="🇷🇴", displayName="Română (RO)" },
 }
+
 -- ═══════════════════════════════════════════════════════════
--- TRADUÇÕES (EN + PT-BR HARDCODED)
+-- EN + PT-BR (HARDCODED)
 -- ═══════════════════════════════════════════════════════════
 Language.translations = {
     ["en"] = {
-        flag = "US", displayName = "English (US)", shortCode = "US",
-        hub_name = "INFINITE ZEN", hub_subtitle = "Multi-Game Edition",
-        language_label = "Language", unsupported_title = "Unsupported Game",
-        unsupported_message_pt = "Este jogo não é suportado pelo Infinite Zen.",
-        unsupported_message_en = "This game is not supported by Infinite Zen.",
-        error_title = "Error", load_title = "Load", config_title = "Config",
-        no_enemy = "No enemy found", unload_script = "Unload Script", version_text = "Infinite Zen v3.0",
-
+        flag="🇺🇸", displayName="English (US)",
         ["tab.combat"]="Combat", ["tab.weapon"]="Weapon", ["tab.movement"]="Movement",
         ["tab.visuals"]="Visuals", ["tab.settings"]="Settings", ["tab.language"]="Language",
         ["tab.credits"]="Credits", ["tab.skins"]="Skins", ["tab.utils"]="Utils",
         ["tab.sheriff"]="Sheriff", ["tab.murderer"]="Murderer", ["tab.innocent"]="Innocent",
-
         ["section.aim"]="Aim", ["section.auto"]="Auto", ["section.hitbox"]="Hitbox",
         ["section.melee"]="Melee", ["section.recoil"]="Recoil", ["section.firerate"]="Fire Rate",
         ["section.reload"]="Reload", ["section.ammo"]="Ammo", ["section.bulletmods"]="Bullet Mods",
@@ -63,7 +56,6 @@ Language.translations = {
         ["section.danger"]="Danger Zone", ["section.language_select"]="Language",
         ["section.language_info"]="Info", ["section.founder"]="Founder & Developer",
         ["section.community"]="Community", ["section.version"]="Version",
-
         ["silent.name"]="Silent Aim", ["silent.desc"]="Auto-lock aim when holding click",
         ["silentfov.name"]="Silent FOV", ["silentfov.desc"]="Field of view radius",
         ["aimbot.name"]="Aimbot", ["aimbot.desc"]="Camera lock on closest enemy",
@@ -116,7 +108,6 @@ Language.translations = {
         ["lang.current"]="🌐 Current: ", ["lang.hint"]="Choose the hub language (applies instantly).",
         ["lang.saved_to"]="Language saved to:", ["lang.auto_restore"]="Auto-restored on open.",
         ["credits.copy_discord"]="📋 Copy Discord Link", ["credits.role"]="Sr Red",
-
         ["mm2.show.murderer"]="Show Murderer", ["mm2.show.sheriff"]="Show Sheriff", ["mm2.show.innocent"]="Show Innocent",
         ["mm2.murderer.alert"]="Murderer Alert", ["mm2.murderer.alert.desc"]="Alert when killer is nearby",
         ["mm2.murderer.alert.range"]="Alert Range",
@@ -126,25 +117,16 @@ Language.translations = {
         ["mm2.autograb.name"]="Auto Grab Gun", ["mm2.autograb.desc"]="Grab dropped gun",
         ["mm2.autograb.range"]="Grab Range",
         ["mm2.role.murderer"]="Murderer", ["mm2.role.sheriff"]="Sheriff", ["mm2.role.innocent"]="Innocent",
-
         ["jb.esp.armor"]="Armor ESP", ["jb.esp.armor.desc"]="Show enemy armor value",
         ["jb.esp.grenades"]="Grenade ESP", ["jb.esp.grenades.desc"]="Show nearby grenades",
         ["bs.esp.weapon"]="Weapon ESP", ["bs.esp.armor"]="Armor ESP",
     },
     ["pt-br"] = {
-        flag = "BR", displayName = "Português (BR)", shortCode = "BR",
-        hub_name = "INFINITE ZEN", hub_subtitle = "Edição Multi-Jogos",
-        language_label = "Idioma", unsupported_title = "Jogo Não Suportado",
-        unsupported_message_pt = "Este jogo não é suportado pelo Infinite Zen.",
-        unsupported_message_en = "This game is not supported by Infinite Zen.",
-        error_title = "Erro", load_title = "Carregar", config_title = "Config",
-        no_enemy = "Nenhum inimigo", unload_script = "Descarregar Script", version_text = "Infinite Zen v3.0",
-
+        flag="🇧🇷", displayName="Português (BR)",
         ["tab.combat"]="Combate", ["tab.weapon"]="Arma", ["tab.movement"]="Movimento",
         ["tab.visuals"]="Visual", ["tab.settings"]="Config", ["tab.language"]="Idioma",
         ["tab.credits"]="Créditos", ["tab.skins"]="Skins", ["tab.utils"]="Utils",
         ["tab.sheriff"]="Xerife", ["tab.murderer"]="Assassino", ["tab.innocent"]="Inocente",
-
         ["section.aim"]="Mira", ["section.auto"]="Auto", ["section.hitbox"]="Hitbox",
         ["section.melee"]="Corpo a corpo", ["section.recoil"]="Recuo", ["section.firerate"]="Cadência",
         ["section.reload"]="Recarga", ["section.ammo"]="Munição", ["section.bulletmods"]="Mods de Bala",
@@ -156,7 +138,6 @@ Language.translations = {
         ["section.danger"]="Zona de Perigo", ["section.language_select"]="Idioma",
         ["section.language_info"]="Info", ["section.founder"]="Fundador & Desenvolvedor",
         ["section.community"]="Comunidade", ["section.version"]="Versão",
-
         ["silent.name"]="Mira Silenciosa", ["silent.desc"]="Trava a mira ao segurar clique",
         ["silentfov.name"]="FOV Silencioso", ["silentfov.desc"]="Raio do campo de visão",
         ["aimbot.name"]="Aimbot", ["aimbot.desc"]="Trava câmera no inimigo mais próximo",
@@ -209,7 +190,6 @@ Language.translations = {
         ["lang.current"]="🌐 Atual: ", ["lang.hint"]="Escolha o idioma do hub (aplica na hora e é salvo).",
         ["lang.saved_to"]="Idioma salvo em:", ["lang.auto_restore"]="É restaurado ao abrir o hub.",
         ["credits.copy_discord"]="📋 Copiar Link do Discord", ["credits.role"]="Sr Red",
-
         ["mm2.show.murderer"]="Mostrar Assassino", ["mm2.show.sheriff"]="Mostrar Xerife", ["mm2.show.innocent"]="Mostrar Inocente",
         ["mm2.murderer.alert"]="Alerta do Assassino", ["mm2.murderer.alert.desc"]="Avisa quando o assassino tá perto",
         ["mm2.murderer.alert.range"]="Alcance do Alerta",
@@ -219,7 +199,6 @@ Language.translations = {
         ["mm2.autograb.name"]="Pegar Arma Auto", ["mm2.autograb.desc"]="Pega a arma do Xerife quando cai",
         ["mm2.autograb.range"]="Alcance de Pegar",
         ["mm2.role.murderer"]="Assassino", ["mm2.role.sheriff"]="Xerife", ["mm2.role.innocent"]="Inocente",
-
         ["jb.esp.armor"]="ESP de Armadura", ["jb.esp.armor.desc"]="Mostra o valor da armadura do inimigo",
         ["jb.esp.grenades"]="ESP de Granada", ["jb.esp.grenades.desc"]="Mostra granadas próximas",
         ["bs.esp.weapon"]="ESP de Arma", ["bs.esp.armor"]="ESP de Armadura",
@@ -227,29 +206,73 @@ Language.translations = {
 }
 
 -- ═══════════════════════════════════════════════════════════
--- CARREGA JSON EXTERNO
+-- AUTO-CRIAR TABELAS VAZIAS pros 20 idiomas
+-- Assim setLanguage("es") sempre aceita (cai pro EN via fallback)
+-- ═══════════════════════════════════════════════════════════
+for _, info in ipairs(Language.languages) do
+    if not Language.translations[info.code] then
+        Language.translations[info.code] = {
+            flag = info.flag,
+            displayName = info.displayName,
+        }
+    end
+end
+
+-- ═══════════════════════════════════════════════════════════
+-- CARREGA JSON (local → senão baixa do GitHub)
 -- ═══════════════════════════════════════════════════════════
 local EXTRA_FILE = "InfiniteZen_Translations.json"
+local GITHUB_URL = "https://raw.githubusercontent.com/qualquerumapessoa913-ops/InfiniteZen/Moon-Angel/InfiniteZen_Translations.json"
+
+local function tryReadLocal()
+    if not readfile then return nil end
+    local paths = {
+        EXTRA_FILE,
+        "workspace/" .. EXTRA_FILE,
+        "InfiniteZen/" .. EXTRA_FILE,
+        "/" .. EXTRA_FILE,
+    }
+    for _, path in ipairs(paths) do
+        local ok, raw = pcall(readfile, path)
+        if ok and raw and raw ~= "" then
+            print("[IZ Lang] ✅ JSON lido de: " .. path)
+            return raw
+        end
+    end
+    return nil
+end
+
+local function tryDownload()
+    if not game.HttpGet then return nil end
+    local ok, raw = pcall(function()
+        return game:HttpGet(GITHUB_URL, true)
+    end)
+    if ok and raw and raw ~= "" and not raw:find("404") then
+        print("[IZ Lang] ✅ JSON baixado do GitHub")
+        -- Salva local pra próxima execução
+        if writefile then
+            pcall(writefile, EXTRA_FILE, raw)
+        end
+        return raw
+    end
+    return nil
+end
 
 local function loadExtraTranslations()
-    if not readfile or not isfile then
-        warn("[IZ Lang] readfile/isfile indisponível — só EN + PT-BR")
-        return
+    local raw = tryReadLocal()
+
+    if not raw then
+        raw = tryDownload()
     end
-    if not isfile(EXTRA_FILE) then
-        warn("[IZ Lang] " .. EXTRA_FILE .. " não encontrado — só EN + PT-BR")
+
+    if not raw then
+        warn("[IZ Lang] ⚠️ Não consegui obter o JSON (nem local nem GitHub) — só EN + PT-BR")
         return
     end
 
-    local ok, raw = pcall(readfile, EXTRA_FILE)
-    if not ok or not raw or raw == "" then
-        warn("[IZ Lang] Falha ao ler " .. EXTRA_FILE)
-        return
-    end
-
-    local ok2, data = pcall(function() return HttpService:JSONDecode(raw) end)
-    if not ok2 or type(data) ~= "table" then
-        warn("[IZ Lang] JSON corrompido: " .. EXTRA_FILE)
+    local ok, data = pcall(function() return HttpService:JSONDecode(raw) end)
+    if not ok or type(data) ~= "table" then
+        warn("[IZ Lang] JSON corrompido")
         return
     end
 
@@ -261,7 +284,7 @@ local function loadExtraTranslations()
         end
         count = count + 1
     end
-    print("[IZ Lang] ✅ " .. count .. " idiomas extras carregados do JSON")
+    print("[IZ Lang] ✅ " .. count .. " idiomas extras carregados")
 end
 
 loadExtraTranslations()
@@ -272,8 +295,7 @@ loadExtraTranslations()
 local LANG_FILE = "InfiniteZen_Language.txt"
 
 local function loadSavedLanguage()
-    if not readfile or not isfile then return end
-    if not isfile(LANG_FILE) then return end
+    if not readfile then return end
     local ok, content = pcall(readfile, LANG_FILE)
     if ok and content and content ~= "" then
         local code = content:gsub("%s+", "")
@@ -298,8 +320,9 @@ function Language.get(key)
 end
 
 function Language.setLanguage(code)
+    -- Sempre aceita porque a gente auto-populou translations[code]
     if not Language.translations[code] then
-        print("[LANG] Código não encontrado: " .. tostring(code))
+        print("[LANG] Código não existe: " .. tostring(code))
         return false
     end
     Language.current = code
@@ -315,7 +338,6 @@ end
 function Language.getCurrent() return Language.current end
 function Language.getCurrentData() return Language.translations[Language.current] end
 
--- ⭐ Retorna SEMPRE os 20 idiomas registrados (mesmo se o JSON falhou)
 function Language.getAvailable()
     local list = {}
     for _, info in ipairs(Language.languages) do
@@ -323,9 +345,7 @@ function Language.getAvailable()
             code = info.code,
             flag = info.flag,
             displayName = info.displayName,
-            shortCode = info.flag,
-            -- Avisa se tem tradução carregada (JSON merge) ou só fallback EN
-            hasTranslation = (Language.translations[info.code] ~= nil),
+            shortCode = info.code:upper(),
         })
     end
     return list
