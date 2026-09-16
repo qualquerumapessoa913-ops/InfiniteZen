@@ -48,7 +48,7 @@ end
 -- ═══ LOAD COMPAT LAYER ═══
 local Compat
 local okCompat, CompatResult = pcall(function()
-    return loadModule("utils/compat.lua")()
+    return loadModule("src/utils/compat.lua")()
 end)
 if okCompat and CompatResult then
     Compat = CompatResult
@@ -92,7 +92,6 @@ end
 
 -- ═══ LOAD LANGUAGE ═══
 local Language = loadModule("src/utils/language.lua")()
-Language.setLanguage(CONFIG.DEFAULT_LANG)
 
 -- ═══ UNSUPPORTED GAME ═══
 if not gameInfo then
