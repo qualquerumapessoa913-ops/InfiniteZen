@@ -1,5 +1,5 @@
 -- ============================================================
--- INFINITE ZEN - ARSENAL v1.2 (UI Nova)
+-- INFINITE ZEN - ARSENAL v1.3 (UI Sync Fix)
 -- ============================================================
 
 local Arsenal = {}
@@ -10,7 +10,7 @@ function Arsenal.Init(ctx)
     local Compat = ctx.Compat
     local gameName = ctx.gameName
 
-    local GAME_VERSION = "1.2"
+    local GAME_VERSION = "1.3"
     local FULL_VERSION = "Infinite Zen V" .. GAME_VERSION .. " - " .. gameName
     local SHORT_VERSION = "V" .. GAME_VERSION .. " - " .. gameName
 
@@ -29,6 +29,41 @@ function Arsenal.Init(ctx)
 
     local UNLOADED = false
     local IS_MOBILE = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+
+    -- ═══════════════════════════════════════════════
+    -- UI ELEMENTS REGISTRY (NOVO)
+    -- Guarda referência de cada toggle/slider pra sincronizar depois
+    -- ═══════════════════════════════════════════════
+    local Elements = {}
+
+    -- Helper: tenta vários métodos comuns de libs de UI (Obsidian, etc)
+    local function setElementValue(el, val)
+        if not el then return false end
+        local ok = false
+        -- Obsidian usa :Set(value)
+        if type(el.Set) == "function" then
+            ok = pcall(function() el:Set(val) end)
+        end
+        -- fallback :SetValue
+        if not ok and type(el.SetValue) == "function" then
+            ok = pcall(function() el:SetValue(val) end)
+        end
+        -- fallback :SetState
+        if not ok and type(el.SetState) == "function" then
+            ok = pcall(function() el:SetState(val) end)
+        end
+        -- fallback: propriedade direta .Value
+        if not ok and type(el) == "table" and rawget(el, "Value") ~= nil then
+            ok = pcall(function() el.Value = val end)
+        end
+        return ok
+    end
+
+    -- Helper: registra elemento + retorna
+    local function reg(id, el)
+        if id and el then Elements[id] = el end
+        return el
+    end
 
     -- ═══════════════════════════════════════════════
     -- TEAM CHECK
@@ -151,7 +186,7 @@ function Arsenal.Init(ctx)
     end)
 
     -- ═══════════════════════════════════════════════
-    -- AIMBOT (loop)
+    -- AIMBOT
     -- ═══════════════════════════════════════════════
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.aimbot then return end
@@ -774,6 +809,53 @@ function Arsenal.Init(ctx)
     local function getConfigPath(name) return CONFIG_FOLDER .. "/" .. name .. ".json" end
     local function getAutoloadPath() return AUTOLOAD_FILE end
 
+    -- ═══════════════════════════════════════════════
+    -- 🔧 SINCRONIZAÇÃO DA UI (NOVO - CORREÇÃO DO BUG)
+    -- Aplica State nos elementos visuais da UI sem disparar efeitos colaterais errados
+    -- ═══════════════════════════════════════════════
+    local function syncUIFromState()
+        -- Toggles
+        local toggleMap = {
+            silentHeadshot = "silentHeadshot",
+            aimbot = "aimbot",
+            headExpander = "headExpander",
+            backstab = "backstab",
+            noRecoil = "noRecoil",
+            rapidFire = "rapidFire",
+            fastReload = "fastReload",
+            instaReload = "instaReload",
+            autoShoot = "autoShoot",
+            speed = "speed",
+            airJump = "airJump",
+            esp = "esp",
+            lowGraphics = "lowGraphics",
+            noShadows = "noShadows",
+            noFog = "noFog",
+            noParticles = "noParticles",
+        }
+        for stateKey, elemKey in pairs(toggleMap) do
+            local el = Elements[elemKey]
+            if el and State[stateKey] ~= nil then
+                setElementValue(el, State[stateKey])
+            end
+        end
+
+        -- Sliders
+        local sliderMap = {
+            silentFov = "silentFov",
+            headExpanderSize = "headExpanderSize",
+            autoShootFov = "autoShootFov",
+            speedValue = "speedValue",
+            espMaxDistance = "espMaxDistance",
+        }
+        for stateKey, elemKey in pairs(sliderMap) do
+            local el = Elements[elemKey]
+            if el and State[stateKey] ~= nil then
+                setElementValue(el, State[stateKey])
+            end
+        end
+    end
+
     local function saveConfigNamed(name)
         ensureFolder()
         local data = {version = GAME_VERSION, state = {}, keybinds = State.keybinds}
@@ -797,10 +879,22 @@ function Arsenal.Init(ctx)
         if data.keybinds then
             for k, v in pairs(data.keybinds) do State.keybinds[k] = v end
         end
+
+        -- Aplica efeitos de otimização
         if State.lowGraphics then applyLowGraphics(true) end
         if State.noShadows then applyNoShadows(true) end
         if State.noFog then applyNoFog(true) end
         if State.noParticles then applyNoParticles(true) end
+
+        -- 🔧 CORREÇÃO: sincroniza a UI visual com o State carregado
+        task.defer(function()
+            syncUIFromState()
+        end)
+        -- Fallback: agenda também no próximo frame, caso elementos ainda não estejam prontos
+        task.delay(0.1, function()
+            pcall(syncUIFromState)
+        end)
+
         Window:Notify("📂 Load", "Loaded: " .. name, 3, "info")
         return true
     end
@@ -853,33 +947,33 @@ function Arsenal.Init(ctx)
     local CombatTab = Window:CreateTab("Combat", "⚔️")
     CombatTab:CreateSection("Aim")
 
-    CombatTab:CreateToggle({
+    reg("silentHeadshot", CombatTab:CreateToggle({
         Name = "Silent Headshot",
         Description = "Auto-lock aim on enemy head when holding click",
         Icon = "🎯",
         Default = false,
         Callback = function(v) State.silentHeadshot = v end,
-    })
+    }))
 
-    CombatTab:CreateSlider({
+    reg("silentFov", CombatTab:CreateSlider({
         Name = "Silent FOV",
         Description = "Field of view radius for silent aim",
         Icon = "📐",
         Min = 30, Max = 300, Default = 120,
         Callback = function(v) State.silentFov = v end,
-    })
+    }))
 
-    CombatTab:CreateToggle({
+    reg("aimbot", CombatTab:CreateToggle({
         Name = "Aimbot",
         Description = "Continuous camera lock on closest enemy",
         Icon = "🤖",
         Default = false,
         Callback = function(v) State.aimbot = v end,
-    })
+    }))
 
     CombatTab:CreateSection("Hitbox")
 
-    CombatTab:CreateToggle({
+    reg("headExpander", CombatTab:CreateToggle({
         Name = "Head Expander",
         Description = "Enlarge enemy head hitbox (easier to hit)",
         Icon = "🔴",
@@ -888,25 +982,25 @@ function Arsenal.Init(ctx)
             State.headExpander = v
             if not v then restoreAll() end
         end,
-    })
+    }))
 
-    CombatTab:CreateSlider({
+    reg("headExpanderSize", CombatTab:CreateSlider({
         Name = "Head Size",
         Description = "Multiplier for head size",
         Icon = "📏",
         Min = 1, Max = 8, Default = 3,
         Callback = function(v) State.headExpanderSize = v end,
-    })
+    }))
 
     CombatTab:CreateSection("Melee")
 
-    CombatTab:CreateToggle({
+    reg("backstab", CombatTab:CreateToggle({
         Name = "Backstab",
         Description = "Teleport behind closest enemy and attack (keybind: E)",
         Icon = "🗡️",
         Default = false,
         Callback = function(v) State.backstab = v end,
-    })
+    }))
 
     -- ═══════════════════════════════════════════════
     -- ABA: WEAPON
@@ -914,25 +1008,25 @@ function Arsenal.Init(ctx)
     local WeaponTab = Window:CreateTab("Weapon", "🔫")
     WeaponTab:CreateSection("Recoil")
 
-    WeaponTab:CreateToggle({
+    reg("noRecoil", WeaponTab:CreateToggle({
         Name = "No Recoil",
         Description = "Remove all weapon recoil",
         Icon = "🎯",
         Default = false,
         Callback = function(v) State.noRecoil = v end,
-    })
+    }))
 
     WeaponTab:CreateSection("Fire Rate")
 
-    WeaponTab:CreateToggle({
+    reg("rapidFire", WeaponTab:CreateToggle({
         Name = "Rapid Fire",
         Description = "Reduce fire delay to minimum",
         Icon = "⚡",
         Default = false,
         Callback = function(v) State.rapidFire = v end,
-    })
+    }))
 
-    WeaponTab:CreateToggle({
+    reg("fastReload", WeaponTab:CreateToggle({
         Name = "Fast Reload",
         Description = "Faster reload animation",
         Icon = "🔄",
@@ -946,33 +1040,33 @@ function Arsenal.Init(ctx)
                 reloadOriginals = {}
             end
         end,
-    })
+    }))
 
-    WeaponTab:CreateToggle({
+    reg("instaReload", WeaponTab:CreateToggle({
         Name = "Insta Reload",
         Description = "Instant reload",
         Icon = "💨",
         Default = false,
         Callback = function(v) State.instaReload = v end,
-    })
+    }))
 
     WeaponTab:CreateSection("Auto")
 
-    WeaponTab:CreateToggle({
+    reg("autoShoot", WeaponTab:CreateToggle({
         Name = "Auto Shoot",
         Description = "Auto-fire when enemy enters FOV",
         Icon = "🔥",
         Default = false,
         Callback = function(v) State.autoShoot = v end,
-    })
+    }))
 
-    WeaponTab:CreateSlider({
+    reg("autoShootFov", WeaponTab:CreateSlider({
         Name = "Auto Shoot FOV",
         Description = "Radius for auto-fire",
         Icon = "📐",
         Min = 30, Max = 300, Default = 100,
         Callback = function(v) State.autoShootFov = v end,
-    })
+    }))
 
     -- ═══════════════════════════════════════════════
     -- ABA: MOVEMENT
@@ -980,7 +1074,7 @@ function Arsenal.Init(ctx)
     local MoveTab = Window:CreateTab("Movement", "🏃")
     MoveTab:CreateSection("Speed")
 
-    MoveTab:CreateToggle({
+    reg("speed", MoveTab:CreateToggle({
         Name = "Speed",
         Description = "Custom walkspeed",
         Icon = "⚡",
@@ -995,19 +1089,19 @@ function Arsenal.Init(ctx)
                 end
             end
         end,
-    })
+    }))
 
-    MoveTab:CreateSlider({
+    reg("speedValue", MoveTab:CreateSlider({
         Name = "Speed Value",
         Description = "WalkSpeed value",
         Icon = "📏",
         Min = 16, Max = 300, Default = 50,
         Callback = function(v) State.speedValue = v end,
-    })
+    }))
 
     MoveTab:CreateSection("Jump")
 
-    MoveTab:CreateToggle({
+    reg("airJump", MoveTab:CreateToggle({
         Name = "Infinite Jump",
         Description = "Jump mid-air infinitely",
         Icon = "🦘",
@@ -1016,7 +1110,7 @@ function Arsenal.Init(ctx)
             State.airJump = v
             if v then startAirJump() else stopAirJump() end
         end,
-    })
+    }))
 
     -- ═══════════════════════════════════════════════
     -- ABA: VISUALS
@@ -1024,7 +1118,7 @@ function Arsenal.Init(ctx)
     local VisualsTab = Window:CreateTab("Visuals", "👁️")
     VisualsTab:CreateSection("ESP")
 
-    VisualsTab:CreateToggle({
+    reg("esp", VisualsTab:CreateToggle({
         Name = "Player ESP",
         Description = "Highlight enemies through walls",
         Icon = "👤",
@@ -1039,49 +1133,49 @@ function Arsenal.Init(ctx)
                 clearAllESP()
             end
         end,
-    })
+    }))
 
-    VisualsTab:CreateSlider({
+    reg("espMaxDistance", VisualsTab:CreateSlider({
         Name = "Max Distance",
         Description = "ESP render range",
         Icon = "📐",
         Min = 100, Max = 10000, Default = 500,
         Callback = function(v) State.espMaxDistance = v end,
-    })
+    }))
 
     VisualsTab:CreateSection("Environment")
 
-    VisualsTab:CreateToggle({
+    reg("lowGraphics", VisualsTab:CreateToggle({
         Name = "Low Graphics",
         Description = "Reduce rendering quality for FPS",
         Icon = "📉",
         Default = false,
         Callback = function(v) State.lowGraphics = v; applyLowGraphics(v) end,
-    })
+    }))
 
-    VisualsTab:CreateToggle({
+    reg("noShadows", VisualsTab:CreateToggle({
         Name = "No Shadows",
         Description = "Remove all shadows",
         Icon = "🌑",
         Default = false,
         Callback = function(v) State.noShadows = v; applyNoShadows(v) end,
-    })
+    }))
 
-    VisualsTab:CreateToggle({
+    reg("noFog", VisualsTab:CreateToggle({
         Name = "No Fog",
         Description = "Remove fog and atmosphere",
         Icon = "🌫️",
         Default = false,
         Callback = function(v) State.noFog = v; applyNoFog(v) end,
-    })
+    }))
 
-    VisualsTab:CreateToggle({
+    reg("noParticles", VisualsTab:CreateToggle({
         Name = "No Particles",
         Description = "Remove all particle effects",
         Icon = "✨",
         Default = false,
         Callback = function(v) State.noParticles = v; applyNoParticles(v) end,
-    })
+    }))
 
     -- ═══════════════════════════════════════════════
     -- ABA: SETTINGS
@@ -1089,7 +1183,6 @@ function Arsenal.Init(ctx)
     local SettingsTab = Window:CreateTab("Settings", "⚙️")
     SettingsTab:CreateSection("Create Config")
 
-    -- Input pra salvar config
     local configInputFrame = Instance.new("Frame", SettingsTab.container)
     configInputFrame.Size = UDim2.new(1, 0, 0, 40)
     configInputFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
@@ -1255,6 +1348,8 @@ function Arsenal.Init(ctx)
             State.noShadows = true; applyNoShadows(true)
             State.noFog = true; applyNoFog(true)
             State.noParticles = true; applyNoParticles(true)
+            -- 🔧 sincroniza a UI
+            syncUIFromState()
             Window:Notify("⚡ Boost", "All optimizations ON", 3, "success")
         end,
     })
@@ -1266,6 +1361,8 @@ function Arsenal.Init(ctx)
             State.noShadows = false; applyNoShadows(false)
             State.noFog = false; applyNoFog(false)
             State.noParticles = false; applyNoParticles(false)
+            -- 🔧 sincroniza a UI
+            syncUIFromState()
             Window:Notify("Reset", "Optimizations reset", 3, "info")
         end,
     })
@@ -1291,7 +1388,7 @@ function Arsenal.Init(ctx)
     })
 
     -- ═══════════════════════════════════════════════
-    -- ABA: CREDITS  ⬅️ AQUI ESTAVA O BUG
+    -- ABA: CREDITS
     -- ═══════════════════════════════════════════════
     local CreditsTab = Window:CreateTab("Credits", "➕")
     CreditsTab:CreateSection("Founder & Developer")
