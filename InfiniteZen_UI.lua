@@ -1,10 +1,10 @@
 -- ============================================================
--- INFINITE ZEN - UI LIBRARY v1.0
--- Estilo PHANTOM
+-- INFINITE ZEN - UI LIBRARY v1.1
+-- Estilo PHANTOM + Suporte a Tradução
 -- ============================================================
 
 local Library = {}
-Library.Version = "1.0"
+Library.Version = "1.1"
 
 Library.Theme = {
     Bg          = Color3.fromRGB(10, 10, 15),
@@ -55,6 +55,56 @@ local function padding(obj, t, r, b, l)
     p.PaddingBottom = UDim.new(0, b or 0)
     p.PaddingLeft = UDim.new(0, l or 0)
     return p
+end
+
+-- ═══ SISTEMA DE TRADUÇÃO ═══
+Library._translator = nil
+Library._translatable = setmetatable({}, {__mode = "k"}) -- weak keys
+
+local function registerTranslatable(el, meta)
+    if el then
+        Library._translatable[el] = meta
+    end
+end
+
+-- Função global de tradução (definida pelo consumidor da lib)
+function Library:SetTranslator(fn)
+    Library._translator = fn
+    self:RefreshTranslations()
+end
+
+-- Reaplica as traduções em TODOS os elementos registrados
+function Library:RefreshTranslations()
+    if not Library._translator then return end
+    for el, meta in pairs(Library._translatable) do
+        if meta.nameLabel and meta.nameKey then
+            local t = Library._translator(meta.nameKey)
+            if t then meta.nameLabel.Text = t end
+        end
+        if meta.descLabel and meta.descKey then
+            local t = Library._translator(meta.descKey)
+            if t then meta.descLabel.Text = t end
+        end
+        if meta.sectionLabel and meta.nameKey then
+            local t = Library._translator(meta.nameKey)
+            if t then meta.sectionLabel.Text = string.upper(t) end
+        end
+        if meta.labelObj and meta.nameKey then
+            local t = Library._translator(meta.nameKey)
+            if t then meta.labelObj.Text = t end
+        end
+        if meta.buttonObj and meta.nameKey then
+            local t = Library._translator(meta.nameKey)
+            if t then meta.buttonObj.Text = t end
+        end
+        if meta.dropdownBtn and meta.placeholderKey then
+            local t = Library._translator(meta.placeholderKey)
+            if t and meta.currentText == meta.placeholderOriginal then
+                meta.dropdownBtn.Text = t
+                meta.currentText = t
+            end
+        end
+    end
 end
 
 -- ═══ NOTIFICAÇÕES ═══
@@ -164,7 +214,6 @@ function Library:CreateWindow(config)
     local scale = Instance.new("UIScale", Main)
     scale.Scale = isMobile and 0.8 or 1
 
-    -- HEADER
     local Header = Instance.new("Frame", Main)
     Header.Size = UDim2.new(1, 0, 0, 52)
     Header.BackgroundColor3 = T.HeaderBg
@@ -197,7 +246,6 @@ function Library:CreateWindow(config)
     Sub.TextSize = 11
     Sub.TextXAlignment = Enum.TextXAlignment.Left
 
-    -- Search bar
     local SearchBg = Instance.new("Frame", Header)
     SearchBg.Size = UDim2.new(0, 260, 0, 32)
     SearchBg.Position = UDim2.new(0.5, -130, 0.5, -16)
@@ -251,7 +299,6 @@ function Library:CreateWindow(config)
     corner(MinimizeBtn, 15)
     stroke(MinimizeBtn, T.Border, 1)
 
-    -- SIDEBAR
     local Sidebar = Instance.new("Frame", Main)
     Sidebar.Size = UDim2.new(0, 64, 1, -64)
     Sidebar.Position = UDim2.new(0, 8, 0, 58)
@@ -265,14 +312,12 @@ function Library:CreateWindow(config)
     SidebarList.SortOrder = Enum.SortOrder.LayoutOrder
     padding(Sidebar, 8, 0, 8, 0)
 
-    -- CONTENT
     local Content = Instance.new("Frame", Main)
     Content.Size = UDim2.new(1, -80, 1, -64)
     Content.Position = UDim2.new(0, 72, 0, 58)
     Content.BackgroundTransparency = 1
     Content.BorderSizePixel = 0
 
-    -- MOBILE REOPEN
     local ReopenBtn = nil
     if isMobile then
         ReopenBtn = Instance.new("TextButton", GUI)
@@ -290,7 +335,6 @@ function Library:CreateWindow(config)
         stroke(ReopenBtn, T.PrimaryGlow, 2)
     end
 
-    -- DRAG
     local dragging, dragInput, dragStart, startPos
     local function makeDraggable(el)
         el.InputBegan:Connect(function(input)
@@ -321,7 +365,6 @@ function Library:CreateWindow(config)
     makeDraggable(Header)
     makeDraggable(Logo)
 
-    -- MINIMIZE
     local minimized = false
     local function setMinimized(v)
         minimized = v
@@ -350,7 +393,6 @@ function Library:CreateWindow(config)
         Notify(GUI, t, c, d, k)
     end
 
-    -- SEARCH
     local searchableElements = {}
     SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
         local query = SearchBox.Text:lower()
@@ -367,7 +409,6 @@ function Library:CreateWindow(config)
         end
     end)
 
-    -- TABS
     local tabs = {}
 
     function Window:CreateTab(name, icon)
@@ -428,6 +469,7 @@ function Library:CreateWindow(config)
         table.insert(tabs, tab)
         if #tabs == 1 then task.defer(activate) end
 
+        -- Retorna row + titleLbl + descLbl pra podermos registrar tradução
         local function createRow(cfg)
             local row = Instance.new("Frame", container)
             row.Size = UDim2.new(1, 0, 0, 58)
@@ -489,10 +531,10 @@ function Library:CreateWindow(config)
                 desc = cfg.Description or "",
             })
 
-            return row
+            return row, titleLbl, descLbl
         end
 
-        function tab:CreateSection(name)
+        function tab:CreateSection(name, nameKey)
             local sec = Instance.new("Frame", container)
             sec.Size = UDim2.new(1, 0, 0, 24)
             sec.BackgroundTransparency = 1
@@ -506,10 +548,17 @@ function Library:CreateWindow(config)
             lbl.TextColor3 = T.TextMuted
             lbl.TextSize = 11
             lbl.TextXAlignment = Enum.TextXAlignment.Left
+
+            if nameKey then
+                registerTranslatable(sec, {
+                    sectionLabel = lbl,
+                    nameKey = nameKey,
+                })
+            end
         end
 
         function tab:CreateToggle(cfg)
-            local row = createRow(cfg)
+            local row, titleLbl, descLbl = createRow(cfg)
             local state = cfg.Default or false
 
             local toggleBg = Instance.new("Frame", row)
@@ -577,11 +626,20 @@ function Library:CreateWindow(config)
                 end)
             end)
 
+            if cfg.NameKey or cfg.DescKey then
+                registerTranslatable(row, {
+                    nameLabel = titleLbl,
+                    descLabel = descLbl,
+                    nameKey = cfg.NameKey,
+                    descKey = cfg.DescKey,
+                })
+            end
+
             return { SetState = setState, GetState = function() return state end }
         end
 
         function tab:CreateSlider(cfg)
-            local row = createRow(cfg)
+            local row, titleLbl, descLbl = createRow(cfg)
             local min = cfg.Min or 0
             local max = cfg.Max or 100
             local value = cfg.Default or min
@@ -647,6 +705,15 @@ function Library:CreateWindow(config)
                 if input == activeInput then activeInput = nil end
             end)
 
+            if cfg.NameKey or cfg.DescKey then
+                registerTranslatable(row, {
+                    nameLabel = titleLbl,
+                    descLabel = descLbl,
+                    nameKey = cfg.NameKey,
+                    descKey = cfg.DescKey,
+                })
+            end
+
             return {
                 SetValue = function(v)
                     value = math.clamp(v, min, max)
@@ -660,7 +727,7 @@ function Library:CreateWindow(config)
         end
 
         function tab:CreateDropdown(cfg)
-            local row = createRow(cfg)
+            local row, titleLbl, descLbl = createRow(cfg)
             local options = cfg.Options or {}
             local curIdx = cfg.Default or 1
             local open = false
@@ -733,6 +800,15 @@ function Library:CreateWindow(config)
                 end
             end)
 
+            if cfg.NameKey or cfg.DescKey then
+                registerTranslatable(row, {
+                    nameLabel = titleLbl,
+                    descLabel = descLbl,
+                    nameKey = cfg.NameKey,
+                    descKey = cfg.DescKey,
+                })
+            end
+
             return {
                 SetValue = function(i)
                     curIdx = math.clamp(i, 1, #options)
@@ -769,16 +845,17 @@ function Library:CreateWindow(config)
                 if cfg.Callback then pcall(cfg.Callback) end
             end)
 
-            table.insert(searchableElements, {
-                frame = row,
-                name = cfg.Name or "",
-                desc = cfg.Description or "",
-            })
+            if cfg.NameKey then
+                registerTranslatable(row, {
+                    buttonObj = row,
+                    nameKey = cfg.NameKey,
+                })
+            end
 
             return row
         end
 
-        function tab:CreateLabel(text, color)
+        function tab:CreateLabel(text, color, nameKey)
             local lbl = Instance.new("TextLabel", container)
             lbl.Size = UDim2.new(1, -8, 0, 20)
             lbl.BackgroundTransparency = 1
@@ -788,6 +865,12 @@ function Library:CreateWindow(config)
             lbl.TextSize = 12
             lbl.TextXAlignment = Enum.TextXAlignment.Left
             lbl.LayoutOrder = #container:GetChildren()
+            if nameKey then
+                registerTranslatable(lbl, {
+                    labelObj = lbl,
+                    nameKey = nameKey,
+                })
+            end
             return lbl
         end
 
