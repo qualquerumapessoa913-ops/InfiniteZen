@@ -13,28 +13,27 @@ Language.listeners = {}
 -- REGISTRO DE IDIOMAS (SEMPRE APARECEM NA LISTA)
 -- ═══════════════════════════════════════════════════════════
 Language.languages = {
-    { code="en",    flag="US", displayName="English (US)" },
-    { code="pt-br", flag="BR", displayName="Português (BR)" },
-    { code="es",    flag="ES", displayName="Español (ES)" },
-    { code="fr",    flag="FR", displayName="Français (FR)" },
-    { code="de",    flag="DE", displayName="Deutsch (DE)" },
-    { code="it",    flag="IT", displayName="Italiano (IT)" },
-    { code="ru",    flag="RU", displayName="Русский (RU)" },
-    { code="pl",    flag="PL", displayName="Polski (PL)" },
-    { code="tr",    flag="TR", displayName="Türkçe (TR)" },
-    { code="id",    flag="ID", displayName="Bahasa Indonesia (ID)" },
-    { code="ph",    flag="PH", displayName="Filipino (PH)" },
-    { code="vn",    flag="VN", displayName="Tiếng Việt (VN)" },
-    { code="jp",    flag="JP", displayName="日本語 (JP)" },
-    { code="kr",    flag="KR", displayName="한국어 (KR)" },
-    { code="cn",    flag="CN", displayName="中文 (CN)" },
-    { code="ar",    flag="SA", displayName="العربية (SA)" },
-    { code="hi",    flag="IN", displayName="हिन्दी (IN)" },
-    { code="nl",    flag="NL", displayName="Nederlands (NL)" },
-    { code="se",    flag="SE", displayName="Svenska (SE)" },
-    { code="ro",    flag="RO", displayName="Română (RO)" },
+    { code="en",    flag="🇺🇸", displayName="English (US)" },
+    { code="pt-br", flag="🇧🇷", displayName="Português (BR)" },
+    { code="es",    flag="🇪🇸", displayName="Español (ES)" },
+    { code="fr",    flag="🇫🇷", displayName="Français (FR)" },
+    { code="de",    flag="🇩🇪", displayName="Deutsch (DE)" },
+    { code="it",    flag="🇮🇹", displayName="Italiano (IT)" },
+    { code="ru",    flag="🇷🇺", displayName="Русский (RU)" },
+    { code="pl",    flag="🇵🇱", displayName="Polski (PL)" },
+    { code="tr",    flag="🇹🇷", displayName="Türkçe (TR)" },
+    { code="id",    flag="🇮🇩", displayName="Bahasa Indonesia (ID)" },
+    { code="ph",    flag="🇵🇭", displayName="Filipino (PH)" },
+    { code="vn",    flag="🇻🇳", displayName="Tiếng Việt (VN)" },
+    { code="jp",    flag="🇯🇵", displayName="日本語 (JP)" },
+    { code="kr",    flag="🇰🇷", displayName="한국어 (KR)" },
+    { code="cn",    flag="🇨🇳", displayName="中文 (CN)" },
+    { code="ar",    flag="🇸🇦", displayName="العربية (SA)" },
+    { code="hi",    flag="🇮🇳", displayName="हिन्दी (IN)" },
+    { code="nl",    flag="🇳🇱", displayName="Nederlands (NL)" },
+    { code="se",    flag="🇸🇪", displayName="Svenska (SE)" },
+    { code="ro",    flag="🇷🇴", displayName="Română (RO)" },
 }
-
 -- ═══════════════════════════════════════════════════════════
 -- TRADUÇÕES (EN + PT-BR HARDCODED)
 -- ═══════════════════════════════════════════════════════════

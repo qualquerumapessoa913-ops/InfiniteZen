@@ -1,18 +1,37 @@
 -- ============================================================
--- INFINITE ZEN - COMPATIBILITY LAYER v1.0
+-- INFINITE ZEN - COMPATIBILITY LAYER v1.1
 -- Auto-detects executor capabilities and provides fallbacks
 -- ============================================================
 
 local Compat = {}
 
 -- ═══════════════════════════════════════════════
--- SAFE LOOKUP
+-- SAFE LOOKUP (CORRIGIDO)
 -- ═══════════════════════════════════════════════
 local function safeGet(name)
-    local ok, val = pcall(function()
-        return rawget(getfenv(), name) or _G[name]
-    end)
-    if ok then return val end
+    -- 1. _G direto
+    if _G and _G[name] ~= nil then return _G[name] end
+
+    -- 2. getgenv (Real, Delta, Xeno, Synapse)
+    if getgenv then
+        local ok, genv = pcall(getgenv)
+        if ok and genv and genv[name] ~= nil then return genv[name] end
+    end
+
+    -- 3. getfenv(0) — env global do executor
+    local ok, val = pcall(function() return getfenv(0)[name] end)
+    if ok and val ~= nil then return val end
+
+    -- 4. getfenv() — env atual
+    ok, val = pcall(function() return getfenv()[name] end)
+    if ok and val ~= nil then return val end
+
+    -- 5. loadstring("return " .. name) — último recurso
+    if loadstring then
+        ok, val = pcall(function() return loadstring("return " .. name)() end)
+        if ok and val ~= nil then return val end
+    end
+
     return nil
 end
 
@@ -20,7 +39,7 @@ end
 -- IDENTIFY
 -- ═══════════════════════════════════════════════
 function Compat.getExecutor()
-    local fn = safeGet("identifyexecutor")
+    local fn = safeGet("identifyexecutor") or safeGet("getexecutorname")
     if type(fn) == "function" then
         local ok, name = pcall(fn)
         if ok and name then return tostring(name) end
@@ -29,7 +48,7 @@ function Compat.getExecutor()
 end
 
 function Compat.getIdentity()
-    local fn = safeGet("getidentity")
+    local fn = safeGet("getidentity") or safeGet("getthreadidentity")
     if type(fn) == "function" then
         local ok, id = pcall(fn)
         if ok and id then return id end
@@ -41,22 +60,17 @@ end
 -- HWID
 -- ═══════════════════════════════════════════════
 function Compat.getHWID()
-    -- 1. gethwid (Delta, Real, Madium, Xeno)
     local fn = safeGet("gethwid")
     if type(fn) == "function" then
         local ok, hwid = pcall(fn)
         if ok and hwid and #tostring(hwid) > 0 then return tostring(hwid) end
     end
-    -- 2. syn.get_hwid (Synapse)
     if syn and syn.get_hwid then
         local ok, hwid = pcall(syn.get_hwid)
         if ok and hwid then return tostring(hwid) end
     end
-    -- 3. Fallback: UserId + Name
     local plr = game:GetService("Players").LocalPlayer
-    if plr then
-        return tostring(plr.UserId) .. "_" .. plr.Name
-    end
+    if plr then return tostring(plr.UserId) .. "_" .. plr.Name end
     return "unknown"
 end
 
@@ -65,17 +79,14 @@ end
 -- ═══════════════════════════════════════════════
 function Compat.httpGet(url)
     if type(url) ~= "string" then return nil end
-    -- 1. game:HttpGet
     if game.HttpGet then
         local ok, res = pcall(function() return game:HttpGet(url, true) end)
         if ok and res then return res end
     end
-    -- 2. game.HttpGetAsync
     if game.HttpGetAsync then
         local ok, res = pcall(function() return game:HttpGetAsync(url) end)
         if ok and res then return res end
     end
-    -- 3. Global HttpGet
     local fn = safeGet("HttpGet")
     if type(fn) == "function" then
         local ok, res = pcall(fn, url)
@@ -93,7 +104,6 @@ function Compat.mouseClick()
         local ok = pcall(fn)
         if ok then return true end
     end
-    -- Fallback: VirtualInputManager
     local vim = game:GetService("VirtualInputManager")
     if vim then
         pcall(function()
@@ -108,19 +118,13 @@ end
 
 function Compat.mousePress()
     local fn = safeGet("mouse1press")
-    if type(fn) == "function" then
-        local ok = pcall(fn)
-        if ok then return true end
-    end
+    if type(fn) == "function" then pcall(fn); return true end
     return false
 end
 
 function Compat.mouseRelease()
     local fn = safeGet("mouse1release")
-    if type(fn) == "function" then
-        local ok = pcall(fn)
-        if ok then return true end
-    end
+    if type(fn) == "function" then pcall(fn); return true end
     return false
 end
 
@@ -147,19 +151,13 @@ end
 -- ═══════════════════════════════════════════════
 function Compat.keyPress(key)
     local fn = safeGet("keypress")
-    if type(fn) == "function" then
-        pcall(fn, key)
-        return true
-    end
+    if type(fn) == "function" then pcall(fn, key); return true end
     return false
 end
 
 function Compat.keyRelease(key)
     local fn = safeGet("keyrelease")
-    if type(fn) == "function" then
-        pcall(fn, key)
-        return true
-    end
+    if type(fn) == "function" then pcall(fn, key); return true end
     return false
 end
 
@@ -168,28 +166,19 @@ end
 -- ═══════════════════════════════════════════════
 function Compat.fireTouch(part, target, toggle)
     local fn = safeGet("firetouchinterest")
-    if type(fn) == "function" then
-        pcall(fn, part, target, toggle)
-        return true
-    end
+    if type(fn) == "function" then pcall(fn, part, target, toggle); return true end
     return false
 end
 
 function Compat.fireClick(detector)
     local fn = safeGet("fireclickdetector")
-    if type(fn) == "function" then
-        pcall(fn, detector)
-        return true
-    end
+    if type(fn) == "function" then pcall(fn, detector); return true end
     return false
 end
 
 function Compat.firePrompt(prompt)
     local fn = safeGet("fireproximityprompt")
-    if type(fn) == "function" then
-        pcall(fn, prompt)
-        return true
-    end
+    if type(fn) == "function" then pcall(fn, prompt); return true end
     return false
 end
 
@@ -234,19 +223,13 @@ end
 
 function Compat.makeFolder(path)
     local fn = safeGet("makefolder")
-    if type(fn) == "function" then
-        local ok = pcall(fn, path)
-        if ok then return true end
-    end
+    if type(fn) == "function" then pcall(fn, path); return true end
     return false
 end
 
 function Compat.deleteFile(path)
     local fn = safeGet("delfile")
-    if type(fn) == "function" then
-        local ok = pcall(fn, path)
-        if ok then return true end
-    end
+    if type(fn) == "function" then pcall(fn, path); return true end
     return false
 end
 
@@ -263,7 +246,7 @@ end
 -- CLIPBOARD
 -- ═══════════════════════════════════════════════
 function Compat.setClipboard(text)
-    local fn = safeGet("setclipboard")
+    local fn = safeGet("setclipboard") or safeGet("toclipboard")
     if type(fn) == "function" then
         local ok = pcall(fn, text)
         if ok then return true end
