@@ -1,5 +1,5 @@
 -- ============================================================
--- INFINITE ZEN - SISTEMA DE IDIOMAS (MULTI-LANG) v3.0
+-- INFINITE ZEN - SISTEMA DE IDIOMAS (MULTI-LANG) v3.1
 -- ============================================================
 
 local HttpService = game:GetService("HttpService")
@@ -10,7 +10,33 @@ Language.current = "en"
 Language.listeners = {}
 
 -- ═══════════════════════════════════════════════════════════
--- TRADUÇÕES (EN + PT-BR COMPLETOS)
+-- REGISTRO DE IDIOMAS (SEMPRE APARECEM NA LISTA)
+-- ═══════════════════════════════════════════════════════════
+Language.languages = {
+    { code="en",    flag="US", displayName="English (US)" },
+    { code="pt-br", flag="BR", displayName="Português (BR)" },
+    { code="es",    flag="ES", displayName="Español (ES)" },
+    { code="fr",    flag="FR", displayName="Français (FR)" },
+    { code="de",    flag="DE", displayName="Deutsch (DE)" },
+    { code="it",    flag="IT", displayName="Italiano (IT)" },
+    { code="ru",    flag="RU", displayName="Русский (RU)" },
+    { code="pl",    flag="PL", displayName="Polski (PL)" },
+    { code="tr",    flag="TR", displayName="Türkçe (TR)" },
+    { code="id",    flag="ID", displayName="Bahasa Indonesia (ID)" },
+    { code="ph",    flag="PH", displayName="Filipino (PH)" },
+    { code="vn",    flag="VN", displayName="Tiếng Việt (VN)" },
+    { code="jp",    flag="JP", displayName="日本語 (JP)" },
+    { code="kr",    flag="KR", displayName="한국어 (KR)" },
+    { code="cn",    flag="CN", displayName="中文 (CN)" },
+    { code="ar",    flag="SA", displayName="العربية (SA)" },
+    { code="hi",    flag="IN", displayName="हिन्दी (IN)" },
+    { code="nl",    flag="NL", displayName="Nederlands (NL)" },
+    { code="se",    flag="SE", displayName="Svenska (SE)" },
+    { code="ro",    flag="RO", displayName="Română (RO)" },
+}
+
+-- ═══════════════════════════════════════════════════════════
+-- TRADUÇÕES (EN + PT-BR HARDCODED)
 -- ═══════════════════════════════════════════════════════════
 Language.translations = {
     ["en"] = {
@@ -202,16 +228,25 @@ Language.translations = {
 }
 
 -- ═══════════════════════════════════════════════════════════
--- CARREGA TRADUÇÕES EXTRAS DO JSON
+-- CARREGA JSON EXTERNO
 -- ═══════════════════════════════════════════════════════════
 local EXTRA_FILE = "InfiniteZen_Translations.json"
 
 local function loadExtraTranslations()
-    if not readfile or not isfile then return end
-    if not isfile(EXTRA_FILE) then return end
+    if not readfile or not isfile then
+        warn("[IZ Lang] readfile/isfile indisponível — só EN + PT-BR")
+        return
+    end
+    if not isfile(EXTRA_FILE) then
+        warn("[IZ Lang] " .. EXTRA_FILE .. " não encontrado — só EN + PT-BR")
+        return
+    end
 
     local ok, raw = pcall(readfile, EXTRA_FILE)
-    if not ok or not raw or raw == "" then return end
+    if not ok or not raw or raw == "" then
+        warn("[IZ Lang] Falha ao ler " .. EXTRA_FILE)
+        return
+    end
 
     local ok2, data = pcall(function() return HttpService:JSONDecode(raw) end)
     if not ok2 or type(data) ~= "table" then
@@ -219,13 +254,15 @@ local function loadExtraTranslations()
         return
     end
 
+    local count = 0
     for code, tbl in pairs(data) do
         Language.translations[code] = Language.translations[code] or {}
         for k, v in pairs(tbl) do
             Language.translations[code][k] = v
         end
+        count = count + 1
     end
-    print("[IZ Lang] Traduções extras carregadas: " .. EXTRA_FILE)
+    print("[IZ Lang] ✅ " .. count .. " idiomas extras carregados do JSON")
 end
 
 loadExtraTranslations()
@@ -238,7 +275,6 @@ local LANG_FILE = "InfiniteZen_Language.txt"
 local function loadSavedLanguage()
     if not readfile or not isfile then return end
     if not isfile(LANG_FILE) then return end
-
     local ok, content = pcall(readfile, LANG_FILE)
     if ok and content and content ~= "" then
         local code = content:gsub("%s+", "")
@@ -280,17 +316,19 @@ end
 function Language.getCurrent() return Language.current end
 function Language.getCurrentData() return Language.translations[Language.current] end
 
+-- ⭐ Retorna SEMPRE os 20 idiomas registrados (mesmo se o JSON falhou)
 function Language.getAvailable()
     local list = {}
-    for code, data in pairs(Language.translations) do
+    for _, info in ipairs(Language.languages) do
         table.insert(list, {
-            code = code,
-            flag = data.flag or code:upper(),
-            displayName = data.displayName or code,
-            shortCode = data.shortCode or code:upper(),
+            code = info.code,
+            flag = info.flag,
+            displayName = info.displayName,
+            shortCode = info.flag,
+            -- Avisa se tem tradução carregada (JSON merge) ou só fallback EN
+            hasTranslation = (Language.translations[info.code] ~= nil),
         })
     end
-    table.sort(list, function(a, b) return a.code < b.code end)
     return list
 end
 
