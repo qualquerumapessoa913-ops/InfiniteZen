@@ -1,14 +1,16 @@
 -- ============================================================
--- INFINITE ZEN - ARSENAL v1.5 (Tradução Completa)
+-- INFINITE ZEN - ARSENAL (Refatorado v2.0)
 -- ============================================================
 
 local Arsenal = {}
 
 function Arsenal.Init(ctx)
     local Language = ctx.Language
-    local UI = ctx.UI
-    local Compat = ctx.Compat
+    local UI       = ctx.UI
+    local Compat   = ctx.Compat
     local gameName = ctx.gameName
+
+    local function T(key) return Language.get(key) end
 
     local GAME_VERSION = "1.4"
     local FULL_VERSION = "Infinite Zen V" .. GAME_VERSION .. " - " .. gameName
@@ -16,238 +18,25 @@ function Arsenal.Init(ctx)
 
     print("[Infinite Zen] Inicializando " .. FULL_VERSION .. "...")
 
-    local Players = game:GetService("Players")
-    local RunService = game:GetService("RunService")
-    local UserInputService = game:GetService("UserInputService")
-    local VirtualInput = game:GetService("VirtualInputManager")
+    local Players           = game:GetService("Players")
+    local RunService        = game:GetService("RunService")
+    local UserInputService  = game:GetService("UserInputService")
+    local VirtualInput      = game:GetService("VirtualInputManager")
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    local HttpService = game:GetService("HttpService")
-    local Lighting = game:GetService("Lighting")
-    local LocalPlayer = Players.LocalPlayer
-    local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-    local Camera = workspace.CurrentCamera
+    local HttpService       = game:GetService("HttpService")
+    local Lighting          = game:GetService("Lighting")
+    local LocalPlayer       = Players.LocalPlayer
+    local PlayerGui         = LocalPlayer:WaitForChild("PlayerGui")
+    local Camera            = workspace.CurrentCamera
 
     local UNLOADED = false
     local IS_MOBILE = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
     -- ═══════════════════════════════════════════════
-    -- TRADUÇÕES (EN + PT-BR)
-    -- ═══════════════════════════════════════════════
-    local TRANSLATIONS = {
-        en = {
-            ["tab.combat"] = "Combat",
-            ["tab.weapon"] = "Weapon",
-            ["tab.movement"] = "Movement",
-            ["tab.visuals"] = "Visuals",
-            ["tab.settings"] = "Settings",
-            ["tab.language"] = "Language",
-            ["tab.credits"] = "Credits",
-
-            ["section.aim"] = "Aim",
-            ["section.hitbox"] = "Hitbox",
-            ["section.melee"] = "Melee",
-            ["section.recoil"] = "Recoil",
-            ["section.firerate"] = "Fire Rate",
-            ["section.auto"] = "Auto",
-            ["section.speed"] = "Speed",
-            ["section.jump"] = "Jump",
-            ["section.esp"] = "ESP",
-            ["section.environment"] = "Environment",
-            ["section.create_config"] = "Create Config",
-            ["section.saved_configs"] = "Saved Configs",
-            ["section.optimizations"] = "Optimizations",
-            ["section.danger"] = "Danger Zone",
-            ["section.language_select"] = "Idioma / Language",
-            ["section.language_info"] = "Info",
-            ["section.founder"] = "Founder & Developer",
-            ["section.community"] = "Community",
-            ["section.version"] = "Version",
-
-            ["silent.name"] = "Silent Headshot",
-            ["silent.desc"] = "Auto-lock aim on enemy head when holding click",
-            ["silentfov.name"] = "Silent FOV",
-            ["silentfov.desc"] = "Field of view radius for silent aim",
-            ["aimbot.name"] = "Aimbot",
-            ["aimbot.desc"] = "Continuous camera lock on closest enemy",
-            ["headexp.name"] = "Head Expander",
-            ["headexp.desc"] = "Enlarge enemy head hitbox (easier to hit)",
-            ["headsize.name"] = "Head Size",
-            ["headsize.desc"] = "Multiplier for head size",
-            ["backstab.name"] = "Backstab",
-            ["backstab.desc"] = "Teleport behind closest enemy and attack (keybind: E)",
-
-            ["norecoil.name"] = "No Recoil",
-            ["norecoil.desc"] = "Remove all weapon recoil",
-            ["rapidfire.name"] = "Rapid Fire",
-            ["rapidfire.desc"] = "Reduce fire delay to minimum",
-            ["fastreload.name"] = "Fast Reload",
-            ["fastreload.desc"] = "Faster reload animation",
-            ["instareload.name"] = "Insta Reload",
-            ["instareload.desc"] = "Instant reload",
-            ["autoshoot.name"] = "Auto Shoot",
-            ["autoshoot.desc"] = "Auto-fire when enemy enters FOV",
-            ["autoshootfov.name"] = "Auto Shoot FOV",
-            ["autoshootfov.desc"] = "Radius for auto-fire",
-
-            ["speed.name"] = "Speed",
-            ["speed.desc"] = "Custom walkspeed",
-            ["speedvalue.name"] = "Speed Value",
-            ["speedvalue.desc"] = "WalkSpeed value",
-            ["airjump.name"] = "Infinite Jump",
-            ["airjump.desc"] = "Jump mid-air infinitely",
-
-            ["esp.name"] = "Player ESP",
-            ["esp.desc"] = "Highlight enemies through walls",
-            ["espdist.name"] = "Max Distance",
-            ["espdist.desc"] = "ESP render range",
-            ["lowgfx.name"] = "Low Graphics",
-            ["lowgfx.desc"] = "Reduce rendering quality for FPS",
-            ["noshadow.name"] = "No Shadows",
-            ["noshadow.desc"] = "Remove all shadows",
-            ["nofog.name"] = "No Fog",
-            ["nofog.desc"] = "Remove fog and atmosphere",
-            ["nopart.name"] = "No Particles",
-            ["nopart.desc"] = "Remove all particle effects",
-
-            ["config.placeholder"] = "Config name + Enter to save...",
-            ["config.refresh"] = "🔄 Refresh List",
-            ["config.disable_autoload"] = "🚫 Disable Autoload",
-            ["config.fps_boost"] = "⚡ Max FPS Boost",
-            ["config.reset_opt"] = "🔄 Reset Optimizations",
-            ["config.unload"] = "Unload Script",
-            ["config.empty"] = "No configs saved yet.",
-
-            ["lang.current"] = "🌐 Current: ",
-            ["lang.hint"] = "Choose the hub language (applies instantly and is saved).",
-            ["lang.saved_to"] = "Language is saved to:",
-            ["lang.auto_restore"] = "It is restored automatically when opening the hub.",
-
-            ["credits.copy_discord"] = "📋 Copy Discord Link",
-            ["credits.role"] = "Sr Red",
-        },
-        ["pt-br"] = {
-            ["tab.combat"] = "Combate",
-            ["tab.weapon"] = "Arma",
-            ["tab.movement"] = "Movimento",
-            ["tab.visuals"] = "Visual",
-            ["tab.settings"] = "Config",
-            ["tab.language"] = "Idioma",
-            ["tab.credits"] = "Créditos",
-
-            ["section.aim"] = "Mira",
-            ["section.hitbox"] = "Hitbox",
-            ["section.melee"] = "Corpo a corpo",
-            ["section.recoil"] = "Recuo",
-            ["section.firerate"] = "Cadência",
-            ["section.auto"] = "Auto",
-            ["section.speed"] = "Velocidade",
-            ["section.jump"] = "Pulo",
-            ["section.esp"] = "ESP",
-            ["section.environment"] = "Ambiente",
-            ["section.create_config"] = "Criar Config",
-            ["section.saved_configs"] = "Configs Salvos",
-            ["section.optimizations"] = "Otimizações",
-            ["section.danger"] = "Zona de Perigo",
-            ["section.language_select"] = "Idioma / Language",
-            ["section.language_info"] = "Info",
-            ["section.founder"] = "Fundador & Desenvolvedor",
-            ["section.community"] = "Comunidade",
-            ["section.version"] = "Versão",
-
-            ["silent.name"] = "Headshot Silencioso",
-            ["silent.desc"] = "Trava a mira na cabeça ao segurar o clique",
-            ["silentfov.name"] = "FOV Silencioso",
-            ["silentfov.desc"] = "Raio do campo de visão da mira silenciosa",
-            ["aimbot.name"] = "Aimbot",
-            ["aimbot.desc"] = "Trava a câmera no inimigo mais próximo",
-            ["headexp.name"] = "Head Expander",
-            ["headexp.desc"] = "Aumenta a hitbox da cabeça (mais fácil de acertar)",
-            ["headsize.name"] = "Tamanho da Cabeça",
-            ["headsize.desc"] = "Multiplicador do tamanho",
-            ["backstab.name"] = "Backstab",
-            ["backstab.desc"] = "Teleporta atrás do inimigo e ataca (tecla: E)",
-
-            ["norecoil.name"] = "Sem Recuo",
-            ["norecoil.desc"] = "Remove todo o recuo da arma",
-            ["rapidfire.name"] = "Tiro Rápido",
-            ["rapidfire.desc"] = "Reduz o delay entre tiros ao mínimo",
-            ["fastreload.name"] = "Reload Rápido",
-            ["fastreload.desc"] = "Recarga mais rápida",
-            ["instareload.name"] = "Reload Instantâneo",
-            ["instareload.desc"] = "Recarga na hora",
-            ["autoshoot.name"] = "Tiro Automático",
-            ["autoshoot.desc"] = "Atira sozinho quando o inimigo entra no FOV",
-            ["autoshootfov.name"] = "FOV do Tiro Auto",
-            ["autoshootfov.desc"] = "Raio pra atirar automaticamente",
-
-            ["speed.name"] = "Velocidade",
-            ["speed.desc"] = "Velocidade personalizada",
-            ["speedvalue.name"] = "Valor da Velocidade",
-            ["speedvalue.desc"] = "Valor do WalkSpeed",
-            ["airjump.name"] = "Pulo Infinito",
-            ["airjump.desc"] = "Pula no ar infinitamente",
-
-            ["esp.name"] = "ESP de Jogador",
-            ["esp.desc"] = "Destaca inimigos através das paredes",
-            ["espdist.name"] = "Distância Máxima",
-            ["espdist.desc"] = "Alcance do ESP",
-            ["lowgfx.name"] = "Gráficos Baixos",
-            ["lowgfx.desc"] = "Reduz qualidade gráfica pra FPS",
-            ["noshadow.name"] = "Sem Sombras",
-            ["noshadow.desc"] = "Remove todas as sombras",
-            ["nofog.name"] = "Sem Névoa",
-            ["nofog.desc"] = "Remove névoa e atmosfera",
-            ["nopart.name"] = "Sem Partículas",
-            ["nopart.desc"] = "Remove efeitos de partículas",
-
-            ["config.placeholder"] = "Nome do config + Enter pra salvar...",
-            ["config.refresh"] = "🔄 Atualizar Lista",
-            ["config.disable_autoload"] = "🚫 Desativar Autoload",
-            ["config.fps_boost"] = "⚡ Boost Máximo de FPS",
-            ["config.reset_opt"] = "🔄 Resetar Otimizações",
-            ["config.unload"] = "Descarregar Script",
-            ["config.empty"] = "Nenhum config salvo ainda.",
-
-            ["lang.current"] = "🌐 Atual: ",
-            ["lang.hint"] = "Escolha o idioma do menu (aplica na hora e é salvo).",
-            ["lang.saved_to"] = "A linguagem é salva em:",
-            ["lang.auto_restore"] = "É restaurada automaticamente ao abrir o hub.",
-
-            ["credits.copy_discord"] = "📋 Copiar Link do Discord",
-            ["credits.role"] = "Sr Red",
-        },
-    }
-
-    -- Idiomas extras carregados do arquivo externo (opcional)
-    local EXTRA_TR_FILE = "InfiniteZen_Translations.json"
-    if readfile and isfile and isfile(EXTRA_TR_FILE) then
-        pcall(function()
-            local raw = readfile(EXTRA_TR_FILE)
-            local extra = HttpService:JSONDecode(raw)
-            for code, tbl in pairs(extra) do
-                TRANSLATIONS[code] = TRANSLATIONS[code] or {}
-                for k, v in pairs(tbl) do
-                    TRANSLATIONS[code][k] = v
-                end
-            end
-            print("[IZ Lang] Traduções extras carregadas: " .. EXTRA_TR_FILE)
-        end)
-    end
-
-    local CURRENT_LANG = "en"
-
-    local function T(key)
-        local tbl = TRANSLATIONS[CURRENT_LANG]
-        if tbl and tbl[key] then return tbl[key] end
-        local fallback = TRANSLATIONS.en
-        if fallback and fallback[key] then return fallback[key] end
-        return key
-    end
-
-    -- ═══════════════════════════════════════════════
     -- UI ELEMENTS REGISTRY
     -- ═══════════════════════════════════════════════
     local Elements = {}
+    local Window = nil
 
     local function setToggle(el, val)
         if not el or type(el.SetState) ~= "function" then return false end
@@ -262,20 +51,6 @@ function Arsenal.Init(ctx)
     local function reg(id, el)
         if id and el then Elements[id] = el end
         return el
-    end
-
-    -- ═══════════════════════════════════════════════
-    -- TEAM CHECK
-    -- ═══════════════════════════════════════════════
-    local function isEnemy(player)
-        if player == LocalPlayer then return false end
-        if not player.Character then return false end
-        local hum = player.Character:FindFirstChildOfClass("Humanoid")
-        if not hum or hum.Health <= 0 then return false end
-        local myTeam = LocalPlayer.Team
-        if myTeam == nil then return true end
-        if player.Team == nil then return false end
-        return player.Team ~= myTeam
     end
 
     -- ═══════════════════════════════════════════════
@@ -300,75 +75,6 @@ function Arsenal.Init(ctx)
             speed = nil, airJump = nil, esp = nil,
         },
     }
-
-    -- ═══════════════════════════════════════════════
-    -- LANGUAGE SYSTEM
-    -- ═══════════════════════════════════════════════
-    local LANG_FILE = "InfiniteZen_Language.txt"
-
-    local LANGUAGES = {
-        { code = "en",    name = "English",            flag = "🇺🇸" },
-        { code = "pt-br", name = "Português (BR)",     flag = "🇧🇷" },
-        { code = "es",    name = "Español",            flag = "🇪🇸" },
-        { code = "fr",    name = "Français",           flag = "🇫🇷" },
-        { code = "de",    name = "Deutsch",            flag = "🇩🇪" },
-        { code = "it",    name = "Italiano",           flag = "🇮🇹" },
-        { code = "ru",    name = "Русский",            flag = "🇷🇺" },
-        { code = "pl",    name = "Polski",             flag = "🇵🇱" },
-        { code = "tr",    name = "Türkçe",             flag = "🇹🇷" },
-        { code = "id",    name = "Bahasa Indonesia",   flag = "🇮🇩" },
-        { code = "ph",    name = "Filipino",           flag = "🇵🇭" },
-        { code = "vn",    name = "Tiếng Việt",         flag = "🇻🇳" },
-        { code = "jp",    name = "日本語",             flag = "🇯🇵" },
-        { code = "kr",    name = "한국어",             flag = "🇰🇷" },
-        { code = "cn",    name = "中文",               flag = "🇨🇳" },
-        { code = "ar",    name = "العربية",            flag = "🇸🇦" },
-        { code = "hi",    name = "हिन्दी",              flag = "🇮🇳" },
-        { code = "nl",    name = "Nederlands",         flag = "🇳🇱" },
-        { code = "se",    name = "Svenska",            flag = "🇸🇪" },
-        { code = "ro",    name = "Română",             flag = "🇷🇴" },
-    }
-
-    local function saveLanguage(code)
-        if not writefile then return false end
-        return pcall(function() writefile(LANG_FILE, code) end)
-    end
-
-    local function loadSavedLanguage()
-        if not readfile or not isfile then return nil end
-        local ok, content = pcall(function() return readfile(LANG_FILE) end)
-        if ok and type(content) == "string" and content ~= "" then
-            content = content:gsub("%s+", "")
-            return content
-        end
-        return nil
-    end
-
-    -- Aplica o idioma salvo IMEDIATAMENTE
-    local savedLangCode = loadSavedLanguage()
-    if savedLangCode and TRANSLATIONS[savedLangCode] then
-        CURRENT_LANG = savedLangCode
-        print("[IZ Lang] Idioma restaurado: " .. savedLangCode)
-    end
-
-    -- Chama o módulo Language do hub (se existir)
-    local function applyHubLanguage(code)
-        if not Language then return end
-        local attempts = {
-            function() return Language.SetLanguage(code) end,
-            function() return Language:SetLanguage(code) end,
-            function() return Language.Set(code) end,
-            function() return Language:Set(code) end,
-            function() return Language.ChangeLanguage(code) end,
-            function() return Language:ChangeLanguage(code) end,
-        }
-        for _, fn in ipairs(attempts) do
-            if pcall(fn) then return true end
-        end
-        return false
-    end
-
-    if savedLangCode then pcall(applyHubLanguage, savedLangCode) end
 
     -- ═══════════════════════════════════════════════
     -- HELPERS
@@ -403,22 +109,19 @@ function Arsenal.Init(ctx)
         return workspace:Raycast(origin, unitDir * rayLength, params) == nil
     end
 
-    -- ═══════════════════════════════════════════════
-    -- WINDOW
-    -- ═══════════════════════════════════════════════
-    local Window = UI:CreateWindow({
-        Title = "INFINITE ZEN",
-        Subtitle = SHORT_VERSION,
-        ToggleKey = Enum.KeyCode.K,
-    })
-
-    -- Registra a função tradutora na UI Library
-    if type(UI.SetTranslator) == "function" then
-        UI:SetTranslator(T)
+    local function isEnemy(player)
+        if player == LocalPlayer then return false end
+        if not player.Character then return false end
+        local hum = player.Character:FindFirstChildOfClass("Humanoid")
+        if not hum or hum.Health <= 0 then return false end
+        local myTeam = LocalPlayer.Team
+        if myTeam == nil then return true end
+        if player.Team == nil then return false end
+        return player.Team ~= myTeam
     end
 
     -- ═══════════════════════════════════════════════
-    -- FOV CIRCLE
+    -- FOV CIRCLE (fora da UI, só uma vez)
     -- ═══════════════════════════════════════════════
     local fovCircle = Drawing.new("Circle")
     fovCircle.Color = Color3.fromRGB(255, 30, 40); fovCircle.Thickness = 1.5
@@ -435,7 +138,9 @@ function Arsenal.Init(ctx)
             fovCircle.Visible = true; fovCircle.Radius = State.autoShootFov / 6
         elseif State.aimbot then
             fovCircle.Visible = true; fovCircle.Radius = 25
-        else fovCircle.Visible = false end
+        else
+            fovCircle.Visible = false
+        end
     end)
 
     -- ═══════════════════════════════════════════════
@@ -844,12 +549,12 @@ function Arsenal.Init(ctx)
             d.Visible = false
             return d
         end
-        data.box = newDrawing("Square", {Thickness = 1.5, Color = Color3.fromRGB(255, 30, 40), Filled = false, Transparency = 1})
-        data.name = newDrawing("Text", {Size = 14, Center = true, Outline = true, Color = Color3.fromRGB(255, 255, 255)})
-        data.distance = newDrawing("Text", {Size = 12, Center = true, Outline = true, Color = Color3.fromRGB(255, 80, 80)})
-        data.health = newDrawing("Line", {Thickness = 3, Color = Color3.fromRGB(0, 255, 0)})
-        data.tracer = newDrawing("Line", {Thickness = 1.2, Color = Color3.fromRGB(255, 30, 40)})
-        data.headDot = newDrawing("Circle", {Radius = 4, NumSides = 20, Thickness = 1, Filled = false, Color = Color3.fromRGB(255, 255, 255)})
+        data.box      = newDrawing("Square", {Thickness = 1.5, Color = Color3.fromRGB(255, 30, 40), Filled = false, Transparency = 1})
+        data.name     = newDrawing("Text",   {Size = 14, Center = true, Outline = true, Color = Color3.fromRGB(255, 255, 255)})
+        data.distance = newDrawing("Text",   {Size = 12, Center = true, Outline = true, Color = Color3.fromRGB(255, 80, 80)})
+        data.health   = newDrawing("Line",   {Thickness = 3, Color = Color3.fromRGB(0, 255, 0)})
+        data.tracer   = newDrawing("Line",   {Thickness = 1.2, Color = Color3.fromRGB(255, 30, 40)})
+        data.headDot  = newDrawing("Circle", {Radius = 4, NumSides = 20, Thickness = 1, Filled = false, Color = Color3.fromRGB(255, 255, 255)})
         ESP.data[p] = data
     end
 
@@ -1034,22 +739,21 @@ function Arsenal.Init(ctx)
     -- ═══════════════════════════════════════════════
     -- CONFIG SYSTEM
     -- ═══════════════════════════════════════════════
-    local BASE_FOLDER = "InfiniteZen_Configs"
+    local BASE_FOLDER   = "InfiniteZen_Configs"
     local CONFIG_FOLDER = BASE_FOLDER .. "/Arsenal"
     local AUTOLOAD_FILE = "InfiniteZen_Arsenal_Autoload.txt"
 
     local function ensureFolder()
         if makefolder then
-            if not isfolder(BASE_FOLDER) then pcall(function() makefolder(BASE_FOLDER) end) end
+            if not isfolder(BASE_FOLDER)   then pcall(function() makefolder(BASE_FOLDER) end) end
             if not isfolder(CONFIG_FOLDER) then pcall(function() makefolder(CONFIG_FOLDER) end) end
         end
     end
 
     local function getConfigPath(name) return CONFIG_FOLDER .. "/" .. name .. ".json" end
-    local function getAutoloadPath() return AUTOLOAD_FILE end
+    local function getAutoloadPath()  return AUTOLOAD_FILE end
 
     local function syncUIFromState()
-        local okCount, failCount = 0, 0
         local toggles = {
             "silentHeadshot", "aimbot", "headExpander", "backstab",
             "noRecoil", "rapidFire", "fastReload", "instaReload",
@@ -1058,10 +762,7 @@ function Arsenal.Init(ctx)
         }
         for _, key in ipairs(toggles) do
             local el = Elements[key]
-            if el and State[key] ~= nil then
-                if setToggle(el, State[key]) then okCount = okCount + 1
-                else failCount = failCount + 1 end
-            end
+            if el and State[key] ~= nil then setToggle(el, State[key]) end
         end
         local sliders = {
             "silentFov", "headExpanderSize", "autoShootFov",
@@ -1069,29 +770,26 @@ function Arsenal.Init(ctx)
         }
         for _, key in ipairs(sliders) do
             local el = Elements[key]
-            if el and State[key] ~= nil then
-                if setSlider(el, State[key]) then okCount = okCount + 1
-                else failCount = failCount + 1 end
-            end
+            if el and State[key] ~= nil then setSlider(el, State[key]) end
         end
-        print(string.format("[IZ Sync] UI sincronizada: %d OK, %d falhas", okCount, failCount))
     end
 
     local function saveConfigNamed(name)
         ensureFolder()
         local data = {version = GAME_VERSION, state = {}, keybinds = State.keybinds}
-        for k, v in pairs(State) do if k ~= "keybinds" then data.state[k] = v end end
-        local json = HttpService:JSONEncode(data)
-        local ok = pcall(function() writefile(getConfigPath(name), json) end)
-        if ok then Window:Notify("💾 Config", "Saved: " .. name, 3, "success"); return true
-        else Window:Notify("⚠️ Error", "Failed to save", 4, "error"); return false end
+        for k, v in pairs(State) do
+            if k ~= "keybinds" then data.state[k] = v end
+        end
+        local ok = pcall(function() writefile(getConfigPath(name), HttpService:JSONEncode(data)) end)
+        if ok and Window then Window:Notify("💾 Config", "Saved: " .. name, 3, "success") end
+        return ok
     end
 
     local function loadConfigNamed(name)
         local ok, content = pcall(function() return readfile(getConfigPath(name)) end)
-        if not ok or not content then Window:Notify("⚠️ Error", "Config not found", 4, "error"); return false end
+        if not ok or not content then return false end
         local success, data = pcall(function() return HttpService:JSONDecode(content) end)
-        if not success or not data then Window:Notify("⚠️ Error", "Corrupted", 4, "error"); return false end
+        if not success or not data then return false end
         if data.state then for k, v in pairs(data.state) do State[k] = v end end
         if data.keybinds then for k, v in pairs(data.keybinds) do State.keybinds[k] = v end end
         if State.lowGraphics then applyLowGraphics(true) end
@@ -1099,7 +797,7 @@ function Arsenal.Init(ctx)
         if State.noFog then applyNoFog(true) end
         if State.noParticles then applyNoParticles(true) end
         syncUIFromState()
-        Window:Notify("📂 Load", "Loaded: " .. name, 3, "info")
+        if Window then Window:Notify("📂 Load", "Loaded: " .. name, 3, "info") end
         return true
     end
 
@@ -1107,7 +805,6 @@ function Arsenal.Init(ctx)
         local path = getConfigPath(name)
         if isfile and isfile(path) then
             pcall(function() delfile(path) end)
-            Window:Notify("🗑️ Delete", "Deleted: " .. name, 3, "info")
             return true
         end
         return false
@@ -1128,15 +825,11 @@ function Arsenal.Init(ctx)
 
     local function setAutoload(name)
         ensureFolder()
-        local ok = pcall(function() writefile(getAutoloadPath(), name) end)
-        if ok then Window:Notify("⚡ Autoload", "Set: " .. name, 3, "success") end
+        pcall(function() writefile(getAutoloadPath(), name) end)
     end
 
     local function clearAutoload()
-        pcall(function()
-            if isfile(getAutoloadPath()) then delfile(getAutoloadPath()) end
-        end)
-        Window:Notify("🚫 Autoload", "Disabled", 3, "info")
+        pcall(function() if isfile(getAutoloadPath()) then delfile(getAutoloadPath()) end end)
     end
 
     local function getAutoload()
@@ -1146,478 +839,422 @@ function Arsenal.Init(ctx)
     end
 
     -- ═══════════════════════════════════════════════
-    -- ABA: COMBAT
+    -- BUILD UI (função recriável — chamada no boot + rebuild de idioma)
     -- ═══════════════════════════════════════════════
-    local CombatTab = Window:CreateTab(T("tab.combat"), "⚔️")
-    CombatTab:CreateSection(T("section.aim"), "section.aim")
+    local function buildUI()
+        Window = UI:CreateWindow({
+            Title = "INFINITE ZEN",
+            Subtitle = SHORT_VERSION,
+            ToggleKey = Enum.KeyCode.K,
+        })
+        Elements = {}
 
-    reg("silentHeadshot", CombatTab:CreateToggle({
-        Name = T("silent.name"), NameKey = "silent.name",
-        Description = T("silent.desc"), DescKey = "silent.desc",
-        Icon = "🎯", Default = false,
-        Callback = function(v) State.silentHeadshot = v end,
-    }))
+        -- ═══ COMBAT ═══
+        local CombatTab = Window:CreateTab(T("tab.combat"), "⚔️")
+        CombatTab:CreateSection(T("section.aim"))
+        reg("silentHeadshot", CombatTab:CreateToggle({
+            Name = T("silent.name"), Description = T("silent.desc"),
+            Icon = "🎯", Default = false,
+            Callback = function(v) State.silentHeadshot = v end,
+        }))
+        reg("silentFov", CombatTab:CreateSlider({
+            Name = T("silentfov.name"), Description = T("silentfov.desc"),
+            Icon = "📐", Min = 30, Max = 300, Default = 120,
+            Callback = function(v) State.silentFov = v end,
+        }))
+        reg("aimbot", CombatTab:CreateToggle({
+            Name = T("aimbot.name"), Description = T("aimbot.desc"),
+            Icon = "🤖", Default = false,
+            Callback = function(v) State.aimbot = v end,
+        }))
+        CombatTab:CreateSection(T("section.hitbox"))
+        reg("headExpander", CombatTab:CreateToggle({
+            Name = T("headexp.name"), Description = T("headexp.desc"),
+            Icon = "🔴", Default = false,
+            Callback = function(v) State.headExpander = v; if not v then restoreAll() end end,
+        }))
+        reg("headExpanderSize", CombatTab:CreateSlider({
+            Name = T("headsize.name"), Description = T("headsize.desc"),
+            Icon = "📏", Min = 1, Max = 8, Default = 3,
+            Callback = function(v) State.headExpanderSize = v end,
+        }))
+        CombatTab:CreateSection(T("section.melee"))
+        reg("backstab", CombatTab:CreateToggle({
+            Name = T("backstab.name"), Description = T("backstab.desc"),
+            Icon = "🗡️", Default = false,
+            Callback = function(v) State.backstab = v end,
+        }))
 
-    reg("silentFov", CombatTab:CreateSlider({
-        Name = T("silentfov.name"), NameKey = "silentfov.name",
-        Description = T("silentfov.desc"), DescKey = "silentfov.desc",
-        Icon = "📐", Min = 30, Max = 300, Default = 120,
-        Callback = function(v) State.silentFov = v end,
-    }))
-
-    reg("aimbot", CombatTab:CreateToggle({
-        Name = T("aimbot.name"), NameKey = "aimbot.name",
-        Description = T("aimbot.desc"), DescKey = "aimbot.desc",
-        Icon = "🤖", Default = false,
-        Callback = function(v) State.aimbot = v end,
-    }))
-
-    CombatTab:CreateSection(T("section.hitbox"), "section.hitbox")
-
-    reg("headExpander", CombatTab:CreateToggle({
-        Name = T("headexp.name"), NameKey = "headexp.name",
-        Description = T("headexp.desc"), DescKey = "headexp.desc",
-        Icon = "🔴", Default = false,
-        Callback = function(v) State.headExpander = v; if not v then restoreAll() end end,
-    }))
-
-    reg("headExpanderSize", CombatTab:CreateSlider({
-        Name = T("headsize.name"), NameKey = "headsize.name",
-        Description = T("headsize.desc"), DescKey = "headsize.desc",
-        Icon = "📏", Min = 1, Max = 8, Default = 3,
-        Callback = function(v) State.headExpanderSize = v end,
-    }))
-
-    CombatTab:CreateSection(T("section.melee"), "section.melee")
-
-    reg("backstab", CombatTab:CreateToggle({
-        Name = T("backstab.name"), NameKey = "backstab.name",
-        Description = T("backstab.desc"), DescKey = "backstab.desc",
-        Icon = "🗡️", Default = false,
-        Callback = function(v) State.backstab = v end,
-    }))
-
-    -- ═══════════════════════════════════════════════
-    -- ABA: WEAPON
-    -- ═══════════════════════════════════════════════
-    local WeaponTab = Window:CreateTab(T("tab.weapon"), "🔫")
-    WeaponTab:CreateSection(T("section.recoil"), "section.recoil")
-
-    reg("noRecoil", WeaponTab:CreateToggle({
-        Name = T("norecoil.name"), NameKey = "norecoil.name",
-        Description = T("norecoil.desc"), DescKey = "norecoil.desc",
-        Icon = "🎯", Default = false,
-        Callback = function(v) State.noRecoil = v end,
-    }))
-
-    WeaponTab:CreateSection(T("section.firerate"), "section.firerate")
-
-    reg("rapidFire", WeaponTab:CreateToggle({
-        Name = T("rapidfire.name"), NameKey = "rapidfire.name",
-        Description = T("rapidfire.desc"), DescKey = "rapidfire.desc",
-        Icon = "⚡", Default = false,
-        Callback = function(v) State.rapidFire = v end,
-    }))
-
-    reg("fastReload", WeaponTab:CreateToggle({
-        Name = T("fastreload.name"), NameKey = "fastreload.name",
-        Description = T("fastreload.desc"), DescKey = "fastreload.desc",
-        Icon = "🔄", Default = false,
-        Callback = function(v)
-            State.fastReload = v
-            if not v then
-                for value, original in pairs(reloadOriginals) do
-                    pcall(function() value.Value = original end)
+        -- ═══ WEAPON ═══
+        local WeaponTab = Window:CreateTab(T("tab.weapon"), "🔫")
+        WeaponTab:CreateSection(T("section.recoil"))
+        reg("noRecoil", WeaponTab:CreateToggle({
+            Name = T("norecoil.name"), Description = T("norecoil.desc"),
+            Icon = "🎯", Default = false,
+            Callback = function(v) State.noRecoil = v end,
+        }))
+        WeaponTab:CreateSection(T("section.firerate"))
+        reg("rapidFire", WeaponTab:CreateToggle({
+            Name = T("rapidfire.name"), Description = T("rapidfire.desc"),
+            Icon = "⚡", Default = false,
+            Callback = function(v) State.rapidFire = v end,
+        }))
+        reg("fastReload", WeaponTab:CreateToggle({
+            Name = T("fastreload.name"), Description = T("fastreload.desc"),
+            Icon = "🔄", Default = false,
+            Callback = function(v)
+                State.fastReload = v
+                if not v then
+                    for value, original in pairs(reloadOriginals) do
+                        pcall(function() value.Value = original end)
+                    end
+                    reloadOriginals = {}
                 end
-                reloadOriginals = {}
+            end,
+        }))
+        reg("instaReload", WeaponTab:CreateToggle({
+            Name = T("instareload.name"), Description = T("instareload.desc"),
+            Icon = "💨", Default = false,
+            Callback = function(v) State.instaReload = v end,
+        }))
+        WeaponTab:CreateSection(T("section.auto"))
+        reg("autoShoot", WeaponTab:CreateToggle({
+            Name = T("autoshot.name"), Description = T("autoshot.desc"),
+            Icon = "🔥", Default = false,
+            Callback = function(v) State.autoShoot = v end,
+        }))
+        reg("autoShootFov", WeaponTab:CreateSlider({
+            Name = T("autoshotfov.name"), Description = T("autoshotfov.desc"),
+            Icon = "📐", Min = 30, Max = 300, Default = 100,
+            Callback = function(v) State.autoShootFov = v end,
+        }))
+
+        -- ═══ MOVEMENT ═══
+        local MoveTab = Window:CreateTab(T("tab.movement"), "🏃")
+        MoveTab:CreateSection(T("section.speed"))
+        reg("speed", MoveTab:CreateToggle({
+            Name = T("speed.name"), Description = T("speed.desc"),
+            Icon = "⚡", Default = false,
+            Callback = function(v)
+                State.speed = v
+                if not v then
+                    local char = LocalPlayer.Character
+                    if char then
+                        local hum = char:FindFirstChildOfClass("Humanoid")
+                        if hum then hum.WalkSpeed = 16 end
+                    end
+                end
+            end,
+        }))
+        reg("speedValue", MoveTab:CreateSlider({
+            Name = T("speedvalue.name"), Description = T("speedvalue.desc"),
+            Icon = "📏", Min = 16, Max = 300, Default = 50,
+            Callback = function(v) State.speedValue = v end,
+        }))
+        MoveTab:CreateSection(T("section.jump"))
+        reg("airJump", MoveTab:CreateToggle({
+            Name = T("airjump.name"), Description = T("airjump.desc"),
+            Icon = "🦘", Default = false,
+            Callback = function(v)
+                State.airJump = v
+                if v then startAirJump() else stopAirJump() end
+            end,
+        }))
+
+        -- ═══ VISUALS ═══
+        local VisualsTab = Window:CreateTab(T("tab.visuals"), "👁️")
+        VisualsTab:CreateSection(T("section.esp"))
+        reg("esp", VisualsTab:CreateToggle({
+            Name = T("esp.name"), Description = T("esp.desc"),
+            Icon = "👤", Default = false,
+            Callback = function(v)
+                State.esp = v
+                if v then
+                    for _, p in ipairs(Players:GetPlayers()) do
+                        if p ~= LocalPlayer and p.Character then createESP(p) end
+                    end
+                else clearAllESP() end
+            end,
+        }))
+        reg("espMaxDistance", VisualsTab:CreateSlider({
+            Name = T("espdist.name"), Description = T("espdist.desc"),
+            Icon = "📐", Min = 100, Max = 10000, Default = 500,
+            Callback = function(v) State.espMaxDistance = v end,
+        }))
+        VisualsTab:CreateSection(T("section.environment"))
+        reg("lowGraphics", VisualsTab:CreateToggle({
+            Name = T("lowgfx.name"), Description = T("lowgfx.desc"),
+            Icon = "📉", Default = false,
+            Callback = function(v) State.lowGraphics = v; applyLowGraphics(v) end,
+        }))
+        reg("noShadows", VisualsTab:CreateToggle({
+            Name = T("noshadow.name"), Description = T("noshadow.desc"),
+            Icon = "🌑", Default = false,
+            Callback = function(v) State.noShadows = v; applyNoShadows(v) end,
+        }))
+        reg("noFog", VisualsTab:CreateToggle({
+            Name = T("nofog.name"), Description = T("nofog.desc"),
+            Icon = "🌫️", Default = false,
+            Callback = function(v) State.noFog = v; applyNoFog(v) end,
+        }))
+        reg("noParticles", VisualsTab:CreateToggle({
+            Name = T("nopart.name"), Description = T("nopart.desc"),
+            Icon = "✨", Default = false,
+            Callback = function(v) State.noParticles = v; applyNoParticles(v) end,
+        }))
+
+        -- ═══ SETTINGS ═══
+        local SettingsTab = Window:CreateTab(T("tab.settings"), "⚙️")
+        SettingsTab:CreateSection(T("section.create_config"))
+
+        local configInputFrame = Instance.new("Frame", SettingsTab.container)
+        configInputFrame.Size = UDim2.new(1, 0, 0, 40)
+        configInputFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
+        configInputFrame.BorderSizePixel = 0
+        configInputFrame.LayoutOrder = #SettingsTab.container:GetChildren()
+        Instance.new("UICorner", configInputFrame).CornerRadius = UDim.new(0, 8)
+
+        local cInput = Instance.new("TextBox", configInputFrame)
+        cInput.Size = UDim2.new(1, -20, 1, -10)
+        cInput.Position = UDim2.new(0, 10, 0, 5)
+        cInput.BackgroundTransparency = 1
+        cInput.Font = Enum.Font.GothamMedium
+        cInput.TextSize = 12
+        cInput.TextColor3 = Color3.fromRGB(240, 240, 245)
+        cInput.PlaceholderText = T("config.placeholder")
+        cInput.PlaceholderColor3 = Color3.fromRGB(90, 90, 105)
+        cInput.Text = ""
+        cInput.ClearTextOnFocus = false
+        cInput.TextXAlignment = Enum.TextXAlignment.Left
+
+        SettingsTab:CreateSection(T("section.saved_configs"))
+
+        local configListFrame = Instance.new("Frame", SettingsTab.container)
+        configListFrame.Size = UDim2.new(1, 0, 0, 160)
+        configListFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
+        configListFrame.BorderSizePixel = 0
+        configListFrame.LayoutOrder = #SettingsTab.container:GetChildren()
+        Instance.new("UICorner", configListFrame).CornerRadius = UDim.new(0, 8)
+
+        local configScroll = Instance.new("ScrollingFrame", configListFrame)
+        configScroll.Size = UDim2.new(1, -12, 1, -12)
+        configScroll.Position = UDim2.new(0, 6, 0, 6)
+        configScroll.BackgroundTransparency = 1
+        configScroll.BorderSizePixel = 0
+        configScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+        configScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        configScroll.ScrollBarThickness = 3
+        configScroll.ScrollBarImageColor3 = Color3.fromRGB(230, 40, 40)
+
+        local configListLayout = Instance.new("UIListLayout", configScroll)
+        configListLayout.Padding = UDim.new(0, 4)
+
+        local function refreshConfigList()
+            for _, child in ipairs(configScroll:GetChildren()) do
+                if child:IsA("TextButton") or child:IsA("Frame") then child:Destroy() end
             end
-        end,
-    }))
-
-    reg("instaReload", WeaponTab:CreateToggle({
-        Name = T("instareload.name"), NameKey = "instareload.name",
-        Description = T("instareload.desc"), DescKey = "instareload.desc",
-        Icon = "💨", Default = false,
-        Callback = function(v) State.instaReload = v end,
-    }))
-
-    WeaponTab:CreateSection(T("section.auto"), "section.auto")
-
-    reg("autoShoot", WeaponTab:CreateToggle({
-        Name = T("autoshoot.name"), NameKey = "autoshoot.name",
-        Description = T("autoshoot.desc"), DescKey = "autoshoot.desc",
-        Icon = "🔥", Default = false,
-        Callback = function(v) State.autoShoot = v end,
-    }))
-
-    reg("autoShootFov", WeaponTab:CreateSlider({
-        Name = T("autoshootfov.name"), NameKey = "autoshootfov.name",
-        Description = T("autoshootfov.desc"), DescKey = "autoshootfov.desc",
-        Icon = "📐", Min = 30, Max = 300, Default = 100,
-        Callback = function(v) State.autoShootFov = v end,
-    }))
-
-    -- ═══════════════════════════════════════════════
-    -- ABA: MOVEMENT
-    -- ═══════════════════════════════════════════════
-    local MoveTab = Window:CreateTab(T("tab.movement"), "🏃")
-    MoveTab:CreateSection(T("section.speed"), "section.speed")
-
-    reg("speed", MoveTab:CreateToggle({
-        Name = T("speed.name"), NameKey = "speed.name",
-        Description = T("speed.desc"), DescKey = "speed.desc",
-        Icon = "⚡", Default = false,
-        Callback = function(v)
-            State.speed = v
-            if not v then
-                local char = LocalPlayer.Character
-                if char then
-                    local hum = char:FindFirstChildOfClass("Humanoid")
-                    if hum then hum.WalkSpeed = 16 end
-                end
+            local configs = listConfigs()
+            local currentAutoload = getAutoload()
+            if #configs == 0 then
+                local empty = Instance.new("TextLabel", configScroll)
+                empty.Size = UDim2.new(1, 0, 0, 30)
+                empty.BackgroundTransparency = 1
+                empty.Font = Enum.Font.Gotham
+                empty.TextSize = 11
+                empty.TextColor3 = Color3.fromRGB(90, 90, 105)
+                empty.Text = T("config.empty")
+                return
             end
-        end,
-    }))
+            for _, name in ipairs(configs) do
+                local entry = Instance.new("Frame", configScroll)
+                entry.Size = UDim2.new(1, -4, 0, 32)
+                entry.BackgroundColor3 = Color3.fromRGB(24, 24, 32)
+                entry.BorderSizePixel = 0
+                Instance.new("UICorner", entry).CornerRadius = UDim.new(0, 6)
 
-    reg("speedValue", MoveTab:CreateSlider({
-        Name = T("speedvalue.name"), NameKey = "speedvalue.name",
-        Description = T("speedvalue.desc"), DescKey = "speedvalue.desc",
-        Icon = "📏", Min = 16, Max = 300, Default = 50,
-        Callback = function(v) State.speedValue = v end,
-    }))
+                local nameLbl = Instance.new("TextLabel", entry)
+                nameLbl.Size = UDim2.new(0.5, 0, 1, 0)
+                nameLbl.Position = UDim2.new(0, 10, 0, 0)
+                nameLbl.BackgroundTransparency = 1
+                nameLbl.Font = Enum.Font.GothamBold
+                nameLbl.TextSize = 11
+                nameLbl.TextColor3 = (currentAutoload == name) and Color3.fromRGB(255, 180, 50) or Color3.fromRGB(240, 240, 245)
+                nameLbl.Text = (currentAutoload == name and "⚡ " or "") .. name
+                nameLbl.TextXAlignment = Enum.TextXAlignment.Left
 
-    MoveTab:CreateSection(T("section.jump"), "section.jump")
+                local loadBtn = Instance.new("TextButton", entry)
+                loadBtn.Size = UDim2.new(0, 50, 0, 22)
+                loadBtn.Position = UDim2.new(1, -110, 0.5, -11)
+                loadBtn.BackgroundColor3 = Color3.fromRGB(230, 40, 40)
+                loadBtn.Text = "Load"
+                loadBtn.Font = Enum.Font.GothamBold
+                loadBtn.TextSize = 10
+                loadBtn.TextColor3 = Color3.fromRGB(240, 240, 245)
+                loadBtn.AutoButtonColor = false
+                Instance.new("UICorner", loadBtn).CornerRadius = UDim.new(0, 4)
+                loadBtn.MouseButton1Click:Connect(function()
+                    loadConfigNamed(name); refreshConfigList()
+                end)
 
-    reg("airJump", MoveTab:CreateToggle({
-        Name = T("airjump.name"), NameKey = "airjump.name",
-        Description = T("airjump.desc"), DescKey = "airjump.desc",
-        Icon = "🦘", Default = false,
-        Callback = function(v) State.airJump = v; if v then startAirJump() else stopAirJump() end end,
-    }))
+                local autoBtn = Instance.new("TextButton", entry)
+                autoBtn.Size = UDim2.new(0, 22, 0, 22)
+                autoBtn.Position = UDim2.new(1, -55, 0.5, -11)
+                autoBtn.BackgroundColor3 = (currentAutoload == name) and Color3.fromRGB(255, 180, 50) or Color3.fromRGB(35, 35, 45)
+                autoBtn.Text = "⚡"
+                autoBtn.Font = Enum.Font.GothamBold
+                autoBtn.TextSize = 11
+                autoBtn.TextColor3 = Color3.fromRGB(240, 240, 245)
+                autoBtn.AutoButtonColor = false
+                Instance.new("UICorner", autoBtn).CornerRadius = UDim.new(0, 4)
+                autoBtn.MouseButton1Click:Connect(function()
+                    if currentAutoload == name then clearAutoload() else setAutoload(name) end
+                    refreshConfigList()
+                end)
 
-    -- ═══════════════════════════════════════════════
-    -- ABA: VISUALS
-    -- ═══════════════════════════════════════════════
-    local VisualsTab = Window:CreateTab(T("tab.visuals"), "👁️")
-    VisualsTab:CreateSection(T("section.esp"), "section.esp")
-
-    reg("esp", VisualsTab:CreateToggle({
-        Name = T("esp.name"), NameKey = "esp.name",
-        Description = T("esp.desc"), DescKey = "esp.desc",
-        Icon = "👤", Default = false,
-        Callback = function(v)
-            State.esp = v
-            if v then
-                for _, p in ipairs(Players:GetPlayers()) do
-                    if p ~= LocalPlayer and p.Character then createESP(p) end
-                end
-            else clearAllESP() end
-        end,
-    }))
-
-    reg("espMaxDistance", VisualsTab:CreateSlider({
-        Name = T("espdist.name"), NameKey = "espdist.name",
-        Description = T("espdist.desc"), DescKey = "espdist.desc",
-        Icon = "📐", Min = 100, Max = 10000, Default = 500,
-        Callback = function(v) State.espMaxDistance = v end,
-    }))
-
-    VisualsTab:CreateSection(T("section.environment"), "section.environment")
-
-    reg("lowGraphics", VisualsTab:CreateToggle({
-        Name = T("lowgfx.name"), NameKey = "lowgfx.name",
-        Description = T("lowgfx.desc"), DescKey = "lowgfx.desc",
-        Icon = "📉", Default = false,
-        Callback = function(v) State.lowGraphics = v; applyLowGraphics(v) end,
-    }))
-
-    reg("noShadows", VisualsTab:CreateToggle({
-        Name = T("noshadow.name"), NameKey = "noshadow.name",
-        Description = T("noshadow.desc"), DescKey = "noshadow.desc",
-        Icon = "🌑", Default = false,
-        Callback = function(v) State.noShadows = v; applyNoShadows(v) end,
-    }))
-
-    reg("noFog", VisualsTab:CreateToggle({
-        Name = T("nofog.name"), NameKey = "nofog.name",
-        Description = T("nofog.desc"), DescKey = "nofog.desc",
-        Icon = "🌫️", Default = false,
-        Callback = function(v) State.noFog = v; applyNoFog(v) end,
-    }))
-
-    reg("noParticles", VisualsTab:CreateToggle({
-        Name = T("nopart.name"), NameKey = "nopart.name",
-        Description = T("nopart.desc"), DescKey = "nopart.desc",
-        Icon = "✨", Default = false,
-        Callback = function(v) State.noParticles = v; applyNoParticles(v) end,
-    }))
-
-    -- ═══════════════════════════════════════════════
-    -- ABA: SETTINGS
-    -- ═══════════════════════════════════════════════
-    local SettingsTab = Window:CreateTab(T("tab.settings"), "⚙️")
-    SettingsTab:CreateSection(T("section.create_config"), "section.create_config")
-
-    local configInputFrame = Instance.new("Frame", SettingsTab.container)
-    configInputFrame.Size = UDim2.new(1, 0, 0, 40)
-    configInputFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
-    configInputFrame.BorderSizePixel = 0
-    configInputFrame.LayoutOrder = #SettingsTab.container:GetChildren()
-    Instance.new("UICorner", configInputFrame).CornerRadius = UDim.new(0, 8)
-
-    local cInput = Instance.new("TextBox", configInputFrame)
-    cInput.Size = UDim2.new(1, -20, 1, -10)
-    cInput.Position = UDim2.new(0, 10, 0, 5)
-    cInput.BackgroundTransparency = 1
-    cInput.Font = Enum.Font.GothamMedium
-    cInput.TextSize = 12
-    cInput.TextColor3 = Color3.fromRGB(240, 240, 245)
-    cInput.PlaceholderText = T("config.placeholder")
-    cInput.PlaceholderColor3 = Color3.fromRGB(90, 90, 105)
-    cInput.Text = ""
-    cInput.ClearTextOnFocus = false
-    cInput.TextXAlignment = Enum.TextXAlignment.Left
-
-    SettingsTab:CreateSection(T("section.saved_configs"), "section.saved_configs")
-
-    local configListFrame = Instance.new("Frame", SettingsTab.container)
-    configListFrame.Size = UDim2.new(1, 0, 0, 160)
-    configListFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
-    configListFrame.BorderSizePixel = 0
-    configListFrame.LayoutOrder = #SettingsTab.container:GetChildren()
-    Instance.new("UICorner", configListFrame).CornerRadius = UDim.new(0, 8)
-
-    local configScroll = Instance.new("ScrollingFrame", configListFrame)
-    configScroll.Size = UDim2.new(1, -12, 1, -12)
-    configScroll.Position = UDim2.new(0, 6, 0, 6)
-    configScroll.BackgroundTransparency = 1
-    configScroll.BorderSizePixel = 0
-    configScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-    configScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    configScroll.ScrollBarThickness = 3
-    configScroll.ScrollBarImageColor3 = Color3.fromRGB(230, 40, 40)
-
-    local configListLayout = Instance.new("UIListLayout", configScroll)
-    configListLayout.Padding = UDim.new(0, 4)
-
-    local function refreshConfigList()
-        for _, child in ipairs(configScroll:GetChildren()) do
-            if child:IsA("TextButton") or child:IsA("Frame") then child:Destroy() end
-        end
-        local configs = listConfigs()
-        local currentAutoload = getAutoload()
-        if #configs == 0 then
-            local empty = Instance.new("TextLabel", configScroll)
-            empty.Size = UDim2.new(1, 0, 0, 30)
-            empty.BackgroundTransparency = 1
-            empty.Font = Enum.Font.Gotham
-            empty.TextSize = 11
-            empty.TextColor3 = Color3.fromRGB(90, 90, 105)
-            empty.Text = T("config.empty")
-            return
-        end
-        for _, name in ipairs(configs) do
-            local entry = Instance.new("Frame", configScroll)
-            entry.Size = UDim2.new(1, -4, 0, 32)
-            entry.BackgroundColor3 = Color3.fromRGB(24, 24, 32)
-            entry.BorderSizePixel = 0
-            Instance.new("UICorner", entry).CornerRadius = UDim.new(0, 6)
-            local nameLbl = Instance.new("TextLabel", entry)
-            nameLbl.Size = UDim2.new(0.5, 0, 1, 0)
-            nameLbl.Position = UDim2.new(0, 10, 0, 0)
-            nameLbl.BackgroundTransparency = 1
-            nameLbl.Font = Enum.Font.GothamBold
-            nameLbl.TextSize = 11
-            nameLbl.TextColor3 = (currentAutoload == name) and Color3.fromRGB(255, 180, 50) or Color3.fromRGB(240, 240, 245)
-            nameLbl.Text = (currentAutoload == name and "⚡ " or "") .. name
-            nameLbl.TextXAlignment = Enum.TextXAlignment.Left
-            local loadBtn = Instance.new("TextButton", entry)
-            loadBtn.Size = UDim2.new(0, 50, 0, 22)
-            loadBtn.Position = UDim2.new(1, -110, 0.5, -11)
-            loadBtn.BackgroundColor3 = Color3.fromRGB(230, 40, 40)
-            loadBtn.Text = "Load"
-            loadBtn.Font = Enum.Font.GothamBold
-            loadBtn.TextSize = 10
-            loadBtn.TextColor3 = Color3.fromRGB(240, 240, 245)
-            loadBtn.AutoButtonColor = false
-            Instance.new("UICorner", loadBtn).CornerRadius = UDim.new(0, 4)
-            loadBtn.MouseButton1Click:Connect(function()
-                loadConfigNamed(name); refreshConfigList()
-            end)
-            local autoBtn = Instance.new("TextButton", entry)
-            autoBtn.Size = UDim2.new(0, 22, 0, 22)
-            autoBtn.Position = UDim2.new(1, -55, 0.5, -11)
-            autoBtn.BackgroundColor3 = (currentAutoload == name) and Color3.fromRGB(255, 180, 50) or Color3.fromRGB(35, 35, 45)
-            autoBtn.Text = "⚡"
-            autoBtn.Font = Enum.Font.GothamBold
-            autoBtn.TextSize = 11
-            autoBtn.TextColor3 = Color3.fromRGB(240, 240, 245)
-            autoBtn.AutoButtonColor = false
-            Instance.new("UICorner", autoBtn).CornerRadius = UDim.new(0, 4)
-            autoBtn.MouseButton1Click:Connect(function()
-                if currentAutoload == name then clearAutoload() else setAutoload(name) end
-                refreshConfigList()
-            end)
-            local delBtn = Instance.new("TextButton", entry)
-            delBtn.Size = UDim2.new(0, 22, 0, 22)
-            delBtn.Position = UDim2.new(1, -28, 0.5, -11)
-            delBtn.BackgroundColor3 = Color3.fromRGB(60, 15, 20)
-            delBtn.Text = "×"
-            delBtn.Font = Enum.Font.GothamBold
-            delBtn.TextSize = 14
-            delBtn.TextColor3 = Color3.fromRGB(255, 40, 40)
-            delBtn.AutoButtonColor = false
-            Instance.new("UICorner", delBtn).CornerRadius = UDim.new(0, 4)
-            delBtn.MouseButton1Click:Connect(function()
-                deleteConfigNamed(name); refreshConfigList()
-            end)
-        end
-    end
-
-    cInput.FocusLost:Connect(function(enterPressed)
-        if enterPressed and cInput.Text ~= "" then
-            saveConfigNamed(cInput.Text)
-            cInput.Text = ""
-            refreshConfigList()
-        end
-    end)
-
-    SettingsTab:CreateButton({
-        Name = T("config.refresh"), NameKey = "config.refresh",
-        Callback = function()
-            refreshConfigList()
-            Window:Notify("🔄 Refresh", "Config list updated", 2, "info")
-        end,
-    })
-
-    SettingsTab:CreateButton({
-        Name = T("config.disable_autoload"), NameKey = "config.disable_autoload",
-        Callback = function()
-            clearAutoload(); refreshConfigList()
-        end,
-    })
-
-    refreshConfigList()
-
-    SettingsTab:CreateSection(T("section.optimizations"), "section.optimizations")
-    SettingsTab:CreateButton({
-        Name = T("config.fps_boost"), NameKey = "config.fps_boost",
-        Callback = function()
-            State.lowGraphics = true; applyLowGraphics(true)
-            State.noShadows = true; applyNoShadows(true)
-            State.noFog = true; applyNoFog(true)
-            State.noParticles = true; applyNoParticles(true)
-            syncUIFromState()
-            Window:Notify("⚡ Boost", "All optimizations ON", 3, "success")
-        end,
-    })
-
-    SettingsTab:CreateButton({
-        Name = T("config.reset_opt"), NameKey = "config.reset_opt",
-        Callback = function()
-            State.lowGraphics = false; applyLowGraphics(false)
-            State.noShadows = false; applyNoShadows(false)
-            State.noFog = false; applyNoFog(false)
-            State.noParticles = false; applyNoParticles(false)
-            syncUIFromState()
-            Window:Notify("Reset", "Optimizations reset", 3, "info")
-        end,
-    })
-
-    SettingsTab:CreateSection(T("section.danger"), "section.danger")
-    SettingsTab:CreateButton({
-        Name = T("config.unload"), NameKey = "config.unload",
-        Danger = true,
-        Callback = function()
-            UNLOADED = true
-            restoreAll(); clearAllESP(); stopAirJump()
-            if fovCircle then fovCircle:Remove() end
-            applyLowGraphics(false); applyNoShadows(false); applyNoFog(false); applyNoParticles(false)
-            Window:Notify("Unload", "Script unloaded", 2, "warning")
-            task.wait(0.3); Window:Destroy()
-        end,
-    })
-
-    -- ═══════════════════════════════════════════════
-    -- ABA: LANGUAGE 🌍
-    -- ═══════════════════════════════════════════════
-    local LanguageTab = Window:CreateTab(T("tab.language"), "🌍")
-    LanguageTab:CreateSection(T("section.language_select"), "section.language_select")
-
-    local currentLangObj = nil
-    for _, l in ipairs(LANGUAGES) do
-        if l.code == CURRENT_LANG then currentLangObj = l; break end
-    end
-
-    local currentLangLabel = LanguageTab:CreateLabel(
-        T("lang.current") .. (currentLangObj and (currentLangObj.flag .. " " .. currentLangObj.name) or CURRENT_LANG:upper()),
-        Color3.fromRGB(230, 40, 40)
-    )
-
-    LanguageTab:CreateLabel(T("lang.hint"), Color3.fromRGB(140, 140, 155))
-
-    local langOptions = {}
-    local defaultIdx = 1
-    for i, l in ipairs(LANGUAGES) do
-        table.insert(langOptions, l.flag .. " " .. l.name)
-        if l.code == CURRENT_LANG then defaultIdx = i end
-    end
-
-    LanguageTab:CreateDropdown({
-        Name = "Idioma / Language",
-        Description = T("lang.hint"),
-        Icon = "🌍",
-        Options = langOptions,
-        Default = defaultIdx,
-        Callback = function(opt, idx)
-            local lang = LANGUAGES[idx]
-            if not lang then return end
-            CURRENT_LANG = lang.code
-            saveLanguage(lang.code)
-            applyHubLanguage(lang.code)
-            if currentLangLabel then
-                pcall(function()
-                    currentLangLabel.Text = T("lang.current") .. lang.flag .. " " .. lang.name
+                local delBtn = Instance.new("TextButton", entry)
+                delBtn.Size = UDim2.new(0, 22, 0, 22)
+                delBtn.Position = UDim2.new(1, -28, 0.5, -11)
+                delBtn.BackgroundColor3 = Color3.fromRGB(60, 15, 20)
+                delBtn.Text = "×"
+                delBtn.Font = Enum.Font.GothamBold
+                delBtn.TextSize = 14
+                delBtn.TextColor3 = Color3.fromRGB(255, 40, 40)
+                delBtn.AutoButtonColor = false
+                Instance.new("UICorner", delBtn).CornerRadius = UDim.new(0, 4)
+                delBtn.MouseButton1Click:Connect(function()
+                    deleteConfigNamed(name); refreshConfigList()
                 end)
             end
-            if type(UI.RefreshTranslations) == "function" then
-                UI:RefreshTranslations()
+        end
+
+        cInput.FocusLost:Connect(function(enterPressed)
+            if enterPressed and cInput.Text ~= "" then
+                saveConfigNamed(cInput.Text)
+                cInput.Text = ""
+                refreshConfigList()
             end
-            Window:Notify("🌍 Language", "→ " .. lang.name, 3, "success")
-        end,
-    })
+        end)
 
-    LanguageTab:CreateSection(T("section.language_info"), "section.language_info")
-    LanguageTab:CreateLabel(T("lang.saved_to"), Color3.fromRGB(140, 140, 155))
-    LanguageTab:CreateLabel(LANG_FILE, Color3.fromRGB(230, 40, 40))
-    LanguageTab:CreateLabel(T("lang.auto_restore"), Color3.fromRGB(90, 90, 105))
-    LanguageTab:CreateLabel("External translations: " .. EXTRA_TR_FILE, Color3.fromRGB(90, 90, 105))
+        SettingsTab:CreateButton({
+            Name = T("config.refresh"),
+            Callback = function()
+                refreshConfigList()
+                Window:Notify("🔄", T("config.refresh"), 2, "info")
+            end,
+        })
+
+        SettingsTab:CreateButton({
+            Name = T("config.disable_autoload"),
+            Callback = function()
+                clearAutoload(); refreshConfigList()
+            end,
+        })
+
+        refreshConfigList()
+
+        SettingsTab:CreateSection(T("section.optimizations"))
+        SettingsTab:CreateButton({
+            Name = T("config.fps_boost"),
+            Callback = function()
+                State.lowGraphics = true; applyLowGraphics(true)
+                State.noShadows = true; applyNoShadows(true)
+                State.noFog = true; applyNoFog(true)
+                State.noParticles = true; applyNoParticles(true)
+                syncUIFromState()
+                Window:Notify("⚡", T("config.fps_boost"), 3, "success")
+            end,
+        })
+
+        SettingsTab:CreateButton({
+            Name = T("config.reset_opt"),
+            Callback = function()
+                State.lowGraphics = false; applyLowGraphics(false)
+                State.noShadows = false; applyNoShadows(false)
+                State.noFog = false; applyNoFog(false)
+                State.noParticles = false; applyNoParticles(false)
+                syncUIFromState()
+                Window:Notify("🔄", T("config.reset_opt"), 3, "info")
+            end,
+        })
+
+        SettingsTab:CreateSection(T("section.danger"))
+        SettingsTab:CreateButton({
+            Name = T("config.unload"),
+            Danger = true,
+            Callback = function()
+                UNLOADED = true
+                restoreAll(); clearAllESP(); stopAirJump()
+                if fovCircle then fovCircle:Remove() end
+                applyLowGraphics(false); applyNoShadows(false); applyNoFog(false); applyNoParticles(false)
+                Window:Notify("Unload", T("config.unload"), 2, "warning")
+                task.wait(0.3); Window:Destroy()
+            end,
+        })
+
+        -- ═══ LANGUAGE ═══
+        local LanguageTab = Window:CreateTab(T("tab.language"), "🌍")
+        LanguageTab:CreateSection(T("section.language_select"))
+
+        local available = Language.getAvailable()
+        local currentCode = Language.getCurrent()
+        local currentInfo = nil
+        for _, info in ipairs(available) do
+            if info.code == currentCode then currentInfo = info; break end
+        end
+
+        LanguageTab:CreateLabel(
+            T("lang.current") .. (currentInfo and (currentInfo.flag .. " " .. currentInfo.displayName) or currentCode),
+            Color3.fromRGB(230, 40, 40)
+        )
+        LanguageTab:CreateLabel(T("lang.hint"), Color3.fromRGB(140, 140, 155))
+
+        local opts = {}
+        local defaultIdx = 1
+        for i, info in ipairs(available) do
+            table.insert(opts, info.flag .. " " .. info.displayName)
+            if info.code == currentCode then defaultIdx = i end
+        end
+
+        LanguageTab:CreateDropdown({
+            Name = T("tab.language"),
+            Description = T("lang.hint"),
+            Icon = "🌍",
+            Options = opts,
+            Default = defaultIdx,
+            Callback = function(_, idx)
+                local info = available[idx]
+                if not info then return end
+                Language.setLanguage(info.code)
+                -- O rebuild é feito via onChange (registrado abaixo)
+            end,
+        })
+
+        LanguageTab:CreateSection(T("section.language_info"))
+        LanguageTab:CreateLabel(T("lang.saved_to") .. " InfiniteZen_Language.txt", Color3.fromRGB(140, 140, 155))
+        LanguageTab:CreateLabel(T("lang.auto_restore"), Color3.fromRGB(90, 90, 105))
+
+        -- ═══ CREDITS ═══
+        local CreditsTab = Window:CreateTab(T("tab.credits"), "➕")
+        CreditsTab:CreateSection(T("section.founder"))
+        CreditsTab:CreateLabel(T("credits.role"), Color3.fromRGB(255, 50, 50))
+        CreditsTab:CreateSection(T("section.community"))
+        CreditsTab:CreateLabel("discord.gg/ScZfU2mAGm", Color3.fromRGB(88, 101, 242))
+        CreditsTab:CreateButton({
+            Name = T("credits.copy_discord"),
+            Callback = function()
+                if setclipboard then
+                    setclipboard("https://discord.gg/ScZfU2mAGm")
+                    Window:Notify("📋", "Copied!", 2, "success")
+                end
+            end,
+        })
+        CreditsTab:CreateSection(T("section.version"))
+        CreditsTab:CreateLabel(FULL_VERSION, Color3.fromRGB(140, 140, 155))
+        CreditsTab:CreateLabel("© 2026 Sr Red", Color3.fromRGB(90, 90, 105))
+    end
 
     -- ═══════════════════════════════════════════════
-    -- ABA: CREDITS
-    -- ═══════════════════════════════════════════════
-    local CreditsTab = Window:CreateTab(T("tab.credits"), "➕")
-    CreditsTab:CreateSection(T("section.founder"), "section.founder")
-    CreditsTab:CreateLabel(T("credits.role"), Color3.fromRGB(255, 50, 50))
-
-    CreditsTab:CreateSection(T("section.community"), "section.community")
-    CreditsTab:CreateLabel("discord.gg/ScZfU2mAGm", Color3.fromRGB(88, 101, 242))
-    CreditsTab:CreateButton({
-        Name = T("credits.copy_discord"), NameKey = "credits.copy_discord",
-        Callback = function()
-            if setclipboard then
-                setclipboard("https://discord.gg/ScZfU2mAGm")
-                Window:Notify("📋 Copied", "Discord link copied!", 3, "success")
-            end
-        end,
-    })
-
-    CreditsTab:CreateSection(T("section.version"), "section.version")
-    CreditsTab:CreateLabel(FULL_VERSION, Color3.fromRGB(140, 140, 155))
-    CreditsTab:CreateLabel("© 2026 Sr Red", Color3.fromRGB(90, 90, 105))
-
-    -- ═══════════════════════════════════════════════
-    -- KEYBIND SYSTEM
+    -- KEYBINDS
     -- ═══════════════════════════════════════════════
     UserInputService.InputBegan:Connect(function(input, gp)
         if UNLOADED or gp then return end
@@ -1631,18 +1268,37 @@ function Arsenal.Init(ctx)
     end)
 
     -- ═══════════════════════════════════════════════
+    -- REBUILD AO TROCAR IDIOMA
+    -- ═══════════════════════════════════════════════
+    local rebuilding = false
+    _G.IZ_RefreshLanguage = function()
+        if UNLOADED or rebuilding then return end
+        rebuilding = true
+        task.defer(function()
+            if Window then pcall(function() Window:Destroy() end) end
+            Window = nil
+            Elements = {}
+            buildUI()
+            syncUIFromState()
+            rebuilding = false
+        end)
+    end
+    Language.onChange(_G.IZ_RefreshLanguage)
+
+    -- ═══════════════════════════════════════════════
+    -- BUILD INICIAL + SYNC
+    -- ═══════════════════════════════════════════════
+    buildUI()
+    syncUIFromState()
+
+    -- ═══════════════════════════════════════════════
     -- AUTOLOAD
     -- ═══════════════════════════════════════════════
     task.defer(function()
         local autoloadName = getAutoload()
         if autoloadName then
             task.wait(1)
-            local ok = loadConfigNamed(autoloadName)
-            if ok then
-                task.wait(0.1)
-                pcall(syncUIFromState)
-                Window:Notify("⚡ Autoload", "Config aplicado: " .. autoloadName, 3, "success")
-            end
+            loadConfigNamed(autoloadName)
         end
     end)
 
