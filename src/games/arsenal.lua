@@ -1,5 +1,5 @@
 -- ============================================================
--- INFINITE ZEN - ARSENAL v1.3 (UI Sync Fix)
+-- INFINITE ZEN - ARSENAL v1.4 (Language Tab)
 -- ============================================================
 
 local Arsenal = {}
@@ -10,7 +10,7 @@ function Arsenal.Init(ctx)
     local Compat = ctx.Compat
     local gameName = ctx.gameName
 
-    local GAME_VERSION = "1.3"
+    local GAME_VERSION = "1.4"
     local FULL_VERSION = "Infinite Zen V" .. GAME_VERSION .. " - " .. gameName
     local SHORT_VERSION = "V" .. GAME_VERSION .. " - " .. gameName
 
@@ -32,8 +32,6 @@ function Arsenal.Init(ctx)
 
     -- ═══════════════════════════════════════════════
     -- UI ELEMENTS REGISTRY
-    -- UI Lib expõe SetState/SetValue como funções SEM self,
-    -- então chamamos com PONTO (.) e não dois pontos (:)
     -- ═══════════════════════════════════════════════
     local Elements = {}
 
@@ -106,6 +104,79 @@ function Arsenal.Init(ctx)
             esp = nil,
         },
     }
+
+    -- ═══════════════════════════════════════════════
+    -- LANGUAGE SYSTEM
+    -- ═══════════════════════════════════════════════
+    local LANG_FILE = "InfiniteZen_Language.txt"
+
+    local LANGUAGES = {
+        { code = "en",    name = "English",            flag = "🇺🇸" },
+        { code = "pt-br", name = "Português (BR)",     flag = "🇧🇷" },
+        { code = "es",    name = "Español",            flag = "🇪🇸" },
+        { code = "fr",    name = "Français",           flag = "🇫🇷" },
+        { code = "de",    name = "Deutsch",            flag = "🇩🇪" },
+        { code = "it",    name = "Italiano",           flag = "🇮🇹" },
+        { code = "ru",    name = "Русский",            flag = "🇷🇺" },
+        { code = "pl",    name = "Polski",             flag = "🇵🇱" },
+        { code = "tr",    name = "Türkçe",             flag = "🇹🇷" },
+        { code = "id",    name = "Bahasa Indonesia",   flag = "🇮🇩" },
+        { code = "ph",    name = "Filipino",           flag = "🇵🇭" },
+        { code = "vn",    name = "Tiếng Việt",         flag = "🇻🇳" },
+        { code = "jp",    name = "日本語",             flag = "🇯🇵" },
+        { code = "kr",    name = "한국어",             flag = "🇰🇷" },
+        { code = "cn",    name = "中文",               flag = "🇨🇳" },
+        { code = "ar",    name = "العربية",            flag = "🇸🇦" },
+        { code = "hi",    name = "हिन्दी",              flag = "🇮🇳" },
+        { code = "nl",    name = "Nederlands",         flag = "🇳🇱" },
+        { code = "se",    name = "Svenska",            flag = "🇸🇪" },
+        { code = "ro",    name = "Română",             flag = "🇷🇴" },
+    }
+
+    local function applyLanguage(code)
+        if not Language then return false end
+        if type(code) ~= "string" or code == "" then return false end
+        -- Tenta várias APIs possíveis do Language module
+        local attempts = {
+            function() return Language.SetLanguage(code) end,
+            function() return Language:SetLanguage(code) end,
+            function() return Language.Set(code) end,
+            function() return Language:Set(code) end,
+            function() return Language.ChangeLanguage(code) end,
+            function() return Language:ChangeLanguage(code) end,
+            function() return Language.setLanguage(code) end,
+            function() return Language.set(code) end,
+            function() return Language.Apply(code) end,
+            function() return Language:Apply(code) end,
+        }
+        for _, fn in ipairs(attempts) do
+            local ok = pcall(fn)
+            if ok then return true end
+        end
+        warn("[IZ Lang] Nenhum método de Language funcionou pro code: " .. code)
+        return false
+    end
+
+    local function saveLanguage(code)
+        if not writefile then return false end
+        return pcall(function() writefile(LANG_FILE, code) end)
+    end
+
+    local function loadSavedLanguage()
+        if not readfile or not isfile then return nil end
+        local ok, content = pcall(function() return readfile(LANG_FILE) end)
+        if ok and type(content) == "string" and content ~= "" then
+            return content
+        end
+        return nil
+    end
+
+    -- Aplica o idioma salvo IMEDIATAMENTE (antes de montar UI)
+    local savedLangCode = loadSavedLanguage()
+    if savedLangCode then
+        pcall(applyLanguage, savedLangCode)
+        print("[IZ Lang] Idioma restaurado: " .. savedLangCode)
+    end
 
     -- ═══════════════════════════════════════════════
     -- HELPERS
@@ -1362,6 +1433,64 @@ function Arsenal.Init(ctx)
             Window:Destroy()
         end,
     })
+
+    -- ═══════════════════════════════════════════════
+    -- ABA: LANGUAGE 🌍
+    -- ═══════════════════════════════════════════════
+    local LanguageTab = Window:CreateTab("Language", "🌍")
+    LanguageTab:CreateSection("Idioma / Language")
+
+    local currentLangCode = savedLangCode or "en"
+    local currentLangObj = nil
+    for _, l in ipairs(LANGUAGES) do
+        if l.code == currentLangCode then currentLangObj = l; break end
+    end
+    local currentLangLabel = LanguageTab:CreateLabel(
+        "🌐 Atual: " .. (currentLangObj and (currentLangObj.flag .. " " .. currentLangObj.name) or currentLangCode:upper()),
+        Color3.fromRGB(230, 40, 40)
+    )
+
+    LanguageTab:CreateLabel(
+        "Escolha o idioma do menu (aplica na hora e é salvo).",
+        Color3.fromRGB(140, 140, 155)
+    )
+
+    -- Monta lista pro dropdown
+    local langOptions = {}
+    local defaultIdx = 1
+    for i, l in ipairs(LANGUAGES) do
+        table.insert(langOptions, l.flag .. " " .. l.name)
+        if l.code == currentLangCode then defaultIdx = i end
+    end
+
+    LanguageTab:CreateDropdown({
+        Name = "Idioma / Language",
+        Description = "Selecione o idioma do hub",
+        Icon = "🌍",
+        Options = langOptions,
+        Default = defaultIdx,
+        Callback = function(opt, idx)
+            local lang = LANGUAGES[idx]
+            if not lang then return end
+            local ok = applyLanguage(lang.code)
+            saveLanguage(lang.code)
+            if currentLangLabel and currentLangLabel.Text ~= nil then
+                pcall(function()
+                    currentLangLabel.Text = "🌐 Atual: " .. lang.flag .. " " .. lang.name
+                end)
+            end
+            if ok then
+                Window:Notify("🌍 Language", "Mudou para: " .. lang.name, 3, "success")
+            else
+                Window:Notify("🌍 Language", "Idioma salvo, mas não pôde aplicar agora.", 4, "warning")
+            end
+        end,
+    })
+
+    LanguageTab:CreateSection("Info")
+    LanguageTab:CreateLabel("A linguagem é salva em:", Color3.fromRGB(140, 140, 155))
+    LanguageTab:CreateLabel(LANG_FILE, Color3.fromRGB(230, 40, 40))
+    LanguageTab:CreateLabel("Ela é restaurada automaticamente ao abrir o hub.", Color3.fromRGB(90, 90, 105))
 
     -- ═══════════════════════════════════════════════
     -- ABA: CREDITS
