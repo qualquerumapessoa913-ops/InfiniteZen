@@ -1,5 +1,5 @@
 -- ============================================================
--- INFINITE ZEN - JAILBIRD v1.2 (Bugs + Otimizações mobile)
+-- INFINITE ZEN - JAILBIRD v1.2 (FOV lag fix + Otimizações)
 -- ============================================================
 
 local Jailbird = {}
@@ -52,15 +52,22 @@ function Jailbird.Init(ctx)
     end
 
     -- ═══════════════════════════════════════════════
-    -- CENTRO DA TELA (fix do offset da topbar)
+    -- SCREEN CENTER (cached por frame)
     -- ═══════════════════════════════════════════════
+    local _cachedCenter = Vector2.new(0, 0)
+    local _cachedVP     = Vector2.new(0, 0)
+
     local function getScreenCenter()
         local vp = Camera.ViewportSize
-        return Vector2.new(vp.X * 0.5, vp.Y * 0.5)
+        if vp ~= _cachedVP then
+            _cachedVP = vp
+            _cachedCenter = Vector2.new(vp.X * 0.5, vp.Y * 0.5)
+        end
+        return _cachedCenter
     end
 
     -- ═══════════════════════════════════════════════
-    -- REMOTES (WaitForChild + retry)
+    -- REMOTES
     -- ═══════════════════════════════════════════════
     local GameEvents
     task.spawn(function()
@@ -156,6 +163,27 @@ function Jailbird.Init(ctx)
         return workspace:Raycast(origin, unitDir * rayLength, params) == nil
     end
 
+    -- ═══════════════════════════════════════════════
+    -- LOS CACHE (evita raycast spam com FOV grande)
+    -- ═══════════════════════════════════════════════
+    local losCache = {}
+    local LOS_CACHE_TIME = 0.12
+
+    local function hasLineOfSightCached(player, targetPart)
+        local entry = losCache[player]
+        local now = tick()
+        if entry and (now - entry.time) < LOS_CACHE_TIME then
+            return entry.visible
+        end
+        local visible = hasLineOfSight(Camera.CFrame.Position, targetPart)
+        losCache[player] = {visible = visible, time = now}
+        return visible
+    end
+
+    Players.PlayerRemoving:Connect(function(p)
+        losCache[p] = nil
+    end)
+
     local function getTargetPart(p)
         if not p.Character then return nil end
         local mode = State.aimbotHitbox
@@ -195,52 +223,97 @@ function Jailbird.Init(ctx)
     end
 
     -- ═══════════════════════════════════════════════
-    -- FOV CIRCLE
+    -- FOV CIRCLE (otimizado)
     -- ═══════════════════════════════════════════════
     local fovCircle = Drawing.new("Circle")
-    fovCircle.Color = Color3.fromRGB(230, 40, 40); fovCircle.Thickness = 1.5
-    fovCircle.Filled = false; fovCircle.NumSides = 100; fovCircle.Transparency = 1
-    fovCircle.Radius = 25; fovCircle.Visible = false
+    fovCircle.Color = Color3.fromRGB(230, 40, 40)
+    fovCircle.Thickness = 1.5
+    fovCircle.Filled = false
+    fovCircle.NumSides = IS_MOBILE and 48 or 72
+    fovCircle.Transparency = 1
+    fovCircle.Radius = 25
+    fovCircle.Visible = false
+
+    -- Atualiza position só se o viewport mudar
+    local lastFovState = nil
+    local lastFovRadius = -1
 
     RunService.RenderStepped:Connect(function()
         if UNLOADED then return end
-        fovCircle.Position = getScreenCenter()
+
+        local shouldShow, newRadius
         if State.silentHeadshot then
-            fovCircle.Visible = true; fovCircle.Radius = State.silentFov
+            shouldShow, newRadius = true, State.silentFov
         elseif State.autoShoot then
-            fovCircle.Visible = true; fovCircle.Radius = State.autoShootFov
+            shouldShow, newRadius = true, State.autoShootFov
         elseif State.triggerbot then
-            fovCircle.Visible = true; fovCircle.Radius = 20
+            shouldShow, newRadius = true, 20
         elseif State.aimbot then
-            fovCircle.Visible = true; fovCircle.Radius = State.aimbotFov
+            shouldShow, newRadius = true, State.aimbotFov
         else
-            fovCircle.Visible = false
+            shouldShow = false
+        end
+
+        if fovCircle.Visible ~= shouldShow then
+            fovCircle.Visible = shouldShow
+        end
+
+        if shouldShow then
+            fovCircle.Position = getScreenCenter()
+            if lastFovRadius ~= newRadius then
+                fovCircle.Radius = newRadius
+                lastFovRadius = newRadius
+            end
+        else
+            lastFovRadius = -1
         end
     end)
 
     -- ═══════════════════════════════════════════════
-    -- TARGETING
+    -- TARGETING (1 raycast no máximo — early return)
     -- ═══════════════════════════════════════════════
+    local candidates = {}  -- reaproveitado (evita alocação)
+
     local function getClosestEnemyInFov(fovRange)
         local center = getScreenCenter()
-        local closest, minDist = nil, fovRange
+        local camPos = Camera.CFrame.Position
+        local wp = Camera.WorldToViewportPoint
+
+        -- Limpa a lista (reusa tabela)
+        for i = #candidates, 1, -1 do candidates[i] = nil end
+
+        -- Primeira passada: filtra por FOV, sem raycast
         for _, p in ipairs(Players:GetPlayers()) do
             if isEnemy(p) and p.Character then
                 local part = getTargetPart(p)
                 if part then
-                    local sp, onScreen, depth = Camera:WorldToViewportPoint(part.Position)
+                    local sp, onScreen, depth = wp(Camera, part.Position)
                     if onScreen and depth and depth > 0 then
                         local d = (Vector2.new(sp.X, sp.Y) - center).Magnitude
-                        if d and d < minDist then
-                            if not State.aimbotWallCheck or hasLineOfSight(Camera.CFrame.Position, part) then
-                                minDist = d; closest = p
-                            end
+                        if d < fovRange then
+                            table.insert(candidates, {player = p, part = part, dist = d})
                         end
                     end
                 end
             end
         end
-        return closest
+
+        -- Ordena por distância (mais perto do crosshair primeiro)
+        if #candidates > 1 then
+            table.sort(candidates, function(a, b) return a.dist < b.dist end)
+        end
+
+        -- Segunda passada: LOS só até achar o primeiro visível
+        if State.aimbotWallCheck then
+            for _, c in ipairs(candidates) do
+                if hasLineOfSightCached(c.player, c.part) then
+                    return c.player
+                end
+            end
+            return nil
+        else
+            return candidates[1] and candidates[1].player or nil
+        end
     end
 
     -- ═══════════════════════════════════════════════
@@ -285,10 +358,16 @@ function Jailbird.Init(ctx)
     end)
 
     -- ═══════════════════════════════════════════════
-    -- AIMBOT
+    -- AIMBOT (throttled em mobile)
     -- ═══════════════════════════════════════════════
+    local aimbotFrameCount = 0
+    local AIMBOT_SKIP = IS_MOBILE and 2 or 1  -- mobile: roda a cada 2 frames
+
     RunService:BindToRenderStep("IZ_JB_Aimbot", Enum.RenderPriority.Camera.Value + 1, function()
         if UNLOADED or not State.aimbot then return end
+        aimbotFrameCount = aimbotFrameCount + 1
+        if aimbotFrameCount % AIMBOT_SKIP ~= 0 then return end
+
         local target = getClosestEnemyInFov(State.aimbotFov)
         if not target or not target.Character then return end
         local part = getTargetPart(target)
@@ -969,7 +1048,7 @@ function Jailbird.Init(ctx)
     end
 
     -- ═══════════════════════════════════════════════
-    -- FULLBRIGHT (originais)
+    -- FULLBRIGHT originais
     -- ═══════════════════════════════════════════════
     local origBrightness     = Lighting.Brightness
     local origAmbient        = Lighting.Ambient
@@ -984,7 +1063,7 @@ function Jailbird.Init(ctx)
     end
 
     -- ═══════════════════════════════════════════════
-    -- OPTIMIZATIONS v2 — Cache + Mobile-friendly
+    -- OPTIMIZATIONS (cache + batch)
     -- ═══════════════════════════════════════════════
     local optBackup = {
         fogEnd = Lighting.FogEnd, fogStart = Lighting.FogStart,
@@ -1094,7 +1173,6 @@ function Jailbird.Init(ctx)
         end
     end
 
-    -- Loop incremental (throttled por mobile)
     local optTick = 0
     RunService.Heartbeat:Connect(function(dt)
         if UNLOADED then return end
@@ -1136,7 +1214,6 @@ function Jailbird.Init(ctx)
         end
     end)
 
-    -- Fullbright throttled
     local fbTick = 0
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.fullbright then return end
@@ -1154,7 +1231,6 @@ function Jailbird.Init(ctx)
         end
     end)
 
-    -- Novos objetos entram no cache
     workspace.DescendantAdded:Connect(function(d)
         if UNLOADED then return end
         if d:IsA("BasePart") then
@@ -1304,7 +1380,6 @@ function Jailbird.Init(ctx)
         })
         Elements = {}
 
-        -- COMBAT
         local CombatTab = Window:CreateTab(T("tab.combat"), "⚔️")
         CombatTab:CreateSection(T("section.aim"))
         reg("silentHeadshot", CombatTab:CreateToggle({
@@ -1363,7 +1438,6 @@ function Jailbird.Init(ctx)
             Callback = function(v) State.headExpanderSize = v end,
         }))
 
-        -- WEAPON
         local WeaponTab = Window:CreateTab(T("tab.weapon"), "🔫")
         WeaponTab:CreateSection(T("section.recoil"))
         reg("noRecoil", WeaponTab:CreateToggle({
@@ -1410,7 +1484,6 @@ function Jailbird.Init(ctx)
             Callback = function(v) State.autoShootFov = v end,
         }))
 
-        -- MOVEMENT
         local MoveTab = Window:CreateTab(T("tab.movement"), "🏃")
         MoveTab:CreateSection(T("section.speed"))
         reg("speed", MoveTab:CreateToggle({
@@ -1446,7 +1519,6 @@ function Jailbird.Init(ctx)
             end,
         }))
 
-        -- VISUALS
         local VisualsTab = Window:CreateTab(T("tab.visuals"), "👁️")
         VisualsTab:CreateSection(T("section.esp"))
         reg("esp", VisualsTab:CreateToggle({
@@ -1509,7 +1581,6 @@ function Jailbird.Init(ctx)
             Callback = function(v) State.noParticles = v; applyNoParticles(v) end,
         }))
 
-        -- SETTINGS
         local SettingsTab = Window:CreateTab(T("tab.settings"), "⚙️")
         SettingsTab:CreateSection(T("section.create_config"))
 
@@ -1712,7 +1783,6 @@ function Jailbird.Init(ctx)
             end,
         })
 
-        -- LANGUAGE
         local LanguageTab = Window:CreateTab(T("tab.language"), "🌍")
         LanguageTab:CreateSection(T("section.language_select"))
 
@@ -1750,7 +1820,6 @@ function Jailbird.Init(ctx)
         LanguageTab:CreateLabel(T("lang.saved_to") .. " InfiniteZen_Language.txt", Color3.fromRGB(140, 140, 155))
         LanguageTab:CreateLabel(T("lang.auto_restore"), Color3.fromRGB(90, 90, 105))
 
-        -- CREDITS
         local CreditsTab = Window:CreateTab(T("tab.credits"), "➕")
         CreditsTab:CreateSection(T("section.founder"))
         CreditsTab:CreateLabel(T("credits.role"), Color3.fromRGB(255, 50, 50))
@@ -1799,15 +1868,9 @@ function Jailbird.Init(ctx)
     end
     Language.onChange(_G.IZ_RefreshLanguage)
 
-    -- ═══════════════════════════════════════════════
-    -- BUILD + SYNC
-    -- ═══════════════════════════════════════════════
     buildUI()
     syncUIFromState()
 
-    -- ═══════════════════════════════════════════════
-    -- AUTOLOAD
-    -- ═══════════════════════════════════════════════
     task.defer(function()
         local autoloadName = getAutoload()
         if autoloadName then
