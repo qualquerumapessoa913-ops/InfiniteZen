@@ -1,5 +1,5 @@
 -- ============================================================
--- INFINITE ZEN - JAILBIRD (Corrigido v2.1)
+-- INFINITE ZEN - JAILBIRD v1.2 (Bugs + Otimizações mobile)
 -- ============================================================
 
 local Jailbird = {}
@@ -12,8 +12,8 @@ function Jailbird.Init(ctx)
 
     local function T(key) return Language.get(key) end
 
-    local GAME_VERSION = "1.1"
-    local FULL_VERSION = "Infinite Zen V" .. GAME_VERSION .. " - " .. gameName
+    local GAME_VERSION = "1.2"
+    local FULL_VERSION  = "Infinite Zen V" .. GAME_VERSION .. " - " .. gameName
     local SHORT_VERSION = "V" .. GAME_VERSION .. " - " .. gameName
 
     print("[Infinite Zen] Inicializando " .. FULL_VERSION .. "...")
@@ -29,7 +29,8 @@ function Jailbird.Init(ctx)
     local PlayerGui         = LocalPlayer:WaitForChild("PlayerGui")
     local Camera            = workspace.CurrentCamera
 
-    local UNLOADED = false
+    local UNLOADED  = false
+    local IS_MOBILE = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
     -- ═══════════════════════════════════════════════
     -- UI REGISTRY
@@ -51,7 +52,7 @@ function Jailbird.Init(ctx)
     end
 
     -- ═══════════════════════════════════════════════
-    -- CENTRO REAL DA TELA (fix do offset da topbar)
+    -- CENTRO DA TELA (fix do offset da topbar)
     -- ═══════════════════════════════════════════════
     local function getScreenCenter()
         local vp = Camera.ViewportSize
@@ -59,7 +60,7 @@ function Jailbird.Init(ctx)
     end
 
     -- ═══════════════════════════════════════════════
-    -- REMOTES (com WaitForChild + retry)
+    -- REMOTES (WaitForChild + retry)
     -- ═══════════════════════════════════════════════
     local GameEvents
     task.spawn(function()
@@ -174,7 +175,7 @@ function Jailbird.Init(ctx)
     end
 
     -- ═══════════════════════════════════════════════
-    -- FIRE (sem double-fire)
+    -- FIRE
     -- ═══════════════════════════════════════════════
     local function fireWeapon()
         local char = LocalPlayer.Character
@@ -194,7 +195,7 @@ function Jailbird.Init(ctx)
     end
 
     -- ═══════════════════════════════════════════════
-    -- FOV CIRCLE (usa centro da tela)
+    -- FOV CIRCLE
     -- ═══════════════════════════════════════════════
     local fovCircle = Drawing.new("Circle")
     fovCircle.Color = Color3.fromRGB(230, 40, 40); fovCircle.Thickness = 1.5
@@ -203,8 +204,7 @@ function Jailbird.Init(ctx)
 
     RunService.RenderStepped:Connect(function()
         if UNLOADED then return end
-        local c = getScreenCenter()
-        fovCircle.Position = c
+        fovCircle.Position = getScreenCenter()
         if State.silentHeadshot then
             fovCircle.Visible = true; fovCircle.Radius = State.silentFov
         elseif State.autoShoot then
@@ -219,7 +219,7 @@ function Jailbird.Init(ctx)
     end)
 
     -- ═══════════════════════════════════════════════
-    -- TARGETING (centro da tela)
+    -- TARGETING
     -- ═══════════════════════════════════════════════
     local function getClosestEnemyInFov(fovRange)
         local center = getScreenCenter()
@@ -244,11 +244,10 @@ function Jailbird.Init(ctx)
     end
 
     -- ═══════════════════════════════════════════════
-    -- SILENT HEADSHOT (1 remote só, no tiro)
+    -- SILENT HEADSHOT
     -- ═══════════════════════════════════════════════
     local silentHolding, silentTarget = false, nil
 
-    -- Lock câmera via BindToRenderStep (prioridade acima da câmera do jogo)
     RunService:BindToRenderStep("IZ_JB_Silent", Enum.RenderPriority.Camera.Value + 10, function()
         if UNLOADED or not silentHolding then return end
         if not silentTarget or not silentTarget.Character then silentHolding = false; return end
@@ -261,13 +260,12 @@ function Jailbird.Init(ctx)
 
     UserInputService.InputBegan:Connect(function(input, gp)
         if UNLOADED or gp or not State.silentHeadshot then return end
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1
+           and input.UserInputType ~= Enum.UserInputType.Touch then return end
         local target = getClosestEnemyInFov(State.silentFov)
         if not target or not target.Character then return end
         silentTarget = target
         silentHolding = true
-
-        -- Manda UM remote de lock só, na hora do clique
         local lr = getRemote("LookRotation")
         if lr then
             local head = getBasePart(target.Character, "Head")
@@ -280,13 +278,14 @@ function Jailbird.Init(ctx)
 
     UserInputService.InputEnded:Connect(function(input, gp)
         if UNLOADED or gp then return end
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1
+           and input.UserInputType ~= Enum.UserInputType.Touch then return end
         silentHolding = false
-        silentTarget = nil
+        silentTarget  = nil
     end)
 
     -- ═══════════════════════════════════════════════
-    -- AIMBOT (BindToRenderStep, prioridade +1)
+    -- AIMBOT
     -- ═══════════════════════════════════════════════
     RunService:BindToRenderStep("IZ_JB_Aimbot", Enum.RenderPriority.Camera.Value + 1, function()
         if UNLOADED or not State.aimbot then return end
@@ -314,7 +313,7 @@ function Jailbird.Init(ctx)
     end)
 
     -- ═══════════════════════════════════════════════
-    -- TRIGGERBOT (centro da tela + LOS sem spam)
+    -- TRIGGERBOT
     -- ═══════════════════════════════════════════════
     local triggerLastFire = 0
     RunService.RenderStepped:Connect(function()
@@ -339,7 +338,7 @@ function Jailbird.Init(ctx)
     end)
 
     -- ═══════════════════════════════════════════════
-    -- AUTO SHOOT (centro da tela)
+    -- AUTO SHOOT
     -- ═══════════════════════════════════════════════
     local lastAutoShoot = 0
     RunService.Heartbeat:Connect(function()
@@ -416,7 +415,7 @@ function Jailbird.Init(ctx)
     end
 
     -- ═══════════════════════════════════════════════
-    -- HEAD EXPANDER (funciona — mantido)
+    -- HEAD EXPANDER
     -- ═══════════════════════════════════════════════
     local hitboxSaved = {}
 
@@ -501,8 +500,9 @@ function Jailbird.Init(ctx)
     end)
 
     -- ═══════════════════════════════════════════════
-    -- WEAPON MODS (escaneando RS + Tool + Backpack)
+    -- WEAPON MODS
     -- ═══════════════════════════════════════════════
+    local reloadOriginals = {}
     local weaponModsTick = 0
 
     local function findValueContainer(root, keywords)
@@ -529,7 +529,6 @@ function Jailbird.Init(ctx)
         weaponModsTick = weaponModsTick + 1
         if weaponModsTick % 5 ~= 0 then return end
 
-        -- Aplica em Tool equipada + Backpack + ReplicatedStorage
         local roots = {}
         if LocalPlayer.Character then table.insert(roots, LocalPlayer.Character) end
         local backpack = LocalPlayer:FindFirstChild("Backpack")
@@ -559,7 +558,7 @@ function Jailbird.Init(ctx)
                 local vals = findValueContainer(root, {"ammo", "magazine"})
                 for _, v in ipairs(vals) do
                     local n = v.Name:lower()
-                    if n ~= "mag" then  -- evita mexer em mag de outras coisas
+                    if n ~= "mag" then
                         pcall(function()
                             if not reloadOriginals["ammo_" .. tostring(v)] then
                                 reloadOriginals["ammo_" .. tostring(v)] = v.Value
@@ -589,9 +588,6 @@ function Jailbird.Init(ctx)
             end
         end
     end)
-
-    -- reloadOriginals declarado aqui em cima pra usar no bloco anterior
-    reloadOriginals = reloadOriginals or {}
 
     -- ═══════════════════════════════════════════════
     -- AUTO BHOP
@@ -774,7 +770,7 @@ function Jailbird.Init(ctx)
     end)
 
     -- ═══════════════════════════════════════════════
-    -- ESP (com respawn handling)
+    -- ESP
     -- ═══════════════════════════════════════════════
     local ESP = {data = {}}
 
@@ -973,7 +969,7 @@ function Jailbird.Init(ctx)
     end
 
     -- ═══════════════════════════════════════════════
-    -- FULLBRIGHT
+    -- FULLBRIGHT (originais)
     -- ═══════════════════════════════════════════════
     local origBrightness     = Lighting.Brightness
     local origAmbient        = Lighting.Ambient
@@ -987,15 +983,186 @@ function Jailbird.Init(ctx)
         end
     end
 
+    -- ═══════════════════════════════════════════════
+    -- OPTIMIZATIONS v2 — Cache + Mobile-friendly
+    -- ═══════════════════════════════════════════════
+    local optBackup = {
+        fogEnd = Lighting.FogEnd, fogStart = Lighting.FogStart,
+        qualityLevel = nil, particles = {},
+    }
+    pcall(function() optBackup.qualityLevel = settings().Rendering.QualityLevel end)
+
+    local cachedParts     = nil
+    local cachedParticles = nil
+    local cacheTimer      = 0
+    local CACHE_REFRESH   = IS_MOBILE and 3 or 5
+
+    local function refreshCaches()
+        cachedParts     = {}
+        cachedParticles = {}
+        for _, d in ipairs(workspace:GetDescendants()) do
+            if d:IsA("BasePart") then
+                table.insert(cachedParts, d)
+            elseif d:IsA("ParticleEmitter") or d:IsA("Fire")
+                or d:IsA("Smoke") or d:IsA("Sparkles")
+                or d:IsA("Trail") or d:IsA("Beam") then
+                table.insert(cachedParticles, d)
+            end
+        end
+        cacheTimer = 0
+    end
+
+    local function batchApply(list, fn)
+        if not list then return end
+        local count = 0
+        for _, obj in ipairs(list) do
+            if obj and obj.Parent then
+                pcall(fn, obj)
+                count = count + 1
+                if count % 200 == 0 then task.wait() end
+            end
+        end
+    end
+
+    local function insideCharacter(obj)
+        local parent = obj and obj.Parent
+        while parent and parent ~= workspace do
+            if parent:FindFirstChildOfClass("Humanoid") then return true end
+            parent = parent.Parent
+        end
+        return false
+    end
+
+    local function applyLowGraphics(v)
+        if v then
+            pcall(function() settings().Rendering.QualityLevel = Enum.QualityLevel.Level01 end)
+        else
+            if optBackup.qualityLevel then
+                pcall(function() settings().Rendering.QualityLevel = optBackup.qualityLevel end)
+            end
+        end
+    end
+
+    local function applyNoShadows(v)
+        pcall(function() Lighting.GlobalShadows = not v end)
+        if not v then return end
+        task.spawn(function()
+            if not cachedParts then refreshCaches() end
+            batchApply(cachedParts, function(part)
+                if not insideCharacter(part) and part.Name ~= "HumanoidRootPart" then
+                    part.CastShadow = false
+                end
+            end)
+        end)
+    end
+
+    local function applyNoFog(v)
+        if v then
+            Lighting.FogEnd = 100000
+            Lighting.FogStart = 0
+            for _, c in ipairs(Lighting:GetChildren()) do
+                if c:IsA("Atmosphere") then
+                    c.Density = 0; c.Haze = 0; c.Glare = 0
+                end
+            end
+        else
+            Lighting.FogEnd = optBackup.fogEnd
+            Lighting.FogStart = optBackup.fogStart
+        end
+    end
+
+    local function applyNoParticles(v)
+        if v then
+            task.spawn(function()
+                if not cachedParticles then refreshCaches() end
+                batchApply(cachedParticles, function(p)
+                    if not insideCharacter(p) then
+                        if optBackup.particles[p] == nil then
+                            optBackup.particles[p] = p.Enabled
+                        end
+                        p.Enabled = false
+                    end
+                end)
+            end)
+        else
+            for obj, orig in pairs(optBackup.particles) do
+                if obj and obj.Parent then
+                    pcall(function() obj.Enabled = orig end)
+                end
+            end
+            optBackup.particles = {}
+        end
+    end
+
+    -- Loop incremental (throttled por mobile)
+    local optTick = 0
+    RunService.Heartbeat:Connect(function(dt)
+        if UNLOADED then return end
+        if not (State.noShadows or State.noParticles) then return end
+
+        cacheTimer = cacheTimer + dt
+        if cacheTimer >= CACHE_REFRESH then refreshCaches() end
+
+        optTick = optTick + 1
+        if optTick % (IS_MOBILE and 60 or 30) ~= 0 then return end
+
+        if State.noParticles and cachedParticles then
+            local applied = 0
+            for _, p in ipairs(cachedParticles) do
+                if p and p.Parent and p.Enabled then
+                    if not insideCharacter(p) then
+                        if optBackup.particles[p] == nil then
+                            optBackup.particles[p] = p.Enabled
+                        end
+                        pcall(function() p.Enabled = false end)
+                        applied = applied + 1
+                        if applied >= 50 then break end
+                    end
+                end
+            end
+        end
+
+        if State.noShadows and cachedParts then
+            local applied = 0
+            for _, part in ipairs(cachedParts) do
+                if part and part.Parent and part.CastShadow then
+                    if not insideCharacter(part) and part.Name ~= "HumanoidRootPart" then
+                        pcall(function() part.CastShadow = false end)
+                        applied = applied + 1
+                        if applied >= 50 then break end
+                    end
+                end
+            end
+        end
+    end)
+
+    -- Fullbright throttled
+    local fbTick = 0
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.fullbright then return end
+        fbTick = fbTick + 1
+        if fbTick % (IS_MOBILE and 30 or 15) ~= 0 then return end
         Lighting.Brightness = 3
         Lighting.Ambient = Color3.fromRGB(200, 200, 200)
         Lighting.OutdoorAmbient = Color3.fromRGB(200, 200, 200)
         Lighting.ClockTime = 14
         Lighting.GlobalShadows = false
         for _, c in ipairs(Lighting:GetChildren()) do
-            if c:IsA("Atmosphere") then c.Density = 0; c.Haze = 0; c.Glare = 0 end
+            if c:IsA("Atmosphere") then
+                c.Density = 0; c.Haze = 0; c.Glare = 0
+            end
+        end
+    end)
+
+    -- Novos objetos entram no cache
+    workspace.DescendantAdded:Connect(function(d)
+        if UNLOADED then return end
+        if d:IsA("BasePart") then
+            if cachedParts then table.insert(cachedParts, d) end
+        elseif d:IsA("ParticleEmitter") or d:IsA("Fire")
+            or d:IsA("Smoke") or d:IsA("Sparkles")
+            or d:IsA("Trail") or d:IsA("Beam") then
+            if cachedParticles then table.insert(cachedParticles, d) end
         end
     end)
 
@@ -1015,65 +1182,6 @@ function Jailbird.Init(ctx)
     end
 
     -- ═══════════════════════════════════════════════
-    -- OPTIMIZATIONS
-    -- ═══════════════════════════════════════════════
-    local optBackup = {
-        fogEnd = Lighting.FogEnd, fogStart = Lighting.FogStart,
-        qualityLevel = nil, particles = {},
-    }
-    pcall(function() optBackup.qualityLevel = settings().Rendering.QualityLevel end)
-
-    local function applyLowGraphics(v)
-        if v then pcall(function() settings().Rendering.QualityLevel = Enum.QualityLevel.Level01 end)
-        elseif optBackup.qualityLevel then pcall(function() settings().Rendering.QualityLevel = optBackup.qualityLevel end) end
-    end
-
-    local function applyNoShadows(v)
-        pcall(function() Lighting.GlobalShadows = not v end)
-        for _, d in ipairs(workspace:GetDescendants()) do
-            if d:IsA("BasePart") and d.Name ~= "HumanoidRootPart" then
-                pcall(function() d.CastShadow = not v end)
-            end
-        end
-    end
-
-    local function applyNoFog(v)
-        if v then
-            Lighting.FogEnd = 100000; Lighting.FogStart = 0
-            for _, c in ipairs(Lighting:GetChildren()) do
-                if c:IsA("Atmosphere") then c.Density = 0; c.Haze = 0; c.Glare = 0 end
-            end
-        else
-            Lighting.FogEnd = optBackup.fogEnd; Lighting.FogStart = optBackup.fogStart
-        end
-    end
-
-    local function applyNoParticles(v)
-        if v then
-            for _, d in ipairs(workspace:GetDescendants()) do
-                if d:IsA("ParticleEmitter") or d:IsA("Fire") or d:IsA("Smoke") or d:IsA("Sparkles") or d:IsA("Trail") then
-                    if optBackup.particles[d] == nil then optBackup.particles[d] = d.Enabled end
-                    pcall(function() d.Enabled = false end)
-                end
-            end
-        else
-            for obj, orig in pairs(optBackup.particles) do
-                if obj and obj.Parent then pcall(function() obj.Enabled = orig end) end
-            end
-            optBackup.particles = {}
-        end
-    end
-
-    RunService.Heartbeat:Connect(function()
-        if UNLOADED or not State.noParticles then return end
-        for _, d in ipairs(workspace:GetDescendants()) do
-            if d:IsA("ParticleEmitter") or d:IsA("Fire") or d:IsA("Smoke") or d:IsA("Sparkles") then
-                pcall(function() d.Enabled = false end)
-            end
-        end
-    end)
-
-    -- ═══════════════════════════════════════════════
     -- CONFIG SYSTEM
     -- ═══════════════════════════════════════════════
     local BASE_FOLDER   = "InfiniteZen_Configs"
@@ -1086,7 +1194,6 @@ function Jailbird.Init(ctx)
             if not isfolder(CONFIG_FOLDER) then pcall(function() makefolder(CONFIG_FOLDER) end) end
         end
     end
-
     local function getConfigPath(name) return CONFIG_FOLDER .. "/" .. name .. ".json" end
     local function getAutoloadPath()  return AUTOLOAD_FILE end
 
@@ -1197,7 +1304,7 @@ function Jailbird.Init(ctx)
         })
         Elements = {}
 
-        -- ═══ COMBAT ═══
+        -- COMBAT
         local CombatTab = Window:CreateTab(T("tab.combat"), "⚔️")
         CombatTab:CreateSection(T("section.aim"))
         reg("silentHeadshot", CombatTab:CreateToggle({
@@ -1256,7 +1363,7 @@ function Jailbird.Init(ctx)
             Callback = function(v) State.headExpanderSize = v end,
         }))
 
-        -- ═══ WEAPON ═══
+        -- WEAPON
         local WeaponTab = Window:CreateTab(T("tab.weapon"), "🔫")
         WeaponTab:CreateSection(T("section.recoil"))
         reg("noRecoil", WeaponTab:CreateToggle({
@@ -1303,7 +1410,7 @@ function Jailbird.Init(ctx)
             Callback = function(v) State.autoShootFov = v end,
         }))
 
-        -- ═══ MOVEMENT ═══
+        -- MOVEMENT
         local MoveTab = Window:CreateTab(T("tab.movement"), "🏃")
         MoveTab:CreateSection(T("section.speed"))
         reg("speed", MoveTab:CreateToggle({
@@ -1339,7 +1446,7 @@ function Jailbird.Init(ctx)
             end,
         }))
 
-        -- ═══ VISUALS ═══
+        -- VISUALS
         local VisualsTab = Window:CreateTab(T("tab.visuals"), "👁️")
         VisualsTab:CreateSection(T("section.esp"))
         reg("esp", VisualsTab:CreateToggle({
@@ -1402,7 +1509,7 @@ function Jailbird.Init(ctx)
             Callback = function(v) State.noParticles = v; applyNoParticles(v) end,
         }))
 
-        -- ═══ SETTINGS ═══
+        -- SETTINGS
         local SettingsTab = Window:CreateTab(T("tab.settings"), "⚙️")
         SettingsTab:CreateSection(T("section.create_config"))
 
@@ -1605,7 +1712,7 @@ function Jailbird.Init(ctx)
             end,
         })
 
-        -- ═══ LANGUAGE ═══
+        -- LANGUAGE
         local LanguageTab = Window:CreateTab(T("tab.language"), "🌍")
         LanguageTab:CreateSection(T("section.language_select"))
 
@@ -1643,7 +1750,7 @@ function Jailbird.Init(ctx)
         LanguageTab:CreateLabel(T("lang.saved_to") .. " InfiniteZen_Language.txt", Color3.fromRGB(140, 140, 155))
         LanguageTab:CreateLabel(T("lang.auto_restore"), Color3.fromRGB(90, 90, 105))
 
-        -- ═══ CREDITS ═══
+        -- CREDITS
         local CreditsTab = Window:CreateTab(T("tab.credits"), "➕")
         CreditsTab:CreateSection(T("section.founder"))
         CreditsTab:CreateLabel(T("credits.role"), Color3.fromRGB(255, 50, 50))
