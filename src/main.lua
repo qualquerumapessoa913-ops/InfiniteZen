@@ -26,6 +26,31 @@ local placeId = game.PlaceId
 local gameId = game.GameId
 local gameInfo = CONFIG.SUPPORTED_GAMES[placeId] or CONFIG.SUPPORTED_GAMES[gameId]
 
+-- ═══════════════════════════════════════════════
+-- 🔒 LICENSE GATE (verificação via Discord)
+-- ═══════════════════════════════════════════════
+local License = loadstring(game:HttpGet(
+    CONFIG.REPO .. "/license.lua?t=" .. tostring(math.floor(tick() * 1000))
+))()
+
+local ok, info = License.check({
+    discord_invite = "https://discord.gg/ScZfU2mAGm",
+    method         = "gist",   -- "gist" ou "api"
+    interval       = 5,
+    timeout        = 300,
+})
+
+if not ok then
+    warn("[Infinite Zen] ❌ Verificação falhou ou expirou.")
+    return
+end
+
+print("[Infinite Zen] ✅ Verificado como: " .. tostring(info and info.roblox_name or "?"))
+
+-- ═══════════════════════════════════════════════
+-- CARREGAMENTO NORMAL (só se verificado)
+-- ═══════════════════════════════════════════════
+
 local function loadModule(path)
     local cacheBuster = "?t=" .. tostring(math.floor(tick() * 1000))
     local url = CONFIG.REPO .. "/" .. path .. cacheBuster
@@ -177,7 +202,7 @@ if gameModule.Init then
     gameModule.Init({
         Language = Language,
         UI = UI,
-        Compat = Compat,   -- ⬅️ NOVO
+        Compat = Compat,
         gameName = gameInfo.name,
         placeId = placeId,
     })
