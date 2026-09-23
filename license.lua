@@ -22,7 +22,7 @@ local LP           = Players.LocalPlayer
 -- CONFIG
 -- ─────────────────────────────────────────────
 local GIST_URL = "https://gist.githubusercontent.com/qualquerumapessoa913-ops/4e6c1652b989c6fabf7b9977d4035246/raw/verification.json"
-local API_URL  = "https://izm.injectcloud.space"
+local API_URL  = "https://izm.onrender.com"
 
 
 -- ─────────────────────────────────────────────
