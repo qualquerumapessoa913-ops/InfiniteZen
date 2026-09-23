@@ -1,12 +1,5 @@
 -- ═══════════════════════════════════════════════════════════
--- INFINITE ZEN — LICENSE / VERIFICATION + HWID GATE
--- ═══════════════════════════════════════════════════════════
--- Usage (at the top of any script):
---   local License = loadstring(game:HttpGet("URL_TO_LICENSE"))()
---   local ok, info = License.check({
---       discord_invite = "https://discord.gg/ScZfU2mAGm",
---   })
---   if not ok then return end
+-- INFINITE ZEN — LICENSE / VERIFICATION + HWID + BLACKLIST GATE
 -- ═══════════════════════════════════════════════════════════
 
 local License = {}
@@ -82,40 +75,34 @@ end
 
 
 -- ─────────────────────────────────────────────
--- HWID (multi-executor fallback chain)
+-- HWID (multi-executor)
 -- ─────────────────────────────────────────────
 local function getHWID()
     local id
 
-    -- Synapse
     local ok = pcall(function() id = syn and syn.get_hwid and syn.get_hwid() end)
     if ok and id and id ~= "" then return "syn_" .. id end
 
-    -- Script-Ware, KRNL, Fluxus
     ok = pcall(function() id = gethwid and gethwid() end)
     if ok and id and id ~= "" then return "gh_" .. id end
 
-    -- Other executors
     ok = pcall(function() id = get_hwid and get_hwid() end)
     if ok and id and id ~= "" then return "hh_" .. id end
 
-    -- Delta / Codex (mobile)
     ok = pcall(function() id = getdeviceid and getdeviceid() end)
     if ok and id and id ~= "" then return "dev_" .. id end
 
-    -- Fallback: Roblox ClientId (stable per installation)
     ok = pcall(function()
         id = game:GetService("RbxAnalyticsService"):GetClientId()
     end)
     if ok and id and id ~= "" then return "rbx_" .. id end
 
-    -- Last resort
     return "fallback_" .. tostring(LP.UserId) .. "_" .. tostring(game.PlaceId)
 end
 
 
 -- ─────────────────────────────────────────────
--- GIST CHECK (basic verification)
+-- CHECK GIST (basic verification)
 -- ─────────────────────────────────────────────
 local function checkGist(username)
     local body, code = httpGet(GIST_URL .. "?t=" .. tick())
@@ -134,7 +121,7 @@ end
 
 
 -- ─────────────────────────────────────────────
--- HWID CHECK (via bot API)
+-- CHECK HWID + BLACKLIST (via API)
 -- ─────────────────────────────────────────────
 local function checkHWID(robloxId, hwid)
     local body, code = httpPost(API_URL .. "/api/hwid/check", {
@@ -233,7 +220,7 @@ local function buildUI(opts)
 
     -- Status box
     local statusBox = Instance.new("Frame", card)
-    statusBox.Size = UDim2.new(1, -40, 0, 40)
+    statusBox.Size = UDim2.new(1, -40, 0, 60)
     statusBox.Position = UDim2.new(0, 20, 0, 190)
     statusBox.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
     statusBox.BorderSizePixel = 0
@@ -247,12 +234,14 @@ local function buildUI(opts)
     status.TextSize = 13
     status.TextColor3 = Color3.fromRGB(255, 200, 100)
     status.TextXAlignment = Enum.TextXAlignment.Left
+    status.TextWrapped = true
+    status.TextYAlignment = Enum.TextYAlignment.Center
     status.Text = "⏳  Checking..."
 
     -- User label
     local userLabel = Instance.new("TextLabel", card)
     userLabel.Size = UDim2.new(1, -40, 0, 20)
-    userLabel.Position = UDim2.new(0, 20, 0, 240)
+    userLabel.Position = UDim2.new(0, 20, 0, 255)
     userLabel.BackgroundTransparency = 1
     userLabel.Font = Enum.Font.Code
     userLabel.TextSize = 11
@@ -366,13 +355,15 @@ function License.check(opts)
     local invite       = opts.discord_invite or "https://discord.gg/ScZfU2mAGm"
     local interval     = opts.interval or 5
     local timeout      = opts.timeout or 300
-    local hwid_enabled = opts.hwid_enabled ~= false       -- default: true
-    local fail_mode    = opts.hwid_fail_mode or "open"    -- "open" | "closed"
+    local hwid_enabled = opts.hwid_enabled ~= false
+    local fail_mode    = opts.hwid_fail_mode or "open"
 
     local ui = buildUI({ discord_invite = invite })
     local start = tick()
 
-    -- Step 1: wait for gist verification
+    -- ═══════════════════════════════════════════
+    -- STEP 1: Wait for gist verification
+    -- ═══════════════════════════════════════════
     local info = nil
     while not info do
         local data, reason = checkGist(LP.Name)
@@ -399,14 +390,15 @@ function License.check(opts)
 
     ui.setStatus("✅  Verified! Validating device...", Color3.fromRGB(100, 255, 100))
 
-    -- Step 2: HWID check
+    -- ═══════════════════════════════════════════
+    -- STEP 2: HWID + Blacklist check
+    -- ═══════════════════════════════════════════
     if hwid_enabled then
         local roblox_id = info.roblox_id or LP.UserId
         local hwid = getHWID()
         local hwidResp, hwidErr = checkHWID(roblox_id, hwid)
 
         if not hwidResp then
-            -- API unreachable
             if fail_mode == "open" then
                 ui.setStatus("⚠️  HWID check unavailable — allowing access.", Color3.fromRGB(255, 200, 100))
                 task.wait(1.5)
@@ -418,9 +410,20 @@ function License.check(opts)
             end
         end
 
+        -- ⚠️ BLACKLIST BLOCK
         if not hwidResp.allowed then
             local reason = hwidResp.reason or "unknown"
-            if reason == "hwid_limit" then
+
+            if reason == "blacklisted" then
+                local banReason = hwidResp.ban_reason or "Unknown"
+                ui.setStatus(
+                    "🚫  You are PERMANENTLY BANNED.\n\n" ..
+                    "Reason: " .. banReason .. "\n\n" ..
+                    "Contact staff in our Discord if you believe this is a mistake.",
+                    Color3.fromRGB(255, 40, 40)
+                )
+                return false, "blacklisted"
+            elseif reason == "hwid_limit" then
                 ui.setStatus(
                     string.format("❌  Device limit reached (%d/%d).\nUse /hwid_reset in Discord.",
                         hwidResp.current or 0, hwidResp.max or 0),
