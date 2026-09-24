@@ -2,39 +2,149 @@
 -- INFINITE ZEN — LOADER (Powered by FlowAuth)
 -- ═══════════════════════════════════════════════════════════
 
-local FLOWAUTH_LOADER_HASH = "530fbe83145609971c18e015a321916a"
-local FLOWAUTH_LOADER_URL  = "https://flowauth.net/v1/loaders/" .. FLOWAUTH_LOADER_HASH .. ".lua"
-local DISCORD_INVITE       = "https://discord.gg/ScZfU2mAGm"
-local KEY_FILE             = "izm_flowauth_key.txt"
+local License = {}
 
-local Players     = game:GetService("Players")
-local UIS         = game:GetService("UserInputService")
-local LP          = Players.LocalPlayer
-local PlayerGui   = LP:WaitForChild("PlayerGui")
+local Players      = game:GetService("Players")
+local HttpService  = game:GetService("HttpService")
+local TweenService = game:GetService("TweenService")
+local UIS          = game:GetService("UserInputService")
+local LP           = Players.LocalPlayer
 
--- ─── STORAGE ───
-local function getSavedKey()
-    if not (readfile and isfile) then return nil end
-    local ok1, exists = pcall(isfile, KEY_FILE)
-    if not ok1 or not exists then return nil end
-    local ok2, content = pcall(readfile, KEY_FILE)
-    if not ok2 or not content then return nil end
-    content = content:gsub("%s+", "")
-    if content == "" then return nil end
-    return content
+
+-- ─────────────────────────────────────────────
+-- CONFIG
+-- ─────────────────────────────────────────────
+local GIST_URL = "https://gist.githubusercontent.com/qualquerumapessoa913-ops/4e6c1652b989c6fabf7b9977d4035246/raw/verification.json"
+local API_URL  = "https://izm.injectcloud.space"
+
+
+-- ─────────────────────────────────────────────
+-- HTTP WRAPPER
+-- ─────────────────────────────────────────────
+local function httpGet(url)
+    local ok, res = pcall(function()
+        if syn and syn.request then
+            return syn.request({ Url = url, Method = "GET" })
+        elseif http_request then
+            return http_request({ Url = url, Method = "GET" })
+        elseif request then
+            return request({ Url = url, Method = "GET" })
+        end
+        return nil
+    end)
+    if ok and res and res.Body then
+        return res.Body, res.StatusCode or 200
+    end
+
+    local ok2, body = pcall(game.HttpGet, game, url)
+    if ok2 then return body, 200 end
+
+    return nil, 0
 end
 
-local function saveKey(key)
-    if writefile then pcall(writefile, KEY_FILE, key) end
+
+local function httpPost(url, body)
+    local encoded = HttpService:JSONEncode(body)
+    local ok, res = pcall(function()
+        if syn and syn.request then
+            return syn.request({
+                Url = url, Method = "POST",
+                Headers = { ["Content-Type"] = "application/json" },
+                Body = encoded,
+            })
+        elseif http_request then
+            return http_request({
+                Url = url, Method = "POST",
+                Headers = { ["Content-Type"] = "application/json" },
+                Body = encoded,
+            })
+        elseif request then
+            return request({
+                Url = url, Method = "POST",
+                Headers = { ["Content-Type"] = "application/json" },
+                Body = encoded,
+            })
+        end
+        return nil
+    end)
+    if ok and res and res.Body then
+        return res.Body, res.StatusCode or 200
+    end
+    return nil, 0
 end
 
-local function clearSavedKey()
-    if delfile then pcall(delfile, KEY_FILE) end
+
+-- ─────────────────────────────────────────────
+-- HWID (multi-executor)
+-- ─────────────────────────────────────────────
+local function getHWID()
+    local id
+
+    local ok = pcall(function() id = syn and syn.get_hwid and syn.get_hwid() end)
+    if ok and id and id ~= "" then return "syn_" .. id end
+
+    ok = pcall(function() id = gethwid and gethwid() end)
+    if ok and id and id ~= "" then return "gh_" .. id end
+
+    ok = pcall(function() id = get_hwid and get_hwid() end)
+    if ok and id and id ~= "" then return "hh_" .. id end
+
+    ok = pcall(function() id = getdeviceid and getdeviceid() end)
+    if ok and id and id ~= "" then return "dev_" .. id end
+
+    ok = pcall(function()
+        id = game:GetService("RbxAnalyticsService"):GetClientId()
+    end)
+    if ok and id and id ~= "" then return "rbx_" .. id end
+
+    return "fallback_" .. tostring(LP.UserId) .. "_" .. tostring(game.PlaceId)
 end
 
--- ─── UI ───
-local function buildUI()
-    local old = PlayerGui:FindFirstChild("IZM_LoaderUI")
+
+-- ─────────────────────────────────────────────
+-- CHECK GIST (basic verification)
+-- ─────────────────────────────────────────────
+local function checkGist(username)
+    local body, code = httpGet(GIST_URL .. "?t=" .. tick())
+    if not body or code ~= 200 then return nil, "network_error" end
+    local ok, data = pcall(function() return HttpService:JSONDecode(body) end)
+    if not ok or type(data) ~= "table" then return nil, "parse_error" end
+
+    local low = username:lower()
+    for _, info in pairs(data) do
+        if info.roblox_name and info.roblox_name:lower() == low then
+            return info, "ok"
+        end
+    end
+    return nil, "not_linked"
+end
+
+
+-- ─────────────────────────────────────────────
+-- CHECK HWID + BLACKLIST (via API)
+-- ─────────────────────────────────────────────
+local function checkHWID(robloxId, hwid)
+    local body, code = httpPost(API_URL .. "/api/hwid/check", {
+        roblox_id = robloxId,
+        hwid = hwid,
+    })
+    if not body or code ~= 200 then
+        return nil, "api_error"
+    end
+    local ok, data = pcall(function() return HttpService:JSONDecode(body) end)
+    if not ok or type(data) ~= "table" then
+        return nil, "parse_error"
+    end
+    return data, "ok"
+end
+
+
+-- ─────────────────────────────────────────────
+-- LOCK UI
+-- ─────────────────────────────────────────────
+local function buildUI(opts)
+    local playerGui = LP:WaitForChild("PlayerGui")
+    local old = playerGui:FindFirstChild("IZM_LicenseUI")
     if old then old:Destroy() end
 
     local sg = Instance.new("ScreenGui")
@@ -51,8 +161,8 @@ local function buildUI()
     backdrop.BorderSizePixel = 0
 
     local card = Instance.new("Frame", sg)
-    card.Size = UDim2.new(0, 600, 0, 460)
-    card.Position = UDim2.new(0.5, -300, 0.5, -230)
+    card.Size = UDim2.new(0, 500, 0, 360)
+    card.Position = UDim2.new(0.5, -250, 0.5, -180)
     card.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
     card.BorderSizePixel = 0
     Instance.new("UICorner", card).CornerRadius = UDim.new(0, 14)
@@ -89,46 +199,40 @@ local function buildUI()
     sub.TextSize = 13
     sub.TextColor3 = Color3.fromRGB(200, 200, 210)
     sub.TextXAlignment = Enum.TextXAlignment.Left
-    sub.Text = "Enter your script key to continue"
+    sub.Text = "Verification Required"
 
-    local boxFrame = Instance.new("Frame", card)
-    boxFrame.Size = UDim2.new(1, -40, 0, 40)
-    boxFrame.Position = UDim2.new(0, 20, 0, 100)
-    boxFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
-    boxFrame.BorderSizePixel = 0
-    Instance.new("UICorner", boxFrame).CornerRadius = UDim.new(0, 8)
+    -- Description
+    local desc = Instance.new("TextLabel", card)
+    desc.Size = UDim2.new(1, -40, 0, 80)
+    desc.Position = UDim2.new(0, 20, 0, 100)
+    desc.BackgroundTransparency = 1
+    desc.Font = Enum.Font.Gotham
+    desc.TextSize = 13
+    desc.TextColor3 = Color3.fromRGB(160, 160, 175)
+    desc.TextWrapped = true
+    desc.TextXAlignment = Enum.TextXAlignment.Left
+    desc.TextYAlignment = Enum.TextYAlignment.Top
+    desc.Text = "To use this script, you need to be in our Discord server and have your Roblox account verified."
 
-    local box = Instance.new("TextBox", boxFrame)
-    box.Size = UDim2.new(1, -20, 1, 0)
-    box.Position = UDim2.new(0, 10, 0, 0)
-    box.BackgroundTransparency = 1
-    box.Font = Enum.Font.Code
-    box.TextSize = 13
-    box.TextColor3 = Color3.fromRGB(240, 240, 245)
-    box.PlaceholderText = "Paste your key here..."
-    box.PlaceholderColor3 = Color3.fromRGB(90, 90, 105)
-    box.Text = ""
-    box.ClearTextOnFocus = false
-    box.TextXAlignment = Enum.TextXAlignment.Left
+    -- Status box
+    local statusBox = Instance.new("Frame", card)
+    statusBox.Size = UDim2.new(1, -40, 0, 60)
+    statusBox.Position = UDim2.new(0, 20, 0, 190)
+    statusBox.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
+    statusBox.BorderSizePixel = 0
+    Instance.new("UICorner", statusBox).CornerRadius = UDim.new(0, 8)
 
-    local statusFrame = Instance.new("Frame", card)
-    statusFrame.Size = UDim2.new(1, -40, 0, 140)
-    statusFrame.Position = UDim2.new(0, 20, 0, 150)
-    statusFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 38)
-    statusFrame.BorderSizePixel = 0
-    Instance.new("UICorner", statusFrame).CornerRadius = UDim.new(0, 8)
-
-    local status = Instance.new("TextLabel", statusFrame)
-    status.Size = UDim2.new(1, -20, 1, -20)
-    status.Position = UDim2.new(0, 10, 0, 10)
+    local status = Instance.new("TextLabel", statusBox)
+    status.Size = UDim2.new(1, -20, 1, 0)
+    status.Position = UDim2.new(0, 10, 0, 0)
     status.BackgroundTransparency = 1
-    status.Font = Enum.Font.Gotham
+    status.Font = Enum.Font.GothamMedium
     status.TextSize = 13
     status.TextColor3 = Color3.fromRGB(255, 200, 100)
     status.TextXAlignment = Enum.TextXAlignment.Left
-    status.TextYAlignment = Enum.TextYAlignment.Top
     status.TextWrapped = true
-    status.Text = ""
+    status.TextYAlignment = Enum.TextYAlignment.Center
+    status.Text = "⏳  Checking..."
 
     local confirmBtn = Instance.new("TextButton", card)
     confirmBtn.Size = UDim2.new(1, -40, 0, 42)
@@ -155,12 +259,15 @@ local function buildUI()
     discordBtn.MouseButton1Click:Connect(function()
         if setclipboard then pcall(setclipboard, DISCORD_INVITE) end
         pcall(function()
-            if syn and syn.request then syn.request({ Url = DISCORD_INVITE, Method = "GET" })
-            elseif request then request({ Url = DISCORD_INVITE, Method = "GET" })
-            elseif http_request then http_request({ Url = DISCORD_INVITE, Method = "GET" }) end
+            if syn and syn.request then
+                syn.request({ Url = opts.discord_invite, Method = "GET" })
+            elseif request then
+                request({ Url = opts.discord_invite, Method = "GET" })
+            elseif http_request then
+                http_request({ Url = opts.discord_invite, Method = "GET" })
+            end
         end)
-        statusFrame.Visible = true
-        status.Text = "📋  Invite copied to clipboard!"
+        status.Text = "📋  Invite link copied! Opening browser..."
         status.TextColor3 = Color3.fromRGB(100, 255, 100)
     end)
 
@@ -180,24 +287,6 @@ local function buildUI()
         end
     end)
 
-    local submittedKey = nil
-    confirmBtn.MouseButton1Click:Connect(function()
-        local key = box.Text:gsub("%s+", "")
-        if key == "" then
-            status.Text = "⚠️  Enter a valid key."
-            status.TextColor3 = Color3.fromRGB(255, 150, 100)
-            return
-        end
-        if #key < 12 or #key > 64 then
-            status.Text = "⚠️  Invalid key format. Keys are usually 32 characters."
-            status.TextColor3 = Color3.fromRGB(255, 150, 100)
-            return
-        end
-        status.Text = "🔄  Validating..."
-        status.TextColor3 = Color3.fromRGB(200, 200, 210)
-        submittedKey = key
-    end)
-
     return {
         waitForKey = function()
             while not submittedKey do task.wait(0.1) end
@@ -212,77 +301,115 @@ local function buildUI()
     }
 end
 
--- ─── LOADER ───
-local function runLoader(key)
-    local fetchOk, loaderCode = pcall(function()
-        return game:HttpGet(FLOWAUTH_LOADER_URL)
-    end)
 
-    if not fetchOk then
-        return false, "HTTP_ERROR", "Failed to reach FlowAuth server: " .. tostring(loaderCode)
-    end
+-- ─────────────────────────────────────────────
+-- MAIN CHECK
+-- ─────────────────────────────────────────────
+function License.check(opts)
+    opts = opts or {}
+    local invite       = opts.discord_invite or "https://discord.gg/ScZfU2mAGm"
+    local interval     = opts.interval or 5
+    local timeout      = opts.timeout or 300
+    local hwid_enabled = opts.hwid_enabled ~= false
+    local fail_mode    = opts.hwid_fail_mode or "open"
 
-    if not loaderCode or loaderCode == "" then
-        return false, "EMPTY_RESPONSE", "FlowAuth returned an empty loader."
-    end
+    local ui = buildUI({ discord_invite = invite })
+    local start = tick()
 
-    local compileOk, loaderFn = pcall(function()
-        return loadstring(loaderCode)
-    end)
-
-    if not compileOk or not loaderFn then
-        return false, "COMPILE_ERROR", "Failed to compile loader: " .. tostring(loaderFn)
-    end
-
-    local execOk, execErr = pcall(function()
-        loaderFn(key)
-    end)
-
-    if not execOk then
-        return false, "EXEC_ERROR", tostring(execErr)
-    end
-
-    return true, nil, nil
-end
-
--- ─── MAIN ───
-local function main()
-    local savedKey = getSavedKey()
-    if savedKey then
-        print("[IZM] Trying saved key...")
-        local ok, errType, errMsg = runLoader(savedKey)
-        if ok then
-            print("[IZM] ✅ Loaded")
-            return
+    -- ═══════════════════════════════════════════
+    -- STEP 1: Wait for gist verification
+    -- ═══════════════════════════════════════════
+    local info = nil
+    while not info do
+        local data, reason = checkGist(LP.Name)
+        if data then
+            info = data
+            break
         end
-        print("[IZM] ⚠️ Saved key failed: " .. tostring(errType) .. " - " .. tostring(errMsg))
-        clearSavedKey()
+
+        if reason == "network_error" then
+            ui.setStatus("⚠️  Can't reach server — retrying...", Color3.fromRGB(255, 150, 100))
+        elseif reason == "parse_error" then
+            ui.setStatus("⚠️  Parse error — retrying...", Color3.fromRGB(255, 150, 100))
+        else
+            ui.setStatus("⏳  Waiting for Discord verification...", Color3.fromRGB(255, 200, 100))
+        end
+
+        if tick() - start > timeout then
+            ui.setStatus("❌  Timed out. Restart the script.", Color3.fromRGB(255, 80, 80))
+            return false, "timeout"
+        end
+
+        task.wait(interval)
     end
 
-    local ui = buildUI()
-    local key = ui.waitForKey()
+    ui.setStatus("✅  Verified! Validating device...", Color3.fromRGB(100, 255, 100))
 
-    ui.setStatus("🔄  Contacting FlowAuth...", Color3.fromRGB(200, 200, 210))
-    task.wait(0.3)
+    -- ═══════════════════════════════════════════
+    -- STEP 2: HWID + Blacklist check
+    -- ═══════════════════════════════════════════
+    if hwid_enabled then
+        local roblox_id = info.roblox_id or LP.UserId
+        local hwid = getHWID()
+        local hwidResp, hwidErr = checkHWID(roblox_id, hwid)
 
-    local ok, errType, errMsg = runLoader(key)
-    if ok then
-        ui.setStatus("✅  Loaded successfully!", Color3.fromRGB(100, 255, 100))
-        saveKey(key)
-        task.wait(0.5)
-        ui.destroy()
-        return
+        if not hwidResp then
+            if fail_mode == "open" then
+                ui.setStatus("⚠️  HWID check unavailable — allowing access.", Color3.fromRGB(255, 200, 100))
+                task.wait(1.5)
+                ui.destroy()
+                return true, info
+            else
+                ui.setStatus("❌  HWID server offline. Try again later.", Color3.fromRGB(255, 80, 80))
+                return false, "api_offline"
+            end
+        end
+
+        -- ⚠️ BLACKLIST BLOCK
+        if not hwidResp.allowed then
+            local reason = hwidResp.reason or "unknown"
+
+            if reason == "blacklisted" then
+                local banReason = hwidResp.ban_reason or "Unknown"
+                ui.setStatus(
+                    "🚫  You are PERMANENTLY BANNED.\n\n" ..
+                    "Reason: " .. banReason .. "\n\n" ..
+                    "Contact staff in our Discord if you believe this is a mistake.",
+                    Color3.fromRGB(255, 40, 40)
+                )
+                return false, "blacklisted"
+            elseif reason == "hwid_limit" then
+                ui.setStatus(
+                    string.format("❌  Device limit reached (%d/%d).\nUse /hwid_reset in Discord.",
+                        hwidResp.current or 0, hwidResp.max or 0),
+                    Color3.fromRGB(255, 80, 80)
+                )
+            elseif reason == "not_verified" then
+                ui.setStatus("❌  Account not verified on Discord.", Color3.fromRGB(255, 80, 80))
+            else
+                ui.setStatus("❌  Access denied: " .. reason, Color3.fromRGB(255, 80, 80))
+            end
+            return false, reason
+        end
+
+        local reason = hwidResp.reason or ""
+        if reason == "new_device" then
+            ui.setStatus(
+                string.format("✅  Device registered (%d/%d).",
+                    hwidResp.current or 1, hwidResp.max or 2),
+                Color3.fromRGB(100, 255, 100)
+            )
+        else
+            ui.setStatus("✅  Device recognized!", Color3.fromRGB(100, 255, 100))
+        end
+        task.wait(1)
     end
 
-    local msg = "❌ Error [" .. tostring(errType) .. "]:\n" .. tostring(errMsg)
-    if errType == "EXEC_ERROR" and errMsg and errMsg:lower():find("invalid") then
-        msg = "❌ Invalid key.\nJoin Discord and verify to get a new one."
-    elseif errType == "HTTP_ERROR" then
-        msg = "❌ Could not reach FlowAuth.\nCheck your connection or try again later."
-    end
-
-    ui.setStatus(msg, Color3.fromRGB(255, 80, 80))
-    print("[IZM] ❌ Loader failed: " .. tostring(errType) .. " - " .. tostring(errMsg))
+    ui.setStatus("✅  Loading script...", Color3.fromRGB(100, 255, 100))
+    task.wait(0.5)
+    ui.destroy()
+    return true, info
 end
 
-main()
+
+return License
