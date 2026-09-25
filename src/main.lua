@@ -15,8 +15,9 @@ local CONFIG = {
     REPO = "https://raw.githubusercontent.com/qualquerumapessoa913-ops/InfiniteZen/Moon-Angel",
     DEFAULT_LANG = "en",
     SUPPORTED_GAMES = {
-        [286090429] = {name = "Arsenal", module = "arsenal"},
-        [14939963714] = {name = "Jailbird", module = "jailbird"}
+        [286090429]       = {name = "Arsenal",       module = "arsenal"},
+        [14939963714]     = {name = "Jailbird",      module = "jailbird"},
+        [8307114974]      = {name = "Operation One", module = "operationone"},
     }
 }
 
@@ -94,55 +95,73 @@ end
 -- ═══ LOAD LANGUAGE ═══
 local Language = loadModule("src/utils/language.lua")()
 
--- ═══ UNSUPPORTED GAME ═══
+-- ═══ LOAD UNIVERSAL FEATURES (SEMPRE RODA) ═══
+local okUni, UniversalResult = pcall(function()
+    return loadModule("src/games/universal.lua")
+end)
+
+if okUni and UniversalResult then
+    local okInit, UniversalModule = pcall(UniversalResult)
+    if okInit and UniversalModule and UniversalModule.Init then
+        pcall(UniversalModule.Init, {
+            Language = Language,
+            UI = UI,
+            Compat = Compat,
+            gameName = (gameInfo and gameInfo.name) or "Universal",
+            placeId = placeId,
+        })
+        print("[Infinite Zen] ✅ Universal Features carregadas")
+    else
+        warn("[Infinite Zen] ⚠️ Universal: Init falhou")
+    end
+else
+    warn("[Infinite Zen] ⚠️ Universal Features falharam ao carregar")
+end
+
+-- ═══ JOGO NÃO SUPORTADO → PARA AQUI ═══
 if not gameInfo then
     warn("[Infinite Zen] Jogo não suportado! PlaceId: " .. placeId .. " | GameId: " .. gameId)
+    warn("[Infinite Zen] Apenas Universal Features estão disponíveis.")
+
+    -- Mostra aviso discreto mas deixa universal rodar
     local gui = Instance.new("ScreenGui")
     gui.Name = "InfiniteZen_Unsupported"
     gui.ResetOnSpawn = false
     gui.Parent = PlayerGui
 
     local frame = Instance.new("Frame", gui)
-    frame.Size = UDim2.new(0, 420, 0, 200)
-    frame.Position = UDim2.new(0.5, -210, 0.5, -100)
+    frame.Size = UDim2.new(0, 420, 0, 180)
+    frame.Position = UDim2.new(0.5, -210, 0, 20)
     frame.BackgroundColor3 = Color3.fromRGB(14, 14, 18)
     frame.BorderSizePixel = 0
     Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 12)
 
     local stroke = Instance.new("UIStroke", frame)
-    stroke.Color = Color3.fromRGB(255, 70, 70)
+    stroke.Color = Color3.fromRGB(255, 180, 50)
     stroke.Thickness = 2
 
     local title = Instance.new("TextLabel", frame)
     title.Size = UDim2.new(1, -40, 0, 30)
-    title.Position = UDim2.new(0, 20, 0, 25)
+    title.Position = UDim2.new(0, 20, 0, 20)
     title.BackgroundTransparency = 1
-    title.Text = Language.get("unsupported_title")
-    title.TextColor3 = Color3.fromRGB(255, 70, 70)
-    title.TextSize = 20
+    title.Text = "🌌 Infinite Zen — Universal Mode"
+    title.TextColor3 = Color3.fromRGB(255, 180, 50)
+    title.TextSize = 16
     title.Font = Enum.Font.GothamBold
 
     local msg1 = Instance.new("TextLabel", frame)
-    msg1.Size = UDim2.new(1, -40, 0, 25)
-    msg1.Position = UDim2.new(0, 20, 0, 65)
+    msg1.Size = UDim2.new(1, -40, 0, 40)
+    msg1.Position = UDim2.new(0, 20, 0, 60)
     msg1.BackgroundTransparency = 1
-    msg1.Text = Language.get("unsupported_message_pt")
+    msg1.Text = "This game isn't officially supported.\nOnly Universal Features are available."
     msg1.TextColor3 = Color3.fromRGB(220, 220, 230)
-    msg1.TextSize = 14
+    msg1.TextSize = 13
     msg1.Font = Enum.Font.Gotham
-
-    local msg2 = Instance.new("TextLabel", frame)
-    msg2.Size = UDim2.new(1, -40, 0, 25)
-    msg2.Position = UDim2.new(0, 20, 0, 90)
-    msg2.BackgroundTransparency = 1
-    msg2.Text = Language.get("unsupported_message_en")
-    msg2.TextColor3 = Color3.fromRGB(150, 155, 170)
-    msg2.TextSize = 13
-    msg2.Font = Enum.Font.Gotham
+    msg1.TextWrapped = true
 
     local pid = Instance.new("TextLabel", frame)
     pid.Size = UDim2.new(1, -40, 0, 16)
-    pid.Position = UDim2.new(0, 20, 0, 120)
+    pid.Position = UDim2.new(0, 20, 0, 105)
     pid.BackgroundTransparency = 1
     pid.Text = "PlaceId: " .. placeId .. " | GameId: " .. gameId
     pid.TextColor3 = Color3.fromRGB(100, 105, 120)
@@ -152,23 +171,27 @@ if not gameInfo then
     local closeBtn = Instance.new("TextButton", frame)
     closeBtn.Size = UDim2.new(0, 100, 0, 30)
     closeBtn.Position = UDim2.new(0.5, -50, 1, -45)
-    closeBtn.BackgroundColor3 = Color3.fromRGB(255, 70, 70)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(255, 180, 50)
     closeBtn.Text = "OK"
-    closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
     closeBtn.TextSize = 14
     closeBtn.Font = Enum.Font.GothamBold
     closeBtn.AutoButtonColor = false
     Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
 
-    closeBtn.MouseButton1Click:Connect(function() gui:Destroy() end)
+    closeBtn.MouseButton1Click:Connect(function()
+        gui:Destroy()
+    end)
+
+    print("[Infinite Zen] ✅ Universal Features carregadas (jogo não suportado).")
     return
 end
 
+-- ═══ JOGO SUPORTADO → CONTINUA ═══
 print("[Infinite Zen] 🎮 Jogo detectado: " .. gameInfo.name)
 print("[Infinite Zen] 📦 Carregando módulo: " .. gameInfo.module)
 print("============================================")
 
--- ═══ LOAD GAME MODULE ═══
 local gameModule = loadModule("src/games/" .. gameInfo.module .. ".lua")()
 if not gameModule then
     warn("[Infinite Zen] ⚠️ Falha ao carregar módulo do jogo.")
