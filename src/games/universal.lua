@@ -1,6 +1,5 @@
 -- ============================================================
 -- INFINITE ZEN - UNIVERSAL FEATURES v2.0
--- Player Actions / Chaos / Movement / Fun / Server
 -- ============================================================
 
 local Universal = {}
@@ -19,14 +18,13 @@ function Universal.Init(ctx)
     local GAME_VERSION = "1.0"
     local SHORT_VERSION = "V" .. GAME_VERSION .. " - Universal"
 
-    print("[Infinite Zen] Inicializando Universal v2.0...")
+    print("[Infinite Zen] [Universal] Inicializando v2.0...")
 
     local Players           = game:GetService("Players")
     local RunService        = game:GetService("RunService")
     local UserInputService  = game:GetService("UserInputService")
     local HttpService       = game:GetService("HttpService")
     local TeleportService   = game:GetService("TeleportService")
-    local StarterGui        = game:GetService("StarterGui")
     local SoundService      = game:GetService("SoundService")
     local Lighting          = game:GetService("Lighting")
     local LocalPlayer       = Players.LocalPlayer
@@ -50,9 +48,6 @@ function Universal.Init(ctx)
         return el
     end
 
-    -- ─────────────────────────────────────────────
-    -- HELPERS
-    -- ─────────────────────────────────────────────
     local function getChar() return LocalPlayer.Character end
     local function getHRP()
         local c = getChar(); if not c then return nil end
@@ -67,9 +62,7 @@ function Universal.Init(ctx)
         if not name or name == "" then return nil end
         local low = name:lower()
         for _, p in ipairs(Players:GetPlayers()) do
-            if p.Name:lower() == low or p.DisplayName:lower() == low then
-                return p
-            end
+            if p.Name:lower() == low or p.DisplayName:lower() == low then return p end
         end
         for _, p in ipairs(Players:GetPlayers()) do
             if p.Name:lower():find(low, 1, true) then return p end
@@ -77,9 +70,6 @@ function Universal.Init(ctx)
         return nil
     end
 
-    -- ─────────────────────────────────────────────
-    -- STATE
-    -- ─────────────────────────────────────────────
     local State = {
         speedEnabled = false, speedValue = 50,
         jumpEnabled = false, jumpPower = 50,
@@ -100,55 +90,31 @@ function Universal.Init(ctx)
         spin = false,
     }
 
-    -- ─────────────────────────────────────────────
-    -- FLING SYSTEM
-    -- ─────────────────────────────────────────────
+    -- FLING
     local function flingTarget(targetPlayer)
         if not targetPlayer or targetPlayer == LocalPlayer then return end
         local char = targetPlayer.Character
         if not char then return end
         local hrp = char:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
-
-        -- Method: client-side BodyAngularVelocity (works if you have network ownership)
         local bav = Instance.new("BodyAngularVelocity")
         bav.AngularVelocity = Vector3.new(999999, 999999, 999999)
         bav.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
         bav.P = 999999
         bav.Parent = hrp
-
-        task.delay(0.2, function()
-            if bav and bav.Parent then bav:Destroy() end
-        end)
+        task.delay(0.2, function() if bav and bav.Parent then bav:Destroy() end end)
     end
 
-    local function flingAll()
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer then
-                pcall(flingTarget, p)
-            end
-        end
-    end
-
-    -- ─────────────────────────────────────────────
-    -- SIT SYSTEM
-    -- ─────────────────────────────────────────────
     local function forceSit(targetPlayer, sit)
         if not targetPlayer then return end
-        local char = targetPlayer.Character
-        if not char then return end
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if not hum then return end
+        local char = targetPlayer.Character; if not char then return end
+        local hum = char:FindFirstChildOfClass("Humanoid"); if not hum then return end
         pcall(function() hum.Sit = sit end)
     end
 
-    -- ─────────────────────────────────────────────
-    -- FREEZE SYSTEM (via anchoring)
-    -- ─────────────────────────────────────────────
     local function freezeTarget(targetPlayer, freeze)
         if not targetPlayer then return end
-        local char = targetPlayer.Character
-        if not char then return end
+        local char = targetPlayer.Character; if not char then return end
         for _, part in ipairs(char:GetDescendants()) do
             if part:IsA("BasePart") then
                 pcall(function() part.Anchored = freeze end)
@@ -156,45 +122,24 @@ function Universal.Init(ctx)
         end
     end
 
-    -- ─────────────────────────────────────────────
-    -- BRING SYSTEM
-    -- ============================================
     local function bringPlayer(targetPlayer)
         if not targetPlayer or targetPlayer == LocalPlayer then return end
-        local myHRP = getHRP()
-        if not myHRP then return end
-        local targetChar = targetPlayer.Character
-        if not targetChar then return end
-        local tHRP = targetChar:FindFirstChild("HumanoidRootPart")
-        if not tHRP then return end
-
-        -- Tenta network ownership (funciona em muitos jogos)
-        local success = pcall(function()
+        local myHRP = getHRP(); if not myHRP then return end
+        local targetChar = targetPlayer.Character; if not targetChar then return end
+        local tHRP = targetChar:FindFirstChild("HumanoidRootPart"); if not tHRP then return end
+        local ok = pcall(function()
             tHRP.CFrame = myHRP.CFrame + myHRP.CFrame.LookVector * -5
             tHRP.Velocity = Vector3.zero
         end)
-        return success
+        return ok
     end
 
-    local function bringAll()
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer then
-                pcall(bringPlayer, p)
-            end
-        end
-    end
-
-    -- ─────────────────────────────────────────────
-    -- MOVEMENT LOOPS
-    -- ─────────────────────────────────────────────
+    -- MOVEMENT
     RunService.Heartbeat:Connect(function()
         if UNLOADED then return end
-
         local hum = getHumanoid()
         if hum then
-            if State.speedEnabled and hum.WalkSpeed ~= State.speedValue then
-                hum.WalkSpeed = State.speedValue
-            end
+            if State.speedEnabled and hum.WalkSpeed ~= State.speedValue then hum.WalkSpeed = State.speedValue end
             if State.jumpEnabled then
                 if hum.UseJumpPower then
                     if hum.JumpPower ~= State.jumpPower then hum.JumpPower = State.jumpPower end
@@ -203,13 +148,10 @@ function Universal.Init(ctx)
                     if math.abs(hum.JumpHeight - nh) > 0.5 then hum.JumpHeight = nh end
                 end
             end
-            if State.hipEnabled and hum.HipHeight ~= State.hipValue then
-                hum.HipHeight = State.hipValue
-            end
+            if State.hipEnabled and hum.HipHeight ~= State.hipValue then hum.HipHeight = State.hipValue end
         end
     end)
 
-    -- Inf Jump
     local infJumpConn = nil
     local function startInfJump()
         if infJumpConn then infJumpConn:Disconnect() end
@@ -221,11 +163,8 @@ function Universal.Init(ctx)
             end
         end)
     end
-    local function stopInfJump()
-        if infJumpConn then infJumpConn:Disconnect(); infJumpConn = nil end
-    end
+    local function stopInfJump() if infJumpConn then infJumpConn:Disconnect(); infJumpConn = nil end end
 
-    -- Fly
     RunService:BindToRenderStep("IZ_UniFly", Enum.RenderPriority.Character.Value + 1, function()
         if UNLOADED or not State.flyEnabled then return end
         local hum = getHumanoid(); local hrp = getHRP()
@@ -240,6 +179,7 @@ function Universal.Init(ctx)
         if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then move = move - Vector3.new(0,1,0) end
         hrp.Velocity = move.Magnitude > 0 and (move.Unit * State.flySpeed) or Vector3.zero
     end)
+
     local lastFly = false
     RunService.Heartbeat:Connect(function()
         if UNLOADED then return end
@@ -249,29 +189,22 @@ function Universal.Init(ctx)
         lastFly = State.flyEnabled
     end)
 
-    -- Noclip
     RunService.Stepped:Connect(function()
         if UNLOADED or not State.noclip then return end
         local char = getChar(); if not char then return end
         for _, part in ipairs(char:GetDescendants()) do
-            if part:IsA("BasePart") and part.CanCollide then
-                part.CanCollide = false
-            end
+            if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end
         end
     end)
 
-    -- Auto Bhop
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.autoBhop then return end
         local hum = getHumanoid(); if not hum then return end
         local st = hum:GetState()
         if (st == Enum.HumanoidStateType.Landed or st == Enum.HumanoidStateType.Running)
-           and UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-            hum.Jump = true
-        end
+           and UserInputService:IsKeyDown(Enum.KeyCode.Space) then hum.Jump = true end
     end)
 
-    -- Anti-fall
     local lastSafePos = Vector3.new(0, 50, 0)
     RunService.Heartbeat:Connect(function()
         if UNLOADED then return end
@@ -285,14 +218,12 @@ function Universal.Init(ctx)
         end
     end)
 
-    -- Spin
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.spin then return end
         local hrp = getHRP()
         if hrp then hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(25), 0) end
     end)
 
-    -- Teleport to cursor (T)
     UserInputService.InputBegan:Connect(function(input, gp)
         if UNLOADED or gp then return end
         if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
@@ -310,9 +241,7 @@ function Universal.Init(ctx)
         end
     end)
 
-    -- ─────────────────────────────────────────────
     -- FULLBRIGHT / FOV / HEADLESS
-    -- ─────────────────────────────────────────────
     local origBright = Lighting.Brightness
     local origAmb = Lighting.Ambient
     local origOutAmb = Lighting.OutdoorAmbient
@@ -351,15 +280,11 @@ function Universal.Init(ctx)
         if UNLOADED then return end
         local char = getChar(); if not char then return end
         local head = char:FindFirstChild("Head")
-        if head and head:IsA("BasePart") then
-            head.LocalTransparencyModifier = State.headless and 1 or 0
-        end
+        if head and head:IsA("BasePart") then head.LocalTransparencyModifier = State.headless and 1 or 0 end
         for _, acc in ipairs(char:GetChildren()) do
             if acc:IsA("Accessory") then
                 local h = acc:FindFirstChild("Handle")
-                if h and h:IsA("BasePart") then
-                    h.LocalTransparencyModifier = State.headless and 1 or 0
-                end
+                if h and h:IsA("BasePart") then h.LocalTransparencyModifier = State.headless and 1 or 0 end
             end
         end
     end)
@@ -374,9 +299,7 @@ function Universal.Init(ctx)
         end
     end)
 
-    -- ─────────────────────────────────────────────
-    -- MASS ACTIONS LOOPS
-    -- ─────────────────────────────────────────────
+    -- MASS ACTIONS
     task.spawn(function()
         while not UNLOADED do
             task.wait(0.15)
@@ -398,32 +321,25 @@ function Universal.Init(ctx)
         end
     end)
 
-    -- ─────────────────────────────────────────────
     -- FREECAM
-    -- ─────────────────────────────────────────────
     local freecamActive = false
-    local fcConn
-    local fcBody, fcBodyGyro
-
+    local fcConn, fcBody, fcBodyGyro
     local function startFreecam()
         if freecamActive then return end
         freecamActive = true
         local hrp = getHRP(); local hum = getHumanoid()
         if not hrp or not hum then return end
-
         hum.PlatformStand = true
         fcBody = Instance.new("BodyVelocity")
         fcBody.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
         fcBody.Velocity = Vector3.zero
         fcBody.Parent = hrp
-
         fcBodyGyro = Instance.new("BodyGyro")
         fcBodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
         fcBodyGyro.P = 10000
         fcBodyGyro.CFrame = CFrame.new(hrp.Position, hrp.Position + Camera.CFrame.LookVector)
         fcBodyGyro.Parent = hrp
-
-        fcConn = RunService.Heartbeat:Connect(function(dt)
+        fcConn = RunService.Heartbeat:Connect(function()
             if not freecamActive then return end
             local move = Vector3.zero
             if UserInputService:IsKeyDown(Enum.KeyCode.W) then move = move + Camera.CFrame.LookVector end
@@ -435,19 +351,15 @@ function Universal.Init(ctx)
             if fcBody then fcBody.Velocity = move.Unit * State.freecamSpeed * 30 end
         end)
     end
-
     local function stopFreecam()
         freecamActive = false
         if fcConn then fcConn:Disconnect(); fcConn = nil end
         if fcBody then fcBody:Destroy(); fcBody = nil end
         if fcBodyGyro then fcBodyGyro:Destroy(); fcBodyGyro = nil end
-        local hum = getHumanoid()
-        if hum then hum.PlatformStand = false end
+        local hum = getHumanoid(); if hum then hum.PlatformStand = false end
     end
 
-    -- ─────────────────────────────────────────────
-    -- MUSIC PLAYER
-    -- ─────────────────────────────────────────────
+    -- MUSIC
     local currentSound = nil
     local function playMusic(id)
         if not id or id == "" then return end
@@ -455,7 +367,6 @@ function Universal.Init(ctx)
         local sound = Instance.new("Sound")
         sound.SoundId = "rbxassetid://" .. id
         sound.Volume = 1
-        sound.Looped = false
         sound.Parent = SoundService
         sound:Play()
         currentSound = sound
@@ -464,9 +375,7 @@ function Universal.Init(ctx)
         if currentSound then currentSound:Destroy(); currentSound = nil end
     end
 
-    -- ─────────────────────────────────────────────
-    -- SKYBOX CHANGER
-    -- ─────────────────────────────────────────────
+    -- SKYBOX
     local SKYBOXES = {
         ["Default"]      = nil,
         ["Night Sky"]    = "rbxassetid://159454299",
@@ -477,26 +386,19 @@ function Universal.Init(ctx)
         ["Purple Haze"]  = "rbxassetid://6848365234",
         ["Cartoon"]      = "rbxassetid://6848390553",
     }
-
     local function applySkybox(id)
         for _, c in ipairs(Lighting:GetChildren()) do
             if c:IsA("Sky") then c:Destroy() end
         end
         if id then
             local sky = Instance.new("Sky")
-            sky.SkyboxBk = id
-            sky.SkyboxDn = id
-            sky.SkyboxFt = id
-            sky.SkyboxLf = id
-            sky.SkyboxRt = id
-            sky.SkyboxUp = id
+            sky.SkyboxBk = id; sky.SkyboxDn = id; sky.SkyboxFt = id
+            sky.SkyboxLf = id; sky.SkyboxRt = id; sky.SkyboxUp = id
             sky.Parent = Lighting
         end
     end
 
-    -- ─────────────────────────────────────────────
     -- SERVER HELPERS
-    -- ─────────────────────────────────────────────
     local function getServers()
         local ok, result = pcall(function()
             local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
@@ -506,9 +408,7 @@ function Universal.Init(ctx)
         return {}
     end
 
-    -- ─────────────────────────────────────────────
     -- BUILD UI
-    -- ─────────────────────────────────────────────
     local function buildUI()
         Window = UI:CreateWindow({
             Title = "INFINITE ZEN",
@@ -517,13 +417,11 @@ function Universal.Init(ctx)
         })
         Elements = {}
 
-        -- ═══ 🎯 PLAYER ACTIONS ═══
+        -- PLAYERS
         local PlayerTab = Window:CreateTab("Players", "🎯")
-
         PlayerTab:CreateSection("Target Player")
-        PlayerTab:CreateLabel("Type a username below, then click the action.", Color3.fromRGB(140,140,155))
+        PlayerTab:CreateLabel("Type a username, then click the action.", Color3.fromRGB(140,140,155))
 
-        -- Input field for username
         local inputFrame = Instance.new("Frame", PlayerTab.container)
         inputFrame.Size = UDim2.new(1, 0, 0, 40)
         inputFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
@@ -547,109 +445,103 @@ function Universal.Init(ctx)
         PlayerTab:CreateButton({
             Name = "🌀 Fling Player",
             Callback = function()
-                local target = findPlayerByName(targetInput.Text)
-                if not target then
-                    Window:Notify("❌", "Player not found", 2, "error"); return
-                end
-                flingTarget(target)
-                Window:Notify("🌀", "Flinging " .. target.Name, 2, "success")
+                local t = findPlayerByName(targetInput.Text)
+                if not t then Window:Notify("❌", "Not found", 2, "error"); return end
+                flingTarget(t)
+                Window:Notify("🌀", "Flinging " .. t.Name, 2, "success")
             end,
         })
         PlayerTab:CreateButton({
             Name = "🧊 Freeze Player",
             Callback = function()
-                local target = findPlayerByName(targetInput.Text)
-                if not target then Window:Notify("❌", "Not found", 2, "error"); return end
-                freezeTarget(target, true)
-                Window:Notify("🧊", "Froze " .. target.Name, 2, "success")
+                local t = findPlayerByName(targetInput.Text)
+                if not t then Window:Notify("❌", "Not found", 2, "error"); return end
+                freezeTarget(t, true)
+                Window:Notify("🧊", "Froze " .. t.Name, 2, "success")
             end,
         })
         PlayerTab:CreateButton({
             Name = "🔥 Unfreeze Player",
             Callback = function()
-                local target = findPlayerByName(targetInput.Text)
-                if not target then Window:Notify("❌", "Not found", 2, "error"); return end
-                freezeTarget(target, false)
-                Window:Notify("🔥", "Unfroze " .. target.Name, 2, "success")
+                local t = findPlayerByName(targetInput.Text)
+                if not t then Window:Notify("❌", "Not found", 2, "error"); return end
+                freezeTarget(t, false)
+                Window:Notify("🔥", "Unfroze " .. t.Name, 2, "success")
             end,
         })
         PlayerTab:CreateButton({
             Name = "🪑 Sit Player",
             Callback = function()
-                local target = findPlayerByName(targetInput.Text)
-                if not target then Window:Notify("❌", "Not found", 2, "error"); return end
-                forceSit(target, true)
-                Window:Notify("🪑", "Sat " .. target.Name, 2, "success")
+                local t = findPlayerByName(targetInput.Text)
+                if not t then Window:Notify("❌", "Not found", 2, "error"); return end
+                forceSit(t, true)
+                Window:Notify("🪑", "Sat " .. t.Name, 2, "success")
             end,
         })
         PlayerTab:CreateButton({
             Name = "🚶 Stand Player",
             Callback = function()
-                local target = findPlayerByName(targetInput.Text)
-                if not target then Window:Notify("❌", "Not found", 2, "error"); return end
-                forceSit(target, false)
-                Window:Notify("🚶", "Stood " .. target.Name, 2, "success")
+                local t = findPlayerByName(targetInput.Text)
+                if not t then Window:Notify("❌", "Not found", 2, "error"); return end
+                forceSit(t, false)
+                Window:Notify("🚶", "Stood " .. t.Name, 2, "success")
             end,
         })
         PlayerTab:CreateButton({
             Name = "🧲 Bring Player",
             Callback = function()
-                local target = findPlayerByName(targetInput.Text)
-                if not target then Window:Notify("❌", "Not found", 2, "error"); return end
-                local ok = bringPlayer(target)
-                if ok then Window:Notify("🧲", "Brought " .. target.Name, 2, "success")
-                else Window:Notify("❌", "Failed (no network owner)", 2, "error") end
+                local t = findPlayerByName(targetInput.Text)
+                if not t then Window:Notify("❌", "Not found", 2, "error"); return end
+                local ok = bringPlayer(t)
+                if ok then Window:Notify("🧲", "Brought " .. t.Name, 2, "success")
+                else Window:Notify("❌", "Failed (no net owner)", 2, "error") end
             end,
         })
         PlayerTab:CreateButton({
             Name = "👁️ Spectate Player",
             Callback = function()
-                local target = findPlayerByName(targetInput.Text)
-                if not target then Window:Notify("❌", "Not found", 2, "error"); return end
-                local tChar = target.Character
-                if tChar then
-                    Camera.CameraSubject = tChar:FindFirstChildOfClass("Humanoid")
+                local t = findPlayerByName(targetInput.Text)
+                if not t then Window:Notify("❌", "Not found", 2, "error"); return end
+                local c = t.Character
+                if c then
+                    Camera.CameraSubject = c:FindFirstChildOfClass("Humanoid")
                     Camera.CameraType = Enum.CameraType.Follow
-                    Window:Notify("👁️", "Spectating " .. target.Name, 2, "success")
+                    Window:Notify("👁️", "Spectating " .. t.Name, 2, "success")
                 end
             end,
         })
         PlayerTab:CreateButton({
             Name = "🚶 Stop Spectate",
             Callback = function()
-                local myChar = getChar()
-                if myChar then
-                    Camera.CameraSubject = myChar:FindFirstChildOfClass("Humanoid")
+                local c = getChar()
+                if c then
+                    Camera.CameraSubject = c:FindFirstChildOfClass("Humanoid")
                     Camera.CameraType = Enum.CameraType.Custom
                 end
             end,
         })
-
-        PlayerTab:CreateSection("Copy Info")
         PlayerTab:CreateButton({
             Name = "📋 Copy Profile Link",
             Callback = function()
-                local target = findPlayerByName(targetInput.Text)
-                if not target then Window:Notify("❌", "Not found", 2, "error"); return end
+                local t = findPlayerByName(targetInput.Text)
+                if not t then Window:Notify("❌", "Not found", 2, "error"); return end
                 if setclipboard then
-                    setclipboard("https://www.roblox.com/users/" .. target.UserId .. "/profile")
-                    Window:Notify("📋", "Profile link copied!", 2, "success")
+                    setclipboard("https://www.roblox.com/users/" .. t.UserId .. "/profile")
+                    Window:Notify("📋", "Copied!", 2, "success")
                 end
             end,
         })
 
-        -- ═══ 💀 CHAOS ═══
+        -- CHAOS
         local ChaosTab = Window:CreateTab("Chaos", "💀")
         ChaosTab:CreateSection("⚠️ Mass Actions")
-
         reg("flingAll", ChaosTab:CreateToggle({
             Name = "Fling All Players", Description = "Continuous fling",
             Icon = "🌀", Default = false,
             Callback = function(v) State.flingAll = v end,
         }))
         reg("sitAll", ChaosTab:CreateToggle({
-            Name = "Sit All", Description = "Force everyone to sit",
-            Icon = "🪑", Default = false,
+            Name = "Sit All", Icon = "🪑", Default = false,
             Callback = function(v)
                 State.sitAll = v
                 if not v then
@@ -660,8 +552,7 @@ function Universal.Init(ctx)
             end,
         }))
         reg("freezeAll", ChaosTab:CreateToggle({
-            Name = "Freeze All", Description = "Freeze everyone",
-            Icon = "🧊", Default = false,
+            Name = "Freeze All", Icon = "🧊", Default = false,
             Callback = function(v)
                 State.freezeAll = v
                 if not v then
@@ -674,37 +565,35 @@ function Universal.Init(ctx)
         ChaosTab:CreateButton({
             Name = "🧲 Bring All",
             Callback = function()
-                bringAll()
-                Window:Notify("🧲", "Bringing all players", 2, "success")
+                for _, p in ipairs(Players:GetPlayers()) do
+                    if p ~= LocalPlayer then pcall(bringPlayer, p) end
+                end
+                Window:Notify("🧲", "Bringing all", 2, "success")
             end,
         })
         ChaosTab:CreateButton({
-            Name = "💀 Explode Local Character",
+            Name = "💀 Explode Local",
             Callback = function()
-                local char = getChar()
-                if not char then return end
-                local hrp = char:FindFirstChild("HumanoidRootPart")
+                local hrp = getHRP()
                 if hrp then
-                    local explosion = Instance.new("Explosion")
-                    explosion.Position = hrp.Position
-                    explosion.BlastRadius = 10
-                    explosion.BlastPressure = 0
-                    explosion.Parent = workspace
+                    local e = Instance.new("Explosion")
+                    e.Position = hrp.Position
+                    e.BlastRadius = 10
+                    e.BlastPressure = 0
+                    e.Parent = workspace
                 end
             end,
         })
 
-        -- ═══ 💠 MOVEMENT ═══
+        -- MOVEMENT
         local MoveTab = Window:CreateTab("Movement", "💠")
         MoveTab:CreateSection("Speed")
         reg("speedEnabled", MoveTab:CreateToggle({
-            Name = "Speed", Description = "Custom walkspeed",
-            Icon = "⚡", Default = false,
+            Name = "Speed", Icon = "⚡", Default = false,
             Callback = function(v) State.speedEnabled = v end,
         }))
         reg("speedValue", MoveTab:CreateSlider({
-            Name = "Speed Value", Icon = "📏",
-            Min = 16, Max = 250, Default = 50,
+            Name = "Speed Value", Icon = "📏", Min = 16, Max = 250, Default = 50,
             Callback = function(v) State.speedValue = v end,
         }))
 
@@ -714,16 +603,12 @@ function Universal.Init(ctx)
             Callback = function(v) State.jumpEnabled = v end,
         }))
         reg("jumpPower", MoveTab:CreateSlider({
-            Name = "Jump Value", Icon = "📏",
-            Min = 30, Max = 300, Default = 50,
+            Name = "Jump Value", Icon = "📏", Min = 30, Max = 300, Default = 50,
             Callback = function(v) State.jumpPower = v end,
         }))
         reg("infJump", MoveTab:CreateToggle({
             Name = "Infinite Jump", Icon = "🌌", Default = false,
-            Callback = function(v)
-                State.infJump = v
-                if v then startInfJump() else stopInfJump() end
-            end,
+            Callback = function(v) State.infJump = v; if v then startInfJump() else stopInfJump() end end,
         }))
 
         MoveTab:CreateSection("Fly / Noclip")
@@ -733,8 +618,7 @@ function Universal.Init(ctx)
             Callback = function(v) State.flyEnabled = v end,
         }))
         reg("flySpeed", MoveTab:CreateSlider({
-            Name = "Fly Speed", Icon = "📏",
-            Min = 20, Max = 300, Default = 60,
+            Name = "Fly Speed", Icon = "📏", Min = 20, Max = 300, Default = 60,
             Callback = function(v) State.flySpeed = v end,
         }))
         reg("noclip", MoveTab:CreateToggle({
@@ -750,8 +634,7 @@ function Universal.Init(ctx)
             Callback = function(v) State.hipEnabled = v end,
         }))
         reg("hipValue", MoveTab:CreateSlider({
-            Name = "Hip Value", Icon = "📏",
-            Min = 0, Max = 20, Default = 2,
+            Name = "Hip Value", Icon = "📏", Min = 0, Max = 20, Default = 2,
             Callback = function(v) State.hipValue = v end,
         }))
         reg("antiFall", MoveTab:CreateToggle({
@@ -762,25 +645,19 @@ function Universal.Init(ctx)
             Name = "Spin", Icon = "💫", Default = false,
             Callback = function(v) State.spin = v end,
         }))
-
         MoveTab:CreateSection("Teleport")
         MoveTab:CreateLabel("Press T to teleport to cursor", Color3.fromRGB(140,140,155))
 
-        -- ═══ 😭 FUN ═══
+        -- FUN
         local FunTab = Window:CreateTab("Fun", "😭")
-
         FunTab:CreateSection("Camera")
         reg("freecam", FunTab:CreateToggle({
-            Name = "Freecam", Description = "WASD + Space/Ctrl — camera + body",
+            Name = "Freecam", Description = "WASD + Space/Ctrl",
             Icon = "🎥", Default = false,
-            Callback = function(v)
-                State.freecam = v
-                if v then startFreecam() else stopFreecam() end
-            end,
+            Callback = function(v) State.freecam = v; if v then startFreecam() else stopFreecam() end end,
         }))
         reg("freecamSpeed", FunTab:CreateSlider({
-            Name = "Freecam Speed", Icon = "📏",
-            Min = 1, Max = 10, Default = 2,
+            Name = "Freecam Speed", Icon = "📏", Min = 1, Max = 10, Default = 2,
             Callback = function(v) State.freecamSpeed = v end,
         }))
         reg("customFov", FunTab:CreateToggle({
@@ -788,18 +665,13 @@ function Universal.Init(ctx)
             Callback = function(v) State.customFov = v end,
         }))
         reg("fovValue", FunTab:CreateSlider({
-            Name = "FOV Value", Icon = "📐",
-            Min = 40, Max = 160, Default = 90,
+            Name = "FOV Value", Icon = "📐", Min = 40, Max = 160, Default = 90,
             Callback = function(v) State.fovValue = v end,
         }))
-
         FunTab:CreateSection("Visual")
         reg("fullbright", FunTab:CreateToggle({
             Name = "Fullbright", Icon = "💡", Default = false,
-            Callback = function(v)
-                State.fullbright = v
-                if not v then disableFullbright() end
-            end,
+            Callback = function(v) State.fullbright = v; if not v then disableFullbright() end end,
         }))
         reg("headless", FunTab:CreateToggle({
             Name = "Headless", Icon = "👤", Default = false,
@@ -809,19 +681,14 @@ function Universal.Init(ctx)
             Name = "RGB Character", Icon = "🌈", Default = false,
             Callback = function(v) State.rgbChar = v end,
         }))
-
         FunTab:CreateSection("Skybox")
         local skyboxOptions = {}
         for name, _ in pairs(SKYBOXES) do table.insert(skyboxOptions, name) end
         table.sort(skyboxOptions)
         FunTab:CreateDropdown({
-            Name = "Skybox", Description = "Change the sky",
-            Icon = "🌌", Options = skyboxOptions, Default = 1,
-            Callback = function(option)
-                applySkybox(SKYBOXES[option])
-            end,
+            Name = "Skybox", Icon = "🌌", Options = skyboxOptions, Default = 1,
+            Callback = function(option) applySkybox(SKYBOXES[option]) end,
         })
-
         FunTab:CreateSection("Music")
         local musicInput = Instance.new("Frame", FunTab.container)
         musicInput.Size = UDim2.new(1, 0, 0, 40)
@@ -829,7 +696,6 @@ function Universal.Init(ctx)
         musicInput.BorderSizePixel = 0
         musicInput.LayoutOrder = #FunTab.container:GetChildren()
         Instance.new("UICorner", musicInput).CornerRadius = UDim.new(0, 8)
-
         local musicBox = Instance.new("TextBox", musicInput)
         musicBox.Size = UDim2.new(1, -20, 1, -10)
         musicBox.Position = UDim2.new(0, 10, 0, 5)
@@ -837,39 +703,32 @@ function Universal.Init(ctx)
         musicBox.Font = Enum.Font.GothamMedium
         musicBox.TextSize = 12
         musicBox.TextColor3 = Color3.fromRGB(240,240,245)
-        musicBox.PlaceholderText = "Roblox Audio ID (numbers only)..."
+        musicBox.PlaceholderText = "Roblox Audio ID..."
         musicBox.PlaceholderColor3 = Color3.fromRGB(90,90,105)
         musicBox.Text = ""
         musicBox.ClearTextOnFocus = false
         musicBox.TextXAlignment = Enum.TextXAlignment.Left
-
         FunTab:CreateButton({
             Name = "🎵 Play Music",
-            Callback = function()
-                playMusic(musicBox.Text)
-            end,
+            Callback = function() playMusic(musicBox.Text) end,
         })
         FunTab:CreateButton({
             Name = "⏹️ Stop Music",
-            Callback = function()
-                stopMusic()
-            end,
+            Callback = function() stopMusic() end,
         })
 
-        -- ═══ 🎯 SERVER ═══
+        -- SERVER
         local ServerTab = Window:CreateTab("Server", "🎯")
-
         ServerTab:CreateSection("Info")
         local fpsLabel    = ServerTab:CreateLabel("FPS: --", Color3.fromRGB(140,140,155))
         local pingLabel   = ServerTab:CreateLabel("Ping: --", Color3.fromRGB(140,140,155))
         local timeLabel   = ServerTab:CreateLabel("Session: --", Color3.fromRGB(140,140,155))
         local playerLabel = ServerTab:CreateLabel("Players: --", Color3.fromRGB(140,140,155))
-        local jobLabel    = ServerTab:CreateLabel("Job ID: " .. game.JobId:sub(1, 12) .. "...", Color3.fromRGB(140,140,155))
+        ServerTab:CreateLabel("Job ID: " .. game.JobId:sub(1, 12) .. "...", Color3.fromRGB(140,140,155))
 
         local fps = 0
         local frames = 0
         RunService.RenderStepped:Connect(function() frames = frames + 1 end)
-
         task.spawn(function()
             local joinTime = tick()
             while not UNLOADED do
@@ -896,7 +755,7 @@ function Universal.Init(ctx)
             Callback = function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end,
         })
         ServerTab:CreateButton({
-            Name = "📡 Server Hop (Full)",
+            Name = "📡 Server Hop (Random)",
             Callback = function()
                 local servers = getServers()
                 for _, srv in ipairs(servers) do
@@ -905,7 +764,7 @@ function Universal.Init(ctx)
                         return
                     end
                 end
-                Window:Notify("❌", "No servers found", 2, "error")
+                Window:Notify("❌", "No servers", 2, "error")
             end,
         })
         ServerTab:CreateButton({
@@ -918,11 +777,8 @@ function Universal.Init(ctx)
                         if not best or srv.playing < best.playing then best = srv end
                     end
                 end
-                if best then
-                    TeleportService:TeleportToPlaceInstance(game.PlaceId, best.id, LocalPlayer)
-                else
-                    Window:Notify("❌", "No servers found", 2, "error")
-                end
+                if best then TeleportService:TeleportToPlaceInstance(game.PlaceId, best.id, LocalPlayer)
+                else Window:Notify("❌", "No servers", 2, "error") end
             end,
         })
         ServerTab:CreateButton({
@@ -935,21 +791,17 @@ function Universal.Init(ctx)
                         if not best or srv.playing > best.playing then best = srv end
                     end
                 end
-                if best then
-                    TeleportService:TeleportToPlaceInstance(game.PlaceId, best.id, LocalPlayer)
-                else
-                    Window:Notify("❌", "No servers found", 2, "error")
-                end
+                if best then TeleportService:TeleportToPlaceInstance(game.PlaceId, best.id, LocalPlayer)
+                else Window:Notify("❌", "No servers", 2, "error") end
             end,
         })
-
         ServerTab:CreateSection("Copy")
         ServerTab:CreateButton({
             Name = "📋 Copy Job ID",
             Callback = function()
                 if setclipboard then
                     pcall(setclipboard, game.JobId)
-                    Window:Notify("📋", "Job ID copied!", 2, "success")
+                    Window:Notify("📋", "Copied!", 2, "success")
                 end
             end,
         })
@@ -959,7 +811,7 @@ function Universal.Init(ctx)
                 if setclipboard then
                     local link = "roblox://experiences/start?placeId=" .. game.PlaceId .. "&gameInstanceId=" .. game.JobId
                     pcall(setclipboard, link)
-                    Window:Notify("🔗", "Link copied!", 2, "success")
+                    Window:Notify("🔗", "Copied!", 2, "success")
                 end
             end,
         })
@@ -968,7 +820,7 @@ function Universal.Init(ctx)
             Callback = function()
                 if setclipboard then
                     setclipboard("https://www.roblox.com/games/" .. game.PlaceId)
-                    Window:Notify("🌐", "Game link copied!", 2, "success")
+                    Window:Notify("🌐", "Copied!", 2, "success")
                 end
             end,
         })
@@ -977,7 +829,7 @@ function Universal.Init(ctx)
     buildUI()
 
     Window:Notify("✅ " .. SHORT_VERSION, "Universal v2.0 loaded", 4, "success")
-    print("[Infinite Zen] ✅ Universal Features v2.0 carregadas!")
+    print("[Infinite Zen] [Universal] ✅ Carregado!")
 end
 
 return Universal
