@@ -9,6 +9,7 @@ function Universal.Init(ctx)
     local UI       = ctx.UI
     local Compat   = ctx.Compat
     local gameName = ctx.gameName or "Universal"
+    local loadModule = ctx.loadModule
 
     local function T(key)
         if Language and Language.get then return Language.get(key) end
@@ -828,7 +829,32 @@ function Universal.Init(ctx)
 
     buildUI()
 
-    Window:Notify("✅ " .. SHORT_VERSION, "Universal v2.0 loaded", 4, "success")
+    -- ═══════════════════════════════════════════════
+    -- LOAD WEAPONS MODULE
+    -- ═══════════════════════════════════════════════
+    if loadModule then
+        local WeaponsFn = loadModule("src/games/weapons.lua")
+        if WeaponsFn then
+            local okW, WModule = pcall(WeaponsFn)
+            if okW and WModule and type(WModule.Init) == "function" then
+                local okRunW = pcall(WModule.Init, {
+                    UI = UI,
+                    Compat = Compat,
+                    Window = Window,
+                    Language = Language,
+                })
+                if okRunW then
+                    print("[Infinite Zen] [Universal] ✅ Weapons integrado")
+                else
+                    warn("[Infinite Zen] [Universal] ❌ Weapons.Init falhou")
+                end
+            end
+        else
+            warn("[Infinite Zen] [Universal] ❌ weapons.lua não encontrado")
+        end
+    end
+
+    Window:Notify("✅ " .. SHORT_VERSION, "Universal v1.0 loaded", 4, "success")
     print("[Infinite Zen] [Universal] ✅ Carregado!")
 end
 
