@@ -109,40 +109,42 @@ if not Language then
     }
 end
 
--- ═══ UNIVERSAL (sempre roda) ═══
-print("[Infinite Zen] 📦 Carregando Universal...")
-
-local UniversalFn = loadModule("src/games/universal.lua")
-
-if UniversalFn then
-    local okInit, UniversalModule = pcall(UniversalFn)
-    if okInit and UniversalModule and type(UniversalModule.Init) == "function" then
-        local okRun, errRun = pcall(UniversalModule.Init, {
-            Language = Language,
-            UI = UI,
-            Compat = Compat,
-            gameName = (gameInfo and gameInfo.name) or "Universal",
-            placeId = placeId,
-            loadModule = loadModule,  -- passa pra ele carregar módulos internos
-        })
-        if okRun then
-            print("[Infinite Zen] ✅ Universal carregado")
-        else
-            warn("[Infinite Zen] ❌ Universal.Init erro: " .. tostring(errRun))
-        end
-    end
-else
-    warn("[Infinite Zen] ❌ universal.lua não encontrado")
-end
-
--- ═══ JOGO NÃO SUPORTADO → PARA AQUI ═══
+-- ═══════════════════════════════════════════════
+-- UNIVERSAL — SÓ RODA EM JOGO NÃO SUPORTADO
+-- ═══════════════════════════════════════════════
 if not gameInfo then
-    warn("[Infinite Zen] ⚠️ Jogo não suportado (PlaceId: " .. placeId .. ")")
-    warn("[Infinite Zen] Apenas Universal Features ativas.")
+    print("[Infinite Zen] ⚠️ Jogo não suportado (PlaceId: " .. placeId .. ")")
+    print("[Infinite Zen] 📦 Carregando Universal Features...")
+
+    local UniversalFn = loadModule("src/games/universal.lua")
+
+    if UniversalFn then
+        local okInit, UniversalModule = pcall(UniversalFn)
+        if okInit and UniversalModule and type(UniversalModule.Init) == "function" then
+            local okRun, errRun = pcall(UniversalModule.Init, {
+                Language = Language,
+                UI = UI,
+                Compat = Compat,
+                gameName = "Universal",
+                placeId = placeId,
+                loadModule = loadModule,
+            })
+            if okRun then
+                print("[Infinite Zen] ✅ Universal Features carregadas")
+            else
+                warn("[Infinite Zen] ❌ Universal.Init erro: " .. tostring(errRun))
+            end
+        end
+    else
+        warn("[Infinite Zen] ❌ universal.lua não encontrado")
+    end
+
     return
 end
 
--- ═══ JOGO SUPORTADO → CARREGA MÓDULO ═══
+-- ═══════════════════════════════════════════════
+-- JOGO SUPORTADO → CARREGA SÓ O MÓDULO DO JOGO
+-- ═══════════════════════════════════════════════
 print("[Infinite Zen] 🎮 Jogo: " .. gameInfo.name)
 print("[Infinite Zen] 📦 Módulo: " .. gameInfo.module)
 
