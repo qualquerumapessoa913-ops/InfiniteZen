@@ -326,34 +326,34 @@ function Weapons.Init(ctx)
     task.spawn(function()
         while true do
             task.wait(State.autoHitDelay)
-            if not State.autoHit then continue end
 
-            local char = getChar()
-            if not char then continue end
-            local myHRP = char:FindFirstChild("HumanoidRootPart")
-            if not myHRP then continue end
+            if State.autoHit then
+                local char = getChar()
+                if char then
+                    local myHRP = char:FindFirstChild("HumanoidRootPart")
+                    if myHRP then
+                        local equipped = char:FindFirstChildOfClass("Tool")
+                        if equipped and activeTools[equipped] then
+                            local info = activeTools[equipped]
 
-            -- Pega tool equipada que foi criada pelo IZM
-            local equipped = char:FindFirstChildOfClass("Tool")
-            if not equipped or not activeTools[equipped] then continue end
-
-            local info = activeTools[equipped]
-
-            -- Acha players dentro do range
-            for _, p in ipairs(Players:GetPlayers()) do
-                if p ~= LocalPlayer and isAlive(p) and p.Character then
-                    local tHRP = p.Character:FindFirstChild("HumanoidRootPart")
-                    if tHRP then
-                        local dist = (tHRP.Position - myHRP.Position).Magnitude
-                        if dist <= State.autoHitRange then
-                            info.tryDamage(p.Character)
+                            -- Acha players dentro do range
+                            for _, p in ipairs(Players:GetPlayers()) do
+                                if p ~= LocalPlayer and isAlive(p) and p.Character then
+                                    local tHRP = p.Character:FindFirstChild("HumanoidRootPart")
+                                    if tHRP then
+                                        local dist = (tHRP.Position - myHRP.Position).Magnitude
+                                        if dist <= State.autoHitRange then
+                                            info.tryDamage(p.Character)
+                                        end
+                                    end
+                                end
+                            end
                         end
                     end
                 end
             end
         end
     end)
-
     -- ═══════════════════════════════════════════════
     -- GIVE ITEM
     -- ═══════════════════════════════════════════════
