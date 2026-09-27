@@ -253,7 +253,17 @@ local function runLoader(key)
     return true, nil, nil
 end
 
--- ─── CARREGA MAIN.LUA (debug total com print) ───
+-- ─── CARREGA MAIN.LUA ───
+-- ✅ FIX: só checa 404 no INÍCIO do response (não busca "Not Found" no arquivo todo)
+local function is404Response(code)
+    if type(code) ~= "string" then return false end
+    local first = code:sub(1, 30)
+    return first:find("^404") ~= nil
+        or first:find("^Not Found") ~= nil
+        or first:find("^<!DOCTYPE") ~= nil
+        or first:find("^<html") ~= nil
+end
+
 local function loadMainScript()
     print("[IZM] 📦 Carregando main.lua...")
 
@@ -270,24 +280,22 @@ local function loadMainScript()
             print("[IZM] Fonte " .. i .. " retornou tipo errado: " .. tostring(type(code)))
         elseif #code == 0 then
             print("[IZM] Fonte " .. i .. " retornou vazio")
-        elseif code:find("^404") or code:find("Not Found") then
-            print("[IZM] Fonte " .. i .. " 404")
+        elseif is404Response(code) then
+            print("[IZM] Fonte " .. i .. " 404 (resposta HTTP)")
         else
             print("[IZM] Fonte " .. i .. " OK (" .. #code .. " bytes). Tentando loadstring...")
 
             local fn, err = loadstring(code)
-            print("[IZM] loadstring -> fn=" .. tostring(fn) .. " | err=" .. tostring(err))
-
             if not fn then
                 print("[IZM] ❌ SINTAXE: " .. tostring(err))
             else
                 print("[IZM] Executando...")
                 local runOk, runErr = pcall(fn)
-                print("[IZM] pcall -> runOk=" .. tostring(runOk) .. " | runErr=" .. tostring(runErr))
-
                 if runOk then
                     print("[IZM] ✅ main.lua executado (fonte " .. i .. ")")
                     return true
+                else
+                    print("[IZM] ❌ ERRO EXEC: " .. tostring(runErr))
                 end
             end
         end
