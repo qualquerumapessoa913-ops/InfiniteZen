@@ -12,7 +12,7 @@ local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 local CONFIG = {
-    REPO = "https://cdn.jsdelivr.net/gh/qualquerumapessoa913-ops/InfiniteZen@Moon-Angel",
+    REPO = "https://raw.githubusercontent.com/qualquerumapessoa913-ops/InfiniteZen/Moon-Angel",
     DEFAULT_LANG = "en",
     SUPPORTED_GAMES = {
         [286090429]   = {name = "Arsenal",       module = "arsenal"},

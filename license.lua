@@ -7,7 +7,7 @@ local FLOWAUTH_LOADER_URL  = "https://flowauth.net/v1/loaders/" .. FLOWAUTH_LOAD
 local DISCORD_INVITE       = "https://discord.gg/ScZfU2mAGm"
 local KEY_FILE             = "izm_flowauth_key.txt"
 
-local MAIN_URL = "https://raw.githubusercontent.com/qualquerumapessoa913-ops/InfiniteZen/Moon-Angel/main.lua"
+local MAIN_URL = "https://raw.githubusercontent.com/qualquerumapessoa913-ops/InfiniteZen/Moon-Angel/src/main.lua"
 
 local Players     = game:GetService("Players")
 local UIS         = game:GetService("UserInputService")
