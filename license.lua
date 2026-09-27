@@ -7,6 +7,8 @@ local FLOWAUTH_LOADER_URL  = "https://flowauth.net/v1/loaders/" .. FLOWAUTH_LOAD
 local DISCORD_INVITE       = "https://discord.gg/ScZfU2mAGm"
 local KEY_FILE             = "izm_flowauth_key.txt"
 
+local MAIN_URL = "https://cdn.jsdelivr.net/gh/qualquerumapessoa913-ops/InfiniteZen@Moon-Angel/main.lua"
+
 local Players     = game:GetService("Players")
 local UIS         = game:GetService("UserInputService")
 local LP          = Players.LocalPlayer
@@ -215,7 +217,7 @@ local function buildUI()
     }
 end
 
--- ─── LOADER ───
+-- ─── FLOWAUTH LOADER ───
 local function runLoader(key)
     local fetchOk, loaderCode = pcall(function()
         return game:HttpGet(FLOWAUTH_LOADER_URL)
@@ -248,6 +250,40 @@ local function runLoader(key)
     return true, nil, nil
 end
 
+-- ─── CARREGA MAIN.LUA ───
+local function loadMainScript()
+    print("[IZM] 📦 Carregando main.lua...")
+
+    local fetchOk, code = pcall(function()
+        return game:HttpGet(MAIN_URL, true)
+    end)
+
+    if not fetchOk or not code or code == "" then
+        warn("[IZM] ❌ Falha HTTP ao baixar main.lua: " .. tostring(code))
+        return false
+    end
+
+    if code:find("^404") or code:find("Not Found") then
+        warn("[IZM] ❌ main.lua não encontrado (404)")
+        return false
+    end
+
+    local fn, err = loadstring(code)
+    if not fn then
+        warn("[IZM] ❌ Erro de sintaxe no main.lua: " .. tostring(err))
+        return false
+    end
+
+    local runOk, runErr = pcall(fn)
+    if not runOk then
+        warn("[IZM] ❌ Erro ao executar main.lua: " .. tostring(runErr))
+        return false
+    end
+
+    print("[IZM] ✅ main.lua executado com sucesso")
+    return true
+end
+
 -- ─── MAIN ───
 local function main()
     local savedKey = getSavedKey()
@@ -256,6 +292,8 @@ local function main()
         local ok, errType, errMsg = runLoader(savedKey)
         if ok then
             print("[IZM] ✅ Loaded")
+            task.wait(0.5)
+            loadMainScript()
             return
         end
         print("[IZM] ⚠️ Saved key failed: " .. tostring(errType) .. " - " .. tostring(errMsg))
@@ -274,6 +312,7 @@ local function main()
         saveKey(key)
         task.wait(0.5)
         ui.destroy()
+        loadMainScript()
         return
     end
 

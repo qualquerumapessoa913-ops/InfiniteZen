@@ -12,7 +12,7 @@ local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 local CONFIG = {
-    REPO = "https://raw.githubusercontent.com/qualquerumapessoa913-ops/InfiniteZen/Moon-Angel",
+    REPO = "https://cdn.jsdelivr.net/gh/qualquerumapessoa913-ops/InfiniteZen@Moon-Angel",
     DEFAULT_LANG = "en",
     SUPPORTED_GAMES = {
         [286090429]   = {name = "Arsenal",       module = "arsenal"},
@@ -30,19 +30,21 @@ local gameInfo = CONFIG.SUPPORTED_GAMES[placeId] or CONFIG.SUPPORTED_GAMES[gameI
 -- ═══════════════════════════════════════════════
 
 local function loadModule(path)
-    local cacheBuster = "?t=" .. tostring(math.floor(tick() * 1000))
-    local url = CONFIG.REPO .. "/" .. path .. cacheBuster
+    local url = CONFIG.REPO .. "/" .. path
     local success, result = pcall(function()
         return game:HttpGet(url, true)
     end)
+
     if not success or not result or result == "" then
         warn("[Infinite Zen] ❌ Falha ao baixar: " .. path)
         return nil
     end
+
     if result:find("^404") or result:find("Not Found") then
         warn("[Infinite Zen] ❌ 404 em: " .. path)
         return nil
     end
+
     local fn, err = loadstring(result)
     if not fn then
         warn("[Infinite Zen] ❌ Erro de sintaxe em " .. path .. ": " .. tostring(err))
@@ -56,10 +58,11 @@ local Compat
 local okCompat, CompatResult = pcall(function()
     return loadModule("src/utils/compat.lua")()
 end)
+
 if okCompat and CompatResult then
     Compat = CompatResult
     print("[Infinite Zen] ✅ Compat layer carregada")
-    Compat.report()
+    if Compat.report then pcall(Compat.report) end
 else
     warn("[Infinite Zen] ⚠️ Compat fallback")
     Compat = {
@@ -69,12 +72,23 @@ else
         mouseMove = function(dx, dy) if mousemoverel then pcall(mousemoverel, dx, dy) end end,
         fireTouch = function(p, t, toggle) if firetouchinterest then pcall(firetouchinterest, p, t, toggle) end end,
         writeFile = function(p, c) if writefile then pcall(writefile, p, c) end end,
-        readFile = function(p) if readfile then local ok, r = pcall(readfile, p); return ok and r or nil end end,
-        fileExists = function(p) if isfile then local ok, r = pcall(isfile, p); return ok and r or false end end,
-        folderExists = function(p) if isfolder then local ok, r = pcall(isfolder, p); return ok and r or false end end,
+        readFile = function(p)
+            if readfile then local ok, r = pcall(readfile, p); return ok and r or nil end
+        end,
+        fileExists = function(p)
+            if isfile then local ok, r = pcall(isfile, p); return ok and r or false end
+            return false
+        end,
+        folderExists = function(p)
+            if isfolder then local ok, r = pcall(isfolder, p); return ok and r or false end
+            return false
+        end,
         makeFolder = function(p) if makefolder then pcall(makefolder, p) end end,
         deleteFile = function(p) if delfile then pcall(delfile, p) end end,
-        listFiles = function(p) if listfiles then local ok, r = pcall(listfiles, p); return ok and r or {} end end,
+        listFiles = function(p)
+            if listfiles then local ok, r = pcall(listfiles, p); return ok and r or {} end
+            return {}
+        end,
         setClipboard = function(t) if setclipboard then pcall(setclipboard, t) end end,
         hasDrawing = function() return Drawing ~= nil end,
         newDrawing = function(class, props)
@@ -97,7 +111,15 @@ else
 end
 
 -- ═══ LANGUAGE ═══
-local Language = loadModule("src/utils/language.lua")()
+local LanguageFn = loadModule("src/utils/language.lua")
+local Language
+if LanguageFn then
+    local okLang, result = pcall(LanguageFn)
+    if okLang and result then
+        Language = result
+    end
+end
+
 if not Language then
     warn("[Infinite Zen] ⚠️ Language fallback")
     Language = {
@@ -114,7 +136,7 @@ end
 -- ═══════════════════════════════════════════════
 if not gameInfo then
     print("[Infinite Zen] ⚠️ Jogo não suportado (PlaceId: " .. placeId .. ")")
-    print("[Infinite Zen] 📦 Carregando Universal Features...")
+    print("[Infinite Zen] 📦 Tentando carregar Universal Features...")
 
     local UniversalFn = loadModule("src/games/universal.lua")
 
@@ -136,7 +158,7 @@ if not gameInfo then
             end
         end
     else
-        warn("[Infinite Zen] ❌ universal.lua não encontrado")
+        warn("[Infinite Zen] ❌ universal.lua não encontrado — sem features pra esse jogo")
     end
 
     return
@@ -148,20 +170,30 @@ end
 print("[Infinite Zen] 🎮 Jogo: " .. gameInfo.name)
 print("[Infinite Zen] 📦 Módulo: " .. gameInfo.module)
 
-local gameModule = loadModule("src/games/" .. gameInfo.module .. ".lua")()
-if not gameModule then
+local gameModuleFn = loadModule("src/games/" .. gameInfo.module .. ".lua")
+if not gameModuleFn then
     warn("[Infinite Zen] ❌ Falha ao carregar módulo do jogo.")
     return
 end
 
+local okMod, gameModule = pcall(gameModuleFn)
+if not okMod or not gameModule then
+    warn("[Infinite Zen] ❌ Erro ao executar módulo: " .. tostring(gameModule))
+    return
+end
+
 if gameModule.Init then
-    gameModule.Init({
+    local okInit, errInit = pcall(gameModule.Init, {
         Language = Language,
         UI = UI,
         Compat = Compat,
         gameName = gameInfo.name,
         placeId = placeId,
     })
+    if not okInit then
+        warn("[Infinite Zen] ❌ Init erro: " .. tostring(errInit))
+        return
+    end
 end
 
 print("[Infinite Zen] ✅ Carregado para: " .. gameInfo.name)
