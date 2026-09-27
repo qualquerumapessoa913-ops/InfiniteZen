@@ -253,41 +253,47 @@ local function runLoader(key)
     return true, nil, nil
 end
 
--- ─── CARREGA MAIN.LUA (debug detalhado) ───
+-- ─── CARREGA MAIN.LUA (debug total com print) ───
 local function loadMainScript()
     print("[IZM] 📦 Carregando main.lua...")
 
     for i, url in ipairs(MAIN_URLS) do
-        print("[IZM] Fonte " .. i .. ": " .. url)
+        print("[IZM] === Fonte " .. i .. " ===")
 
         local fetchOk, code = pcall(function()
             return game:HttpGet(url, true)
         end)
 
-        print("[IZM]   fetchOk=" .. tostring(fetchOk))
-        print("[IZM]   tipo=" .. tostring(type(code)))
-        print("[IZM]   tamanho=" .. tostring(type(code) == "string" and #code or "N/A"))
-        if type(code) == "string" then
-            print("[IZM]   primeiros 150 chars: " .. code:sub(1, 150))
-        end
+        if not fetchOk then
+            print("[IZM] Fonte " .. i .. " HTTP FALHOU: " .. tostring(code))
+        elseif type(code) ~= "string" then
+            print("[IZM] Fonte " .. i .. " retornou tipo errado: " .. tostring(type(code)))
+        elseif #code == 0 then
+            print("[IZM] Fonte " .. i .. " retornou vazio")
+        elseif code:find("^404") or code:find("Not Found") then
+            print("[IZM] Fonte " .. i .. " 404")
+        else
+            print("[IZM] Fonte " .. i .. " OK (" .. #code .. " bytes). Tentando loadstring...")
 
-        if fetchOk and code and code ~= "" and not code:find("^404") and not code:find("Not Found") then
             local fn, err = loadstring(code)
-            if fn then
+            print("[IZM] loadstring -> fn=" .. tostring(fn) .. " | err=" .. tostring(err))
+
+            if not fn then
+                print("[IZM] ❌ SINTAXE: " .. tostring(err))
+            else
+                print("[IZM] Executando...")
                 local runOk, runErr = pcall(fn)
+                print("[IZM] pcall -> runOk=" .. tostring(runOk) .. " | runErr=" .. tostring(runErr))
+
                 if runOk then
                     print("[IZM] ✅ main.lua executado (fonte " .. i .. ")")
                     return true
-                else
-                    warn("[IZM] ❌ Erro exec: " .. tostring(runErr))
                 end
-            else
-                warn("[IZM] ❌ Erro sintaxe: " .. tostring(err))
             end
         end
     end
 
-    warn("[IZM] ❌ Todas as fontes falharam")
+    print("[IZM] ❌ Todas as fontes falharam")
     return false
 end
 
