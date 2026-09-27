@@ -253,14 +253,23 @@ local function runLoader(key)
     return true, nil, nil
 end
 
--- ─── CARREGA MAIN.LUA (múltiplas fontes) ───
+-- ─── CARREGA MAIN.LUA (debug detalhado) ───
 local function loadMainScript()
     print("[IZM] 📦 Carregando main.lua...")
 
     for i, url in ipairs(MAIN_URLS) do
+        print("[IZM] Fonte " .. i .. ": " .. url)
+
         local fetchOk, code = pcall(function()
             return game:HttpGet(url, true)
         end)
+
+        print("[IZM]   fetchOk=" .. tostring(fetchOk))
+        print("[IZM]   tipo=" .. tostring(type(code)))
+        print("[IZM]   tamanho=" .. tostring(type(code) == "string" and #code or "N/A"))
+        if type(code) == "string" then
+            print("[IZM]   primeiros 150 chars: " .. code:sub(1, 150))
+        end
 
         if fetchOk and code and code ~= "" and not code:find("^404") and not code:find("Not Found") then
             local fn, err = loadstring(code)
@@ -270,13 +279,11 @@ local function loadMainScript()
                     print("[IZM] ✅ main.lua executado (fonte " .. i .. ")")
                     return true
                 else
-                    warn("[IZM] ❌ Erro ao executar (fonte " .. i .. "): " .. tostring(runErr))
+                    warn("[IZM] ❌ Erro exec: " .. tostring(runErr))
                 end
             else
-                warn("[IZM] ❌ Erro de sintaxe (fonte " .. i .. "): " .. tostring(err))
+                warn("[IZM] ❌ Erro sintaxe: " .. tostring(err))
             end
-        else
-            warn("[IZM] ⚠️ Fonte " .. i .. " falhou")
         end
     end
 
