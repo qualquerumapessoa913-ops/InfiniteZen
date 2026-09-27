@@ -7,7 +7,10 @@ local FLOWAUTH_LOADER_URL  = "https://flowauth.net/v1/loaders/" .. FLOWAUTH_LOAD
 local DISCORD_INVITE       = "https://discord.gg/ScZfU2mAGm"
 local KEY_FILE             = "izm_flowauth_key.txt"
 
-local MAIN_URL = "https://raw.githubusercontent.com/qualquerumapessoa913-ops/InfiniteZen/Moon-Angel/src/main.lua"
+local MAIN_URLS = {
+    "https://cdn.jsdelivr.net/gh/qualquerumapessoa913-ops/InfiniteZen@Moon-Angel/src/main.lua",
+    "https://raw.githubusercontent.com/qualquerumapessoa913-ops/InfiniteZen/Moon-Angel/src/main.lua",
+}
 
 local Players     = game:GetService("Players")
 local UIS         = game:GetService("UserInputService")
@@ -250,38 +253,35 @@ local function runLoader(key)
     return true, nil, nil
 end
 
--- ─── CARREGA MAIN.LUA ───
+-- ─── CARREGA MAIN.LUA (múltiplas fontes) ───
 local function loadMainScript()
     print("[IZM] 📦 Carregando main.lua...")
 
-    local fetchOk, code = pcall(function()
-        return game:HttpGet(MAIN_URL, true)
-    end)
+    for i, url in ipairs(MAIN_URLS) do
+        local fetchOk, code = pcall(function()
+            return game:HttpGet(url, true)
+        end)
 
-    if not fetchOk or not code or code == "" then
-        warn("[IZM] ❌ Falha HTTP ao baixar main.lua: " .. tostring(code))
-        return false
+        if fetchOk and code and code ~= "" and not code:find("^404") and not code:find("Not Found") then
+            local fn, err = loadstring(code)
+            if fn then
+                local runOk, runErr = pcall(fn)
+                if runOk then
+                    print("[IZM] ✅ main.lua executado (fonte " .. i .. ")")
+                    return true
+                else
+                    warn("[IZM] ❌ Erro ao executar (fonte " .. i .. "): " .. tostring(runErr))
+                end
+            else
+                warn("[IZM] ❌ Erro de sintaxe (fonte " .. i .. "): " .. tostring(err))
+            end
+        else
+            warn("[IZM] ⚠️ Fonte " .. i .. " falhou")
+        end
     end
 
-    if code:find("^404") or code:find("Not Found") then
-        warn("[IZM] ❌ main.lua não encontrado (404)")
-        return false
-    end
-
-    local fn, err = loadstring(code)
-    if not fn then
-        warn("[IZM] ❌ Erro de sintaxe no main.lua: " .. tostring(err))
-        return false
-    end
-
-    local runOk, runErr = pcall(fn)
-    if not runOk then
-        warn("[IZM] ❌ Erro ao executar main.lua: " .. tostring(runErr))
-        return false
-    end
-
-    print("[IZM] ✅ main.lua executado com sucesso")
-    return true
+    warn("[IZM] ❌ Todas as fontes falharam")
+    return false
 end
 
 -- ─── MAIN ───
