@@ -1,5 +1,5 @@
 -- ============================================================
--- INFINITE ZEN - ARSENAL (Refatorado v2.0)
+-- INFINITE ZEN - ARSENAL (Refatorado v1.5)
 -- ============================================================
 
 local Arsenal = {}
@@ -12,7 +12,7 @@ function Arsenal.Init(ctx)
 
     local function T(key) return Language.get(key) end
 
-    local GAME_VERSION = "1.4"
+    local GAME_VERSION = "1.5"
     local FULL_VERSION = "Infinite Zen V" .. GAME_VERSION .. " - " .. gameName
     local SHORT_VERSION = "V" .. GAME_VERSION .. " - " .. gameName
 
@@ -22,6 +22,8 @@ function Arsenal.Init(ctx)
     local RunService        = game:GetService("RunService")
     local UserInputService  = game:GetService("UserInputService")
     local VirtualInput      = game:GetService("VirtualInputManager")
+    local VirtualUser       = game:GetService("VirtualUser")
+    local GuiService        = game:GetService("GuiService")
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local HttpService       = game:GetService("HttpService")
     local Lighting          = game:GetService("Lighting")
@@ -31,6 +33,16 @@ function Arsenal.Init(ctx)
 
     local UNLOADED = false
     local IS_MOBILE = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+
+    -- ✅ FIX BUG 1: GUI inset (topbar offset)
+    local GUI_INSET = GuiService:GetGuiInset()
+    local function getMouseViewportPos()
+        local m = UserInputService:GetMouseLocation()
+        return Vector2.new(m.X, m.Y - GUI_INSET.Y)
+    end
+    local function getMouseScreenPos()
+        return UserInputService:GetMouseLocation()
+    end
 
     -- ═══════════════════════════════════════════════
     -- UI ELEMENTS REGISTRY
@@ -63,16 +75,21 @@ function Arsenal.Init(ctx)
         backstab = false,
         noRecoil = false, rapidFire = false,
         fastReload = false, instaReload = false,
-        autoShoot = false, autoShootFov = 100,
+        autoShoot = false, autoShootFov = 150,
         speed = false, speedValue = 50,
         airJump = false,
+        jumpPower = 70,
+        noclip = false,
+        antiAfk = false,
+        fullbright = false,
+        cameraFov = 70,
         esp = false, espMaxDistance = 500,
         lowGraphics = false, noShadows = false, noFog = false, noParticles = false,
         keybinds = {
             silentHeadshot = "X", aimbot = nil, headExpander = nil,
             backstab = "E", noRecoil = nil, rapidFire = nil,
             fastReload = nil, instaReload = nil, autoShoot = nil,
-            speed = nil, airJump = nil, esp = nil,
+            speed = nil, airJump = nil, esp = nil, noclip = nil,
         },
     }
 
@@ -120,8 +137,33 @@ function Arsenal.Init(ctx)
         return player.Team ~= myTeam
     end
 
+    -- ✅ Retorna {part, position} do inimigo mais próximo do mouse em viewport
+    local function getClosestEnemyInFov(fov, useLOS)
+        local mouse = getMouseViewportPos()
+        local closest, minDist, closestPart = nil, fov, nil
+        for _, p in ipairs(Players:GetPlayers()) do
+            if isEnemy(p) and p.Character then
+                local head = p.Character:FindFirstChild("Head")
+                if head and head:IsA("BasePart") then
+                    local sp, onScreen, depth = Camera:WorldToViewportPoint(head.Position)
+                    if onScreen and depth and depth > 0 then
+                        local d = (Vector2.new(sp.X, sp.Y) - mouse).Magnitude
+                        if d < minDist then
+                            if useLOS and not hasLineOfSight(Camera.CFrame.Position, head) then
+                                -- pula se não tem LOS
+                            else
+                                minDist = d; closest = p; closestPart = head
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        return closest, closestPart, minDist
+    end
+
     -- ═══════════════════════════════════════════════
-    -- FOV CIRCLE (fora da UI, só uma vez)
+    -- FOV CIRCLE (corrigido)
     -- ═══════════════════════════════════════════════
     local fovCircle = Drawing.new("Circle")
     fovCircle.Color = Color3.fromRGB(255, 30, 40); fovCircle.Thickness = 1.5
@@ -130,7 +172,8 @@ function Arsenal.Init(ctx)
 
     RunService.RenderStepped:Connect(function()
         if UNLOADED then return end
-        local mouse = UserInputService:GetMouseLocation()
+        -- ✅ FIX BUG 1: posição em screen space (mesmo espaço do Drawing)
+        local mouse = getMouseScreenPos()
         fovCircle.Position = Vector2.new(mouse.X, mouse.Y)
         if State.silentHeadshot then
             fovCircle.Visible = true; fovCircle.Radius = State.silentFov / 6
@@ -144,11 +187,11 @@ function Arsenal.Init(ctx)
     end)
 
     -- ═══════════════════════════════════════════════
-    -- AIMBOT
+    -- AIMBOT (corrigido com FOV inset)
     -- ═══════════════════════════════════════════════
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.aimbot then return end
-        local mouse = UserInputService:GetMouseLocation()
+        local mouse = getMouseViewportPos()
         local closest, minDist = nil, 25
         for _, p in ipairs(Players:GetPlayers()) do
             if isEnemy(p) and p.Character then
@@ -156,7 +199,7 @@ function Arsenal.Init(ctx)
                 if head and head:IsA("BasePart") then
                     local sp, onScreen, depth = Camera:WorldToViewportPoint(head.Position)
                     if onScreen and depth and depth > 0 then
-                        local d = (Vector2.new(sp.X, sp.Y) - Vector2.new(mouse.X, mouse.Y)).Magnitude
+                        local d = (Vector2.new(sp.X, sp.Y) - mouse).Magnitude
                         if d and d < minDist then minDist = d; closest = p end
                     end
                 end
@@ -171,27 +214,9 @@ function Arsenal.Init(ctx)
     end)
 
     -- ═══════════════════════════════════════════════
-    -- SILENT HEADSHOT
+    -- SILENT HEADSHOT (corrigido)
     -- ═══════════════════════════════════════════════
     local silentHolding, silentTarget, silentOriginalCam = false, nil, nil
-
-    local function getClosestHeadInFov()
-        local mouse = UserInputService:GetMouseLocation()
-        local closest, minDist = nil, State.silentFov
-        for _, p in ipairs(Players:GetPlayers()) do
-            if isEnemy(p) and p.Character then
-                local head = p.Character:FindFirstChild("Head")
-                if head and head:IsA("BasePart") then
-                    local sp, onScreen, depth = Camera:WorldToViewportPoint(head.Position)
-                    if onScreen and depth and depth > 0 then
-                        local d = (Vector2.new(sp.X, sp.Y) - Vector2.new(mouse.X, mouse.Y)).Magnitude
-                        if d and d < minDist then minDist = d; closest = p end
-                    end
-                end
-            end
-        end
-        return closest
-    end
 
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not silentHolding then return end
@@ -205,7 +230,7 @@ function Arsenal.Init(ctx)
         if UNLOADED or gp or not State.silentHeadshot then return end
         if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
         silentOriginalCam = Camera.CFrame
-        local target = getClosestHeadInFov()
+        local target = getClosestEnemyInFov(State.silentFov, false)
         if not target or not target.Character then return end
         silentTarget = target
         silentHolding = true
@@ -228,38 +253,39 @@ function Arsenal.Init(ctx)
     end)
 
     -- ═══════════════════════════════════════════════
-    -- AUTO SHOOT
+    -- AUTO SHOOT (corrigido - mira + clica)
     -- ═══════════════════════════════════════════════
+    local lastAutoShoot = 0
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.autoShoot then return end
-        local mouse = UserInputService:GetMouseLocation()
-        local targetInFov = false
-        for _, p in ipairs(Players:GetPlayers()) do
-            if isEnemy(p) and p.Character then
-                local head = p.Character:FindFirstChild("Head")
-                if head and head:IsA("BasePart") then
-                    local sp, onScreen, depth = Camera:WorldToViewportPoint(head.Position)
-                    if onScreen and depth and depth > 0 then
-                        local d = (Vector2.new(sp.X, sp.Y) - Vector2.new(mouse.X, mouse.Y)).Magnitude
-                        if d and d < State.autoShootFov and hasLineOfSight(Camera.CFrame.Position, head) then
-                            targetInFov = true; break
-                        end
-                    end
-                end
-            end
-        end
-        if targetInFov then
-            pcall(function()
-                VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-                task.wait(0.01)
-                VirtualInput:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-            end)
+        if tick() - lastAutoShoot < 0.12 then return end
+
+        local target, targetPart = getClosestEnemyInFov(State.autoShootFov, false)
+        if not target or not targetPart then return end
+
+        -- ✅ FIX BUG 2: mira no alvo ANTES de clicar
+        Camera.CFrame = CFrame.new(Camera.CFrame.Position, targetPart.Position + Vector3.new(0, 0.15, 0))
+
+        task.wait(0.01)
+
+        -- Clica com coordenadas corretas + fallbacks
+        local screenMouse = getMouseScreenPos()
+        local clicked = false
+        pcall(function()
+            VirtualInput:SendMouseButtonEvent(screenMouse.X, screenMouse.Y, 0, true, game, 0)
+            task.wait(0.01)
+            VirtualInput:SendMouseButtonEvent(screenMouse.X, screenMouse.Y, 0, false, game, 0)
+            clicked = true
+        end)
+        if not clicked then
             pcall(function() mouse1click() end)
+            pcall(function() mouse1press(); task.wait(0.01); mouse1release() end)
         end
+        lastAutoShoot = tick()
     end)
 
     -- ═══════════════════════════════════════════════
-    -- HEAD EXPANDER
+    -- HEAD EXPANDER (max 14)
     -- ═══════════════════════════════════════════════
     local hitboxSaved = {}
 
@@ -295,7 +321,7 @@ function Arsenal.Init(ctx)
             local base = hitboxSaved[p] and hitboxSaved[p][head]
             if base then
                 pcall(function()
-                    head.Size = Vector3.new(base.X * size, base.Y * math.min(size, 4), base.Z * size)
+                    head.Size = Vector3.new(base.X * size, base.Y * math.min(size, 6), base.Z * size)
                     head.Transparency = 0.7; head.CanCollide = false; head.Massless = true
                 end)
             end
@@ -305,7 +331,7 @@ function Arsenal.Init(ctx)
             saveOriginal(p, headHB)
             local base = hitboxSaved[p] and hitboxSaved[p][headHB]
             if base then
-                local hbMult = math.min(size * 1.5, 12)
+                local hbMult = math.min(size * 1.5, 20)
                 pcall(function()
                     headHB.Size = Vector3.new(base.X * hbMult, base.Y * hbMult, base.Z * hbMult)
                     headHB.Transparency = 1; headHB.CanCollide = false; headHB.Massless = true
@@ -317,7 +343,7 @@ function Arsenal.Init(ctx)
             saveOriginal(p, torso)
             local base = hitboxSaved[p] and hitboxSaved[p][torso]
             if base then
-                local tMult = math.min(size * 0.7, 3)
+                local tMult = math.min(size * 0.7, 4)
                 pcall(function()
                     torso.Size = Vector3.new(base.X * tMult, base.Y * tMult, base.Z * tMult)
                     torso.Transparency = 0.7; torso.CanCollide = false; torso.Massless = true
@@ -508,6 +534,19 @@ function Arsenal.Init(ctx)
     end)
 
     -- ═══════════════════════════════════════════════
+    -- JUMP POWER
+    -- ═══════════════════════════════════════════════
+    RunService.RenderStepped:Connect(function()
+        if UNLOADED then return end
+        local char = LocalPlayer.Character
+        if not char then return end
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum and hum.UseJumpPower and hum.JumpPower ~= State.jumpPower then
+            hum.JumpPower = State.jumpPower
+        end
+    end)
+
+    -- ═══════════════════════════════════════════════
     -- AIR JUMP
     -- ═══════════════════════════════════════════════
     local airJumpConn = nil
@@ -516,7 +555,6 @@ function Arsenal.Init(ctx)
         if airJumpConn then airJumpConn:Disconnect() end
         local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
         local hum = char:WaitForChild("Humanoid")
-        hum.JumpPower = 70
         airJumpConn = UserInputService.JumpRequest:Connect(function()
             if UNLOADED or not State.airJump then return end
             if hum and hum:GetState() ~= Enum.HumanoidStateType.Dead then
@@ -528,6 +566,55 @@ function Arsenal.Init(ctx)
     local function stopAirJump()
         if airJumpConn then airJumpConn:Disconnect(); airJumpConn = nil end
     end
+
+    -- ═══════════════════════════════════════════════
+    -- ✅ NOCLIP (NOVO)
+    -- ═══════════════════════════════════════════════
+    local noclipConn = nil
+
+    local function startNoclip()
+        if noclipConn then noclipConn:Disconnect() end
+        noclipConn = RunService.Stepped:Connect(function()
+            if UNLOADED or not State.noclip then return end
+            local char = LocalPlayer.Character
+            if char then
+                for _, part in ipairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") and part.CanCollide then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end)
+    end
+
+    local function stopNoclip()
+        if noclipConn then noclipConn:Disconnect(); noclipConn = nil end
+        -- Restaura colisão
+        local char = LocalPlayer.Character
+        if char then
+            for _, part in ipairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    if part.Name ~= "HumanoidRootPart" then
+                        pcall(function() part.CanCollide = true end)
+                    end
+                end
+            end
+        end
+    end
+
+    -- ═══════════════════════════════════════════════
+    -- ✅ ANTI-AFK (NOVO)
+    -- ═══════════════════════════════════════════════
+    task.spawn(function()
+        while true do
+            task.wait(60)
+            if UNLOADED then return end
+            if State.antiAfk then
+                pcall(function() VirtualUser:CaptureController() end)
+                pcall(function() VirtualUser:ClickButton2(Vector2.new(0, 0)) end)
+            end
+        end
+    end)
 
     -- ═══════════════════════════════════════════════
     -- ESP
@@ -665,12 +752,15 @@ function Arsenal.Init(ctx)
     Players.PlayerRemoving:Connect(function(p) removeESP(p) end)
 
     -- ═══════════════════════════════════════════════
-    -- OPTIMIZATIONS
+    -- OPTIMIZATIONS (+ Fullbright)
     -- ═══════════════════════════════════════════════
     local optBackup = {
         fogEnd = Lighting.FogEnd, fogStart = Lighting.FogStart,
         globalShadows = Lighting.GlobalShadows, qualityLevel = nil,
         atmosphereData = {}, particles = {},
+        brightness = Lighting.Brightness,
+        ambient = Lighting.Ambient,
+        outdoorAmbient = Lighting.OutdoorAmbient,
     }
     for _, c in ipairs(Lighting:GetChildren()) do
         if c:IsA("Atmosphere") then
@@ -727,12 +817,36 @@ function Arsenal.Init(ctx)
         end
     end
 
+    -- ✅ FULLBRIGHT (NOVO)
+    local function applyFullbright(v)
+        if v then
+            Lighting.Brightness = 3
+            Lighting.Ambient = Color3.fromRGB(178, 178, 178)
+            Lighting.OutdoorAmbient = Color3.fromRGB(178, 178, 178)
+            Lighting.ClockTime = 12
+        else
+            Lighting.Brightness = optBackup.brightness or 2
+            Lighting.Ambient = optBackup.ambient or Color3.fromRGB(0, 0, 0)
+            Lighting.OutdoorAmbient = optBackup.outdoorAmbient or Color3.fromRGB(128, 128, 128)
+        end
+    end
+
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.noParticles then return end
         for _, d in ipairs(workspace:GetDescendants()) do
             if d:IsA("ParticleEmitter") or d:IsA("Fire") or d:IsA("Smoke") or d:IsA("Sparkles") then
                 pcall(function() d.Enabled = false end)
             end
+        end
+    end)
+
+    -- ═══════════════════════════════════════════════
+    -- CAMERA FOV
+    -- ═══════════════════════════════════════════════
+    RunService.RenderStepped:Connect(function()
+        if UNLOADED then return end
+        if Camera.FieldOfView ~= State.cameraFov then
+            Camera.FieldOfView = State.cameraFov
         end
     end)
 
@@ -757,8 +871,9 @@ function Arsenal.Init(ctx)
         local toggles = {
             "silentHeadshot", "aimbot", "headExpander", "backstab",
             "noRecoil", "rapidFire", "fastReload", "instaReload",
-            "autoShoot", "speed", "airJump", "esp",
-            "lowGraphics", "noShadows", "noFog", "noParticles",
+            "autoShoot", "speed", "airJump", "noclip", "antiAfk",
+            "esp", "lowGraphics", "noShadows", "noFog", "noParticles",
+            "fullbright",
         }
         for _, key in ipairs(toggles) do
             local el = Elements[key]
@@ -766,7 +881,7 @@ function Arsenal.Init(ctx)
         end
         local sliders = {
             "silentFov", "headExpanderSize", "autoShootFov",
-            "speedValue", "espMaxDistance",
+            "speedValue", "espMaxDistance", "jumpPower", "cameraFov",
         }
         for _, key in ipairs(sliders) do
             local el = Elements[key]
@@ -796,6 +911,8 @@ function Arsenal.Init(ctx)
         if State.noShadows then applyNoShadows(true) end
         if State.noFog then applyNoFog(true) end
         if State.noParticles then applyNoParticles(true) end
+        if State.fullbright then applyFullbright(true) end
+        if State.noclip then startNoclip() end
         syncUIFromState()
         if Window then Window:Notify("📂 Load", "Loaded: " .. name, 3, "info") end
         return true
@@ -839,7 +956,7 @@ function Arsenal.Init(ctx)
     end
 
     -- ═══════════════════════════════════════════════
-    -- BUILD UI (função recriável — chamada no boot + rebuild de idioma)
+    -- BUILD UI
     -- ═══════════════════════════════════════════════
     local function buildUI()
         Window = UI:CreateWindow({
@@ -875,7 +992,7 @@ function Arsenal.Init(ctx)
         }))
         reg("headExpanderSize", CombatTab:CreateSlider({
             Name = T("headsize.name"), Description = T("headsize.desc"),
-            Icon = "📏", Min = 1, Max = 8, Default = 3,
+            Icon = "📏", Min = 1, Max = 14, Default = 3,   -- ✅ 8 → 14
             Callback = function(v) State.headExpanderSize = v end,
         }))
         CombatTab:CreateSection(T("section.melee"))
@@ -925,7 +1042,7 @@ function Arsenal.Init(ctx)
         }))
         reg("autoShootFov", WeaponTab:CreateSlider({
             Name = T("autoshotfov.name"), Description = T("autoshotfov.desc"),
-            Icon = "📐", Min = 30, Max = 300, Default = 100,
+            Icon = "📐", Min = 30, Max = 400, Default = 150,   -- ✅ default maior
             Callback = function(v) State.autoShootFov = v end,
         }))
 
@@ -952,6 +1069,11 @@ function Arsenal.Init(ctx)
             Callback = function(v) State.speedValue = v end,
         }))
         MoveTab:CreateSection(T("section.jump"))
+        reg("jumpPower", MoveTab:CreateSlider({
+            Name = "Jump Power", Description = "Força do pulo",
+            Icon = "🦘", Min = 50, Max = 500, Default = 70,
+            Callback = function(v) State.jumpPower = v end,
+        }))
         reg("airJump", MoveTab:CreateToggle({
             Name = T("airjump.name"), Description = T("airjump.desc"),
             Icon = "🦘", Default = false,
@@ -959,6 +1081,21 @@ function Arsenal.Init(ctx)
                 State.airJump = v
                 if v then startAirJump() else stopAirJump() end
             end,
+        }))
+        -- ✅ NOCLIP
+        reg("noclip", MoveTab:CreateToggle({
+            Name = "Noclip", Description = "Atravessa paredes",
+            Icon = "👻", Default = false,
+            Callback = function(v)
+                State.noclip = v
+                if v then startNoclip() else stopNoclip() end
+            end,
+        }))
+        -- ✅ ANTI-AFK
+        reg("antiAfk", MoveTab:CreateToggle({
+            Name = "Anti-AFK", Description = "Não é kickado por inatividade",
+            Icon = "🛡️", Default = false,
+            Callback = function(v) State.antiAfk = v end,
         }))
 
         -- ═══ VISUALS ═══
@@ -981,6 +1118,12 @@ function Arsenal.Init(ctx)
             Icon = "📐", Min = 100, Max = 10000, Default = 500,
             Callback = function(v) State.espMaxDistance = v end,
         }))
+        VisualsTab:CreateSection("Camera")
+        reg("cameraFov", VisualsTab:CreateSlider({
+            Name = "Camera FOV", Description = "Campo de visão",
+            Icon = "🎥", Min = 30, Max = 120, Default = 70,
+            Callback = function(v) State.cameraFov = v end,
+        }))
         VisualsTab:CreateSection(T("section.environment"))
         reg("lowGraphics", VisualsTab:CreateToggle({
             Name = T("lowgfx.name"), Description = T("lowgfx.desc"),
@@ -1001,6 +1144,12 @@ function Arsenal.Init(ctx)
             Name = T("nopart.name"), Description = T("nopart.desc"),
             Icon = "✨", Default = false,
             Callback = function(v) State.noParticles = v; applyNoParticles(v) end,
+        }))
+        -- ✅ FULLBRIGHT
+        reg("fullbright", VisualsTab:CreateToggle({
+            Name = "Fullbright", Description = "Deixa tudo claro",
+            Icon = "☀️", Default = false,
+            Callback = function(v) State.fullbright = v; applyFullbright(v) end,
         }))
 
         -- ═══ SETTINGS ═══
@@ -1160,6 +1309,7 @@ function Arsenal.Init(ctx)
                 State.noShadows = true; applyNoShadows(true)
                 State.noFog = true; applyNoFog(true)
                 State.noParticles = true; applyNoParticles(true)
+                State.fullbright = true; applyFullbright(true)
                 syncUIFromState()
                 Window:Notify("⚡", T("config.fps_boost"), 3, "success")
             end,
@@ -1172,6 +1322,7 @@ function Arsenal.Init(ctx)
                 State.noShadows = false; applyNoShadows(false)
                 State.noFog = false; applyNoFog(false)
                 State.noParticles = false; applyNoParticles(false)
+                State.fullbright = false; applyFullbright(false)
                 syncUIFromState()
                 Window:Notify("🔄", T("config.reset_opt"), 3, "info")
             end,
@@ -1183,9 +1334,11 @@ function Arsenal.Init(ctx)
             Danger = true,
             Callback = function()
                 UNLOADED = true
-                restoreAll(); clearAllESP(); stopAirJump()
+                restoreAll(); clearAllESP(); stopAirJump(); stopNoclip()
                 if fovCircle then fovCircle:Remove() end
-                applyLowGraphics(false); applyNoShadows(false); applyNoFog(false); applyNoParticles(false)
+                applyLowGraphics(false); applyNoShadows(false); applyNoFog(false)
+                applyNoParticles(false); applyFullbright(false)
+                Camera.FieldOfView = 70
                 Window:Notify("Unload", T("config.unload"), 2, "warning")
                 task.wait(0.3); Window:Destroy()
             end,
@@ -1225,7 +1378,6 @@ function Arsenal.Init(ctx)
                 local info = available[idx]
                 if not info then return end
                 Language.setLanguage(info.code)
-                -- O rebuild é feito via onChange (registrado abaixo)
             end,
         })
 
@@ -1286,14 +1438,11 @@ function Arsenal.Init(ctx)
     Language.onChange(_G.IZ_RefreshLanguage)
 
     -- ═══════════════════════════════════════════════
-    -- BUILD INICIAL + SYNC
+    -- BUILD + AUTOLOAD
     -- ═══════════════════════════════════════════════
     buildUI()
     syncUIFromState()
 
-    -- ═══════════════════════════════════════════════
-    -- AUTOLOAD
-    -- ═══════════════════════════════════════════════
     task.defer(function()
         local autoloadName = getAutoload()
         if autoloadName then
