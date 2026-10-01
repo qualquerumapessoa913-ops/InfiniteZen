@@ -1,5 +1,5 @@
 -- ============================================================
--- INFINITE ZEN - ARSENAL (v1.5) — Debug + Anti-Miss + HeadFix
+-- INFINITE ZEN - ARSENAL (v1.5.1) — Silent HS Kill Mode
 -- ============================================================
 
 local Arsenal = {}
@@ -16,7 +16,7 @@ function Arsenal.Init(ctx)
         return v
     end
 
-    local GAME_VERSION = "1.5"
+    local GAME_VERSION = "1.5.1"
     local FULL_VERSION = "Infinite Zen V" .. GAME_VERSION .. " - " .. gameName
     local SHORT_VERSION = "V" .. GAME_VERSION .. " - " .. gameName
 
@@ -68,9 +68,8 @@ function Arsenal.Init(ctx)
         return el
     end
 
-    -- ✅ State com debug flags
     local State = {
-        silentHeadshot = false, silentFov = 120,
+        silentHeadshot = false, silentFov = 150,
         aimbot = false,
         headExpander = false, headExpanderSize = 3,
         backstab = false,
@@ -86,8 +85,10 @@ function Arsenal.Init(ctx)
         cameraFov = 70,
         esp = false, espMaxDistance = 500,
         lowGraphics = false, noShadows = false, noFog = false, noParticles = false,
-        debugAim = false,       -- ✅ NOVO
-        debugHeadExp = false,   -- ✅ NOVO
+        debugAim = false,
+        debugHeadExp = false,
+        silentKeybind = "X",
+        silentMaxDuration = 5,
         keybinds = {
             silentHeadshot = "X", aimbot = nil, headExpander = nil,
             backstab = "E", noRecoil = nil, rapidFire = nil,
@@ -137,9 +138,10 @@ function Arsenal.Init(ctx)
         return player.Team ~= myTeam
     end
 
+    -- ✅ Alvo mais próximo do mouse (não do centro) — "o que você tá olhando"
     local function getClosestEnemyInFov(fov, useLOS)
         local mouse = getMouseViewportPos()
-        local closest, minDist, closestPart = nil, fov, nil
+        local closest, minDist = nil, fov
         for _, p in ipairs(Players:GetPlayers()) do
             if isEnemy(p) and p.Character then
                 local head = p.Character:FindFirstChild("Head")
@@ -150,29 +152,54 @@ function Arsenal.Init(ctx)
                         if d < minDist then
                             if useLOS and not hasLineOfSight(Camera.CFrame.Position, head) then
                             else
-                                minDist = d; closest = p; closestPart = head
+                                minDist = d; closest = p
                             end
                         end
                     end
                 end
             end
         end
-        return closest, closestPart, minDist
+        return closest
     end
 
-    -- ✅ Helpers de câmera scriptable
-    local _origCameraType = nil
-    local function forceScriptableCamera()
-        if Camera.CameraType ~= Enum.CameraType.Scriptable then
-            if not _origCameraType then _origCameraType = Camera.CameraType end
-            Camera.CameraType = Enum.CameraType.Scriptable
+    -- ✅ Click com múltiplos fallbacks
+    local function tryClick()
+        local clicked = false
+
+        -- Método 1: mouse1click
+        if type(mouse1click) == "function" then
+            local ok = pcall(mouse1click)
+            if ok then clicked = true end
+        end
+
+        -- Método 2: mouse1press/mouse1release
+        if not clicked and type(mouse1press) == "function" and type(mouse1release) == "function" then
+            local ok = pcall(function()
+                mouse1press()
+                task.wait(0.01)
+                mouse1release()
+            end)
+            if ok then clicked = true end
+        end
+
+        -- Método 3: VirtualInput
+        if not clicked then
+            pcall(function()
+                VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+                task.wait(0.01)
+                VirtualInput:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+            end)
         end
     end
-    local function restoreCameraType()
-        if _origCameraType then
-            Camera.CameraType = _origCameraType
-            _origCameraType = nil
-        end
+
+    -- ✅ Move mouse físico em direção ao alvo
+    local function moveMouseTo(targetPart, intensity)
+        if not mousemoverel then return end
+        local sp = Camera:WorldToViewportPoint(targetPart.Position)
+        local center = Vector2.new(Camera.ViewportSize.X * 0.5, Camera.ViewportSize.Y * 0.5)
+        local dx = (sp.X - center.X) * (intensity or 0.5)
+        local dy = (sp.Y - center.Y) * (intensity or 0.5)
+        pcall(mousemoverel, dx, dy)
     end
 
     -- FOV CIRCLE
@@ -185,7 +212,7 @@ function Arsenal.Init(ctx)
         if UNLOADED then return end
         local mouse = getMouseScreenPos()
         fovCircle.Position = Vector2.new(mouse.X, mouse.Y)
-        if State.silentHeadshot then
+        if State.silentHeadshot or State.silentActive then
             fovCircle.Visible = true; fovCircle.Radius = State.silentFov / 6
         elseif State.autoShoot then
             fovCircle.Visible = true; fovCircle.Radius = State.autoShootFov / 6
@@ -196,123 +223,141 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- AIMBOT (v1.4 — câmera natural, SEM forceScriptableCamera)
+    -- AIMBOT (natural, sem Scriptable)
     RunService.RenderStepped:Connect(function()
-        if UNLOADED or not State.aimbot then return end
-        local mouse = getMouseViewportPos()
-        local closest, minDist = nil, 25
-        for _, p in ipairs(Players:GetPlayers()) do
-            if isEnemy(p) and p.Character then
-                local head = p.Character:FindFirstChild("Head")
-                if head and head:IsA("BasePart") then
-                    local sp, onScreen, depth = Camera:WorldToViewportPoint(head.Position)
-                    if onScreen and depth and depth > 0 then
-                        local d = (Vector2.new(sp.X, sp.Y) - mouse).Magnitude
-                        if d and d < minDist then minDist = d; closest = p end
-                    end
-                end
-            end
-        end
-        if closest and closest.Character then
-            local head = closest.Character:FindFirstChild("Head")
+        if UNLOADED or not State.aimbot or State.silentActive then return end
+        local target = getClosestEnemyInFov(25, false)
+        if target and target.Character then
+            local head = target.Character:FindFirstChild("Head")
             if head and head:IsA("BasePart") then
-                -- ✅ v1.4 style: só seta CFrame, deixa o Arsenal sobrescrever natural
                 Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position)
             end
         end
     end)
 
-    -- ═══ SILENT HEADSHOT (FIX) ═══
-    local silentHolding, silentTarget, silentOriginalCam = false, nil, nil
+    -- ═══════════════════════════════════════════════════════════
+    -- ✅ SILENT HEADSHOT v2 — KILL MODE
+    -- Press X → lock camera no inimigo mais próximo → atira até morrer
+    -- ═══════════════════════════════════════════════════════════
+    local silentActive = false
+    local silentTarget = nil
+    local silentSavedCam = nil
+    local silentEndTime = 0
+    local lastSilentShot = 0
+
+    local function activateSilentKill()
+        if silentActive then return end
+        if not State.silentHeadshot then return end
+        local target = getClosestEnemyInFov(State.silentFov, false)
+        if not target or not target.Character then
+            if Window then Window:Notify("🎯", "No enemy in FOV", 2, "warning") end
+            return
+        end
+        silentActive = true
+        silentTarget = target
+        silentSavedCam = Camera.CFrame
+        silentEndTime = tick() + State.silentMaxDuration
+        if Window then
+            Window:Notify("🎯 " .. T("silent.name", "Silent Kill"),
+                "Target: " .. target.Name, 2, "success")
+        end
+        if State.debugAim then
+            print("[SILENT-DEBUG] Activated | target=" .. target.Name)
+        end
+    end
+
+    local function deactivateSilentKill(reason)
+        if not silentActive then return end
+        silentActive = false
+        silentTarget = nil
+        if silentSavedCam then
+            pcall(function() Camera.CFrame = silentSavedCam end)
+            silentSavedCam = nil
+        end
+        if State.debugAim then
+            print("[SILENT-DEBUG] Deactivated | reason=" .. tostring(reason))
+        end
+    end
 
     RunService.RenderStepped:Connect(function()
-        if UNLOADED or not silentHolding then return end
-        if not silentTarget or not silentTarget.Character then silentHolding = false; return end
-        local head = silentTarget.Character:FindFirstChild("Head")
-        if not head or not head:IsA("BasePart") then silentHolding = false; return end
-        forceScriptableCamera()
-        -- ✅ Mira EXATA no centro (sem offset)
-        Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, head.Position)
-    end)
+        if UNLOADED or not silentActive then return end
 
-    UserInputService.InputBegan:Connect(function(input, gp)
-        if UNLOADED or gp or not State.silentHeadshot then return end
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
-        silentOriginalCam = Camera.CFrame
-        local target = getClosestEnemyInFov(State.silentFov, false)
-        if not target or not target.Character then return end
-        silentTarget = target
-        silentHolding = true
+        -- Timeout
+        if tick() > silentEndTime then
+            deactivateSilentKill("timeout")
+            return
+        end
+
+        -- Target válido?
+        local target = silentTarget
+        if not target or not target.Character then
+            deactivateSilentKill("target_gone")
+            return
+        end
+
         local head = target.Character:FindFirstChild("Head")
-        if head and head:IsA("BasePart") then
-            forceScriptableCamera()
-            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, head.Position)
-            -- ✅ Espera 1 frame pra câmera aplicar
-            RunService.RenderStepped:Wait()
-            if silentHolding and head.Parent then
-                Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, head.Position)
-            end
+        local hum = target.Character:FindFirstChildOfClass("Humanoid")
+        if not head or not head:IsA("BasePart") or not hum then
+            deactivateSilentKill("no_head")
+            return
         end
-    end)
 
-    UserInputService.InputEnded:Connect(function(input, gp)
-        if UNLOADED or gp then return end
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
-        if silentHolding then
-            silentHolding = false; silentTarget = nil
-            restoreCameraType()
-            if silentOriginalCam then
-                Camera.CFrame = silentOriginalCam
-                silentOriginalCam = nil
-            end
+        if hum.Health <= 0 then
+            deactivateSilentKill("killed")
+            return
         end
-    end)
 
-    -- ═══ AUTO SHOOT (FIX) ═══
-    local lastAutoShoot = 0
-    RunService.Heartbeat:Connect(function()
-        if UNLOADED or not State.autoShoot then return end
-        if tick() - lastAutoShoot < 0.12 then return end
-
-        local target, targetPart = getClosestEnemyInFov(State.autoShootFov, false)
-        if not target or not targetPart then return end
-
-        forceScriptableCamera()
         -- ✅ Mira exata
-        Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, targetPart.Position)
+        Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, head.Position)
 
-        -- ✅ Espera 1 frame
-        RunService.RenderStepped:Wait()
+        -- ✅ Move mouse físico pra sincronizar
+        moveMouseTo(head, 0.6)
 
-        -- ✅ Re-mira (alvo pode ter se movido)
-        if not targetPart.Parent then return end
-        Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, targetPart.Position)
-
-        local screenMouse = getMouseScreenPos()
-        local clicked = false
-        pcall(function()
-            VirtualInput:SendMouseButtonEvent(screenMouse.X, screenMouse.Y, 0, true, game, 0)
-            task.wait(0.008)
-            VirtualInput:SendMouseButtonEvent(screenMouse.X, screenMouse.Y, 0, false, game, 0)
-            clicked = true
-        end)
-        if not clicked then
-            pcall(function() mouse1click() end)
-            pcall(function() mouse1press(); task.wait(0.01); mouse1release() end)
+        -- ✅ Auto-fire a cada 0.1s
+        if tick() - lastSilentShot >= 0.1 then
+            tryClick()
+            lastSilentShot = tick()
+            if State.debugAim then
+                print(string.format("[SILENT-DEBUG] Firing | target=%s | HP=%d",
+                    target.Name, math.floor(hum.Health)))
+            end
         end
-        lastAutoShoot = tick()
+    end)
 
-        -- ✅ Debug
+    -- ✅ Keybind X (ou custom)
+    UserInputService.InputBegan:Connect(function(input, gp)
+        if UNLOADED or gp then return end
+        if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
+        if not State.silentHeadshot then return end
+        if input.KeyCode.Name == State.silentKeybind then
+            activateSilentKill()
+        end
+    end)
+
+    -- AUTO SHOOT (continua funcionando quando X fica pressionado)
+    RunService.Heartbeat:Connect(function()
+        if UNLOADED or not State.autoShoot or silentActive then return end
+        if tick() - lastSilentShot < 0.12 then return end
+        local target = getClosestEnemyInFov(State.autoShootFov, false)
+        if not target or not target.Character then return end
+        local head = target.Character:FindFirstChild("Head")
+        if not head then return end
+        Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, head.Position)
+        moveMouseTo(head, 0.5)
+        RunService.RenderStepped:Wait()
+        if not head.Parent then return end
+        Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, head.Position)
+        tryClick()
+        lastSilentShot = tick()
+
         if State.debugAim then
             local hum = target.Character and target.Character:FindFirstChildOfClass("Humanoid")
-            print(string.format("[AIM-DEBUG] target=%s | part=%s | dist=%.1f | HP=%d",
-                target.Name, targetPart.Name,
-                (Camera.CFrame.Position - targetPart.Position).Magnitude,
-                hum and hum.Health or 0))
+            print(string.format("[AUTO-DEBUG] target=%s | HP=%d",
+                target.Name, hum and hum.Health or 0))
         end
     end)
 
-    -- ═══ HEAD EXPANDER v2 (FIX) ═══
+    -- HEAD EXPANDER v2 (fix: HB_NAMES)
     local hitboxSaved = {}
     local expandStats = {applied = 0, failed = 0}
 
@@ -340,7 +385,6 @@ function Arsenal.Init(ctx)
         hitboxSaved = {}
     end
 
-    -- ✅ Detecta QUALQUER parte que possa ser hitbox
     local HB_NAMES = {
         "Head", "HeadHB", "Hitbox", "HeadHitbox", "Head_HB", "headHitbox",
         "Torso", "UpperTorso", "TorsoHB", "TorsoHitbox", "UpperTorso_HB",
@@ -365,7 +409,6 @@ function Arsenal.Init(ctx)
             expandStats.failed = expandStats.failed + 1
             return
         end
-
         for _, part in ipairs(parts) do
             saveOriginal(p, part)
             local base = hitboxSaved[p] and hitboxSaved[p][part]
@@ -373,7 +416,6 @@ function Arsenal.Init(ctx)
                 local nm = part.Name:lower()
                 local isHead = nm:find("head") ~= nil
                 local isTorso = nm:find("torso") ~= nil
-
                 local multX, multY, multZ
                 if isHead then
                     multX = size
@@ -386,12 +428,11 @@ function Arsenal.Init(ctx)
                     local t = math.min(size, 4)
                     multX, multY, multZ = t, t, t
                 end
-
                 local ok = pcall(function()
                     part.Size = Vector3.new(base.X * multX, base.Y * multY, base.Z * multZ)
                     if part.CanCollide then part.CanCollide = false end
                     if not part.Massless then part.Massless = true end
-                    part.CanQuery = true  -- ✅ Garante que raios acertam
+                    part.CanQuery = true
                 end)
                 if ok then
                     expandStats.applied = expandStats.applied + 1
@@ -402,7 +443,6 @@ function Arsenal.Init(ctx)
         end
     end
 
-    -- ✅ Roda TODO frame (era cada 3)
     local heTick = 0
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.headExpander then return end
@@ -417,23 +457,11 @@ function Arsenal.Init(ctx)
                 end
             end
         end)
-
-        -- ✅ Debug a cada ~2s
         if State.debugHeadExp and heTick % 120 == 0 then
             local tracked = 0
             for _ in pairs(hitboxSaved) do tracked = tracked + 1 end
             print(string.format("[HEADEXP-DEBUG] applied=%d | failed=%d | players=%d",
                 expandStats.applied, expandStats.failed, tracked))
-            for p, parts in pairs(hitboxSaved) do
-                for part, base in pairs(parts) do
-                    if part and part.Parent and part.Name:lower():find("head") then
-                        print(string.format("  [DEBUG] %s.%s | base=%s | atual=%s",
-                            p.Name, part.Name, tostring(base), tostring(part.Size)))
-                        break
-                    end
-                end
-                break
-            end
         end
     end)
 
@@ -486,12 +514,7 @@ function Arsenal.Init(ctx)
         Camera.CFrame = CFrame.new(mHRP.Position, tHRP.Position)
         task.wait(0.02)
         for _ = 1, 3 do
-            pcall(function()
-                VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-                task.wait(0.02)
-                VirtualInput:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-            end)
-            pcall(function() mouse1click() end)
+            tryClick()
             task.wait(0.05)
         end
     end
@@ -919,6 +942,7 @@ function Arsenal.Init(ctx)
         local sliders = {
             "silentFov", "headExpanderSize", "autoShootFov",
             "speedValue", "espMaxDistance", "jumpPower", "cameraFov",
+            "silentMaxDuration",
         }
         for _, key in ipairs(sliders) do
             local el = Elements[key]
@@ -1001,18 +1025,22 @@ function Arsenal.Init(ctx)
         })
         Elements = {}
 
-        -- COMBAT
         local CombatTab = Window:CreateTab(T("tab.combat", "Combat"), "⚔️")
         CombatTab:CreateSection(T("section.aim", "Aim"))
         reg("silentHeadshot", CombatTab:CreateToggle({
-            Name = T("silent.name", "Silent Headshot"), Description = T("silent.desc", "Locks aim on head when holding click"),
+            Name = T("silent.name", "Silent Headshot"), Description = T("silent.desc", "Press keybind to lock+kill nearest enemy"),
             Icon = "🎯", Default = false,
             Callback = function(v) State.silentHeadshot = v end,
         }))
         reg("silentFov", CombatTab:CreateSlider({
             Name = T("silentfov.name", "Silent FOV"), Description = T("silentfov.desc", "Aim radius"),
-            Icon = "📐", Min = 30, Max = 300, Default = 120,
+            Icon = "📐", Min = 30, Max = 500, Default = 150,
             Callback = function(v) State.silentFov = v end,
+        }))
+        reg("silentMaxDuration", CombatTab:CreateSlider({
+            Name = "Max Duration", Description = "Auto restore camera after N seconds",
+            Icon = "⏱️", Min = 1, Max = 15, Default = 5,
+            Callback = function(v) State.silentMaxDuration = v end,
         }))
         reg("aimbot", CombatTab:CreateToggle({
             Name = T("aimbot.name", "Aimbot"), Description = T("aimbot.desc", "Locks camera on nearest enemy"),
@@ -1037,7 +1065,6 @@ function Arsenal.Init(ctx)
             Callback = function(v) State.backstab = v end,
         }))
 
-        -- WEAPON
         local WeaponTab = Window:CreateTab(T("tab.weapon", "Weapon"), "🔫")
         WeaponTab:CreateSection(T("section.recoil", "Recoil"))
         reg("noRecoil", WeaponTab:CreateToggle({
@@ -1081,7 +1108,6 @@ function Arsenal.Init(ctx)
             Callback = function(v) State.autoShootFov = v end,
         }))
 
-        -- MOVEMENT
         local MoveTab = Window:CreateTab(T("tab.movement", "Movement"), "🏃")
         MoveTab:CreateSection(T("section.speed", "Speed"))
         reg("speed", MoveTab:CreateToggle({
@@ -1131,7 +1157,6 @@ function Arsenal.Init(ctx)
             Callback = function(v) State.antiAfk = v end,
         }))
 
-        -- VISUALS
         local VisualsTab = Window:CreateTab(T("tab.visuals", "Visuals"), "👁️")
         VisualsTab:CreateSection(T("section.esp", "ESP"))
         reg("esp", VisualsTab:CreateToggle({
@@ -1184,7 +1209,6 @@ function Arsenal.Init(ctx)
             Callback = function(v) State.fullbright = v; applyFullbright(v) end,
         }))
 
-        -- SETTINGS
         local SettingsTab = Window:CreateTab(T("tab.settings", "Settings"), "⚙️")
         SettingsTab:CreateSection(T("section.create_config", "Create Config"))
 
@@ -1360,19 +1384,18 @@ function Arsenal.Init(ctx)
             end,
         })
 
-        -- ✅ DEBUG SECTION
         SettingsTab:CreateSection("🐛 Debug")
 
         reg("debugAim", SettingsTab:CreateToggle({
             Name = "Debug Aim (F9)",
-            Description = "Loga cada tiro (target, part, dist, HP)",
+            Description = "Logs each shot (target, part, dist, HP)",
             Icon = "🎯", Default = false,
             Callback = function(v) State.debugAim = v end,
         }))
 
         reg("debugHeadExp", SettingsTab:CreateToggle({
             Name = "Debug Head Expander",
-            Description = "Loga applied/failed + tamanho real",
+            Description = "Logs applied/failed + real size",
             Icon = "🔴", Default = false,
             Callback = function(v) State.debugHeadExp = v end,
         }))
@@ -1383,8 +1406,8 @@ function Arsenal.Init(ctx)
             Danger = true,
             Callback = function()
                 UNLOADED = true
+                deactivateSilentKill("unload")
                 restoreAll(); clearAllESP(); stopAirJump(); stopNoclip()
-                restoreCameraType()
                 if fovCircle then fovCircle:Remove() end
                 applyLowGraphics(false); applyNoShadows(false); applyNoFog(false)
                 applyNoParticles(false); applyFullbright(false)
@@ -1394,7 +1417,6 @@ function Arsenal.Init(ctx)
             end,
         })
 
-        -- LANGUAGE
         local LanguageTab = Window:CreateTab(T("tab.language", "Language"), "🌍")
         LanguageTab:CreateSection(T("section.language_select", "Language"))
 
@@ -1435,7 +1457,6 @@ function Arsenal.Init(ctx)
         LanguageTab:CreateLabel(T("lang.saved_to", "Language saved to: ") .. " InfiniteZen_Language.txt", Color3.fromRGB(140, 140, 155))
         LanguageTab:CreateLabel(T("lang.auto_restore", "Auto-restored on open."), Color3.fromRGB(90, 90, 105))
 
-        -- CREDITS
         local CreditsTab = Window:CreateTab(T("tab.credits", "Credits"), "➕")
         CreditsTab:CreateSection(T("section.founder", "Founder"))
         CreditsTab:CreateLabel(T("credits.role", "Sr Red"), Color3.fromRGB(255, 50, 50))
@@ -1455,7 +1476,7 @@ function Arsenal.Init(ctx)
         CreditsTab:CreateLabel("© 2026 Sr Red", Color3.fromRGB(90, 90, 105))
     end
 
-    -- KEYBINDS
+    -- KEYBINDS gerais (backstab etc)
     UserInputService.InputBegan:Connect(function(input, gp)
         if UNLOADED or gp then return end
         if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
@@ -1467,7 +1488,6 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- REBUILD LANG
     local rebuilding = false
     _G.IZ_RefreshLanguage = function()
         if UNLOADED or rebuilding then return end
