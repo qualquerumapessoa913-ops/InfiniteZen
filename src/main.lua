@@ -16,6 +16,8 @@ local CONFIG = {
     REPO = "https://raw.githubusercontent.com/qualquerumapessoa913-ops/InfiniteZen/Moon-Angel",
     DEFAULT_LANG = "en",
     SUPPORTED_GAMES = {
+        [286090429]   = {name = "Arsenal",       module = "arsenal"},
+        [14939963714] = {name = "Jailbird",      module = "jailbird"},
         [8307114974]  = {name = "Operation One", module = "operationone"},
     }
 }
