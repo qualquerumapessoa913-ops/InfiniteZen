@@ -1,5 +1,5 @@
 -- ============================================================
--- INFINITE ZEN - ARSENAL (v1.5)
+-- INFINITE ZEN - ARSENAL (v1.5) — Debug + Anti-Miss + HeadFix
 -- ============================================================
 
 local Arsenal = {}
@@ -10,7 +10,6 @@ function Arsenal.Init(ctx)
     local Compat   = ctx.Compat
     local gameName = ctx.gameName
 
-    -- ✅ T com fallback
     local function T(key, fallback)
         local v = Language.get(key)
         if not v or v == key then return fallback or key end
@@ -21,7 +20,6 @@ function Arsenal.Init(ctx)
     local FULL_VERSION = "Infinite Zen V" .. GAME_VERSION .. " - " .. gameName
     local SHORT_VERSION = "V" .. GAME_VERSION .. " - " .. gameName
 
-    -- ✅ Boot bilíngue
     print("============================================")
     print("[Infinite Zen] 🇧🇷 Inicializando " .. FULL_VERSION .. "...")
     print("[Infinite Zen] 🇺🇸 Initializing " .. FULL_VERSION .. "...")
@@ -70,6 +68,7 @@ function Arsenal.Init(ctx)
         return el
     end
 
+    -- ✅ State com debug flags
     local State = {
         silentHeadshot = false, silentFov = 120,
         aimbot = false,
@@ -87,6 +86,8 @@ function Arsenal.Init(ctx)
         cameraFov = 70,
         esp = false, espMaxDistance = 500,
         lowGraphics = false, noShadows = false, noFog = false, noParticles = false,
+        debugAim = false,       -- ✅ NOVO
+        debugHeadExp = false,   -- ✅ NOVO
         keybinds = {
             silentHeadshot = "X", aimbot = nil, headExpander = nil,
             backstab = "E", noRecoil = nil, rapidFire = nil,
@@ -159,6 +160,21 @@ function Arsenal.Init(ctx)
         return closest, closestPart, minDist
     end
 
+    -- ✅ Helpers de câmera scriptable
+    local _origCameraType = nil
+    local function forceScriptableCamera()
+        if Camera.CameraType ~= Enum.CameraType.Scriptable then
+            if not _origCameraType then _origCameraType = Camera.CameraType end
+            Camera.CameraType = Enum.CameraType.Scriptable
+        end
+    end
+    local function restoreCameraType()
+        if _origCameraType then
+            Camera.CameraType = _origCameraType
+            _origCameraType = nil
+        end
+    end
+
     -- FOV CIRCLE
     local fovCircle = Drawing.new("Circle")
     fovCircle.Color = Color3.fromRGB(255, 30, 40); fovCircle.Thickness = 1.5
@@ -180,7 +196,7 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- AIMBOT
+-- AIMBOT (v1.6.1 — sem Scriptable, câmera natural)
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.aimbot then return end
         local mouse = getMouseViewportPos()
@@ -200,12 +216,13 @@ function Arsenal.Init(ctx)
         if closest and closest.Character then
             local head = closest.Character:FindFirstChild("Head")
             if head and head:IsA("BasePart") then
+                -- ✅ SEM forceScriptableCamera — câmera natural
                 Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position)
             end
         end
     end)
 
-    -- SILENT HEADSHOT
+    -- ═══ SILENT HEADSHOT (FIX) ═══
     local silentHolding, silentTarget, silentOriginalCam = false, nil, nil
 
     RunService.RenderStepped:Connect(function()
@@ -213,7 +230,9 @@ function Arsenal.Init(ctx)
         if not silentTarget or not silentTarget.Character then silentHolding = false; return end
         local head = silentTarget.Character:FindFirstChild("Head")
         if not head or not head:IsA("BasePart") then silentHolding = false; return end
-        Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position + Vector3.new(0, 0.15, 0))
+        forceScriptableCamera()
+        -- ✅ Mira EXATA no centro (sem offset)
+        Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, head.Position)
     end)
 
     UserInputService.InputBegan:Connect(function(input, gp)
@@ -226,7 +245,13 @@ function Arsenal.Init(ctx)
         silentHolding = true
         local head = target.Character:FindFirstChild("Head")
         if head and head:IsA("BasePart") then
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position + Vector3.new(0, 0.15, 0))
+            forceScriptableCamera()
+            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, head.Position)
+            -- ✅ Espera 1 frame pra câmera aplicar
+            RunService.RenderStepped:Wait()
+            if silentHolding and head.Parent then
+                Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, head.Position)
+            end
         end
     end)
 
@@ -235,6 +260,7 @@ function Arsenal.Init(ctx)
         if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
         if silentHolding then
             silentHolding = false; silentTarget = nil
+            restoreCameraType()
             if silentOriginalCam then
                 Camera.CFrame = silentOriginalCam
                 silentOriginalCam = nil
@@ -242,20 +268,31 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- AUTO SHOOT
+    -- ═══ AUTO SHOOT (FIX) ═══
     local lastAutoShoot = 0
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.autoShoot then return end
         if tick() - lastAutoShoot < 0.12 then return end
+
         local target, targetPart = getClosestEnemyInFov(State.autoShootFov, false)
         if not target or not targetPart then return end
-        Camera.CFrame = CFrame.new(Camera.CFrame.Position, targetPart.Position + Vector3.new(0, 0.15, 0))
-        task.wait(0.01)
+
+        forceScriptableCamera()
+        -- ✅ Mira exata
+        Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, targetPart.Position)
+
+        -- ✅ Espera 1 frame
+        RunService.RenderStepped:Wait()
+
+        -- ✅ Re-mira (alvo pode ter se movido)
+        if not targetPart.Parent then return end
+        Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, targetPart.Position)
+
         local screenMouse = getMouseScreenPos()
         local clicked = false
         pcall(function()
             VirtualInput:SendMouseButtonEvent(screenMouse.X, screenMouse.Y, 0, true, game, 0)
-            task.wait(0.01)
+            task.wait(0.008)
             VirtualInput:SendMouseButtonEvent(screenMouse.X, screenMouse.Y, 0, false, game, 0)
             clicked = true
         end)
@@ -264,10 +301,20 @@ function Arsenal.Init(ctx)
             pcall(function() mouse1press(); task.wait(0.01); mouse1release() end)
         end
         lastAutoShoot = tick()
+
+        -- ✅ Debug
+        if State.debugAim then
+            local hum = target.Character and target.Character:FindFirstChildOfClass("Humanoid")
+            print(string.format("[AIM-DEBUG] target=%s | part=%s | dist=%.1f | HP=%d",
+                target.Name, targetPart.Name,
+                (Camera.CFrame.Position - targetPart.Position).Magnitude,
+                hum and hum.Health or 0))
+        end
     end)
 
-    -- HEAD EXPANDER (max 18)
+    -- ═══ HEAD EXPANDER v2 (FIX) ═══
     local hitboxSaved = {}
+    local expandStats = {applied = 0, failed = 0}
 
     local function saveOriginal(player, part)
         if not player or not part or not part:IsA("BasePart") then return end
@@ -293,50 +340,73 @@ function Arsenal.Init(ctx)
         hitboxSaved = {}
     end
 
+    -- ✅ Detecta QUALQUER parte que possa ser hitbox
+    local HB_NAMES = {
+        "Head", "HeadHB", "Hitbox", "HeadHitbox", "Head_HB", "headHitbox",
+        "Torso", "UpperTorso", "TorsoHB", "TorsoHitbox", "UpperTorso_HB",
+    }
+
+    local function getHitboxParts(char)
+        if not char then return {} end
+        local parts = {}
+        for _, n in ipairs(HB_NAMES) do
+            local p = char:FindFirstChild(n)
+            if p and p:IsA("BasePart") then
+                table.insert(parts, p)
+            end
+        end
+        return parts
+    end
+
     local function expandPlayer(p, size)
         if not p.Character then return end
-        local head = getBasePart(p.Character, "Head")
-        if head then
-            saveOriginal(p, head)
-            local base = hitboxSaved[p] and hitboxSaved[p][head]
-            if base then
-                pcall(function()
-                    head.Size = Vector3.new(base.X * size, base.Y * math.min(size, 8), base.Z * size)
-                    head.Transparency = 0.7; head.CanCollide = false; head.Massless = true
-                end)
-            end
+        local parts = getHitboxParts(p.Character)
+        if #parts == 0 then
+            expandStats.failed = expandStats.failed + 1
+            return
         end
-        local headHB = getBasePart(p.Character, "HeadHB")
-        if headHB then
-            saveOriginal(p, headHB)
-            local base = hitboxSaved[p] and hitboxSaved[p][headHB]
+
+        for _, part in ipairs(parts) do
+            saveOriginal(p, part)
+            local base = hitboxSaved[p] and hitboxSaved[p][part]
             if base then
-                local hbMult = math.min(size * 1.5, 28)
-                pcall(function()
-                    headHB.Size = Vector3.new(base.X * hbMult, base.Y * hbMult, base.Z * hbMult)
-                    headHB.Transparency = 1; headHB.CanCollide = false; headHB.Massless = true
+                local nm = part.Name:lower()
+                local isHead = nm:find("head") ~= nil
+                local isTorso = nm:find("torso") ~= nil
+
+                local multX, multY, multZ
+                if isHead then
+                    multX = size
+                    multY = math.min(size, 8)
+                    multZ = size
+                elseif isTorso then
+                    local t = math.min(size * 0.7, 6)
+                    multX, multY, multZ = t, t, t
+                else
+                    local t = math.min(size, 4)
+                    multX, multY, multZ = t, t, t
+                end
+
+                local ok = pcall(function()
+                    part.Size = Vector3.new(base.X * multX, base.Y * multY, base.Z * multZ)
+                    if part.CanCollide then part.CanCollide = false end
+                    if not part.Massless then part.Massless = true end
+                    part.CanQuery = true  -- ✅ Garante que raios acertam
                 end)
-            end
-        end
-        local torso = getBasePart(p.Character, "Torso", "UpperTorso")
-        if torso then
-            saveOriginal(p, torso)
-            local base = hitboxSaved[p] and hitboxSaved[p][torso]
-            if base then
-                local tMult = math.min(size * 0.7, 6)
-                pcall(function()
-                    torso.Size = Vector3.new(base.X * tMult, base.Y * tMult, base.Z * tMult)
-                    torso.Transparency = 0.7; torso.CanCollide = false; torso.Massless = true
-                end)
+                if ok then
+                    expandStats.applied = expandStats.applied + 1
+                else
+                    expandStats.failed = expandStats.failed + 1
+                end
             end
         end
     end
 
+    -- ✅ Roda TODO frame (era cada 3)
     local heTick = 0
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.headExpander then return end
         heTick = heTick + 1
-        if heTick % 3 ~= 0 then return end
         pcall(function()
             for _, p in ipairs(Players:GetPlayers()) do
                 if p == LocalPlayer then
@@ -347,6 +417,24 @@ function Arsenal.Init(ctx)
                 end
             end
         end)
+
+        -- ✅ Debug a cada ~2s
+        if State.debugHeadExp and heTick % 120 == 0 then
+            local tracked = 0
+            for _ in pairs(hitboxSaved) do tracked = tracked + 1 end
+            print(string.format("[HEADEXP-DEBUG] applied=%d | failed=%d | players=%d",
+                expandStats.applied, expandStats.failed, tracked))
+            for p, parts in pairs(hitboxSaved) do
+                for part, base in pairs(parts) do
+                    if part and part.Parent and part.Name:lower():find("head") then
+                        print(string.format("  [DEBUG] %s.%s | base=%s | atual=%s",
+                            p.Name, part.Name, tostring(base), tostring(part.Size)))
+                        break
+                    end
+                end
+                break
+            end
+        end
     end)
 
     -- BACKSTAB
@@ -822,7 +910,7 @@ function Arsenal.Init(ctx)
             "noRecoil", "rapidFire", "fastReload", "instaReload",
             "autoShoot", "speed", "airJump", "noclip", "antiAfk",
             "esp", "lowGraphics", "noShadows", "noFog", "noParticles",
-            "fullbright",
+            "fullbright", "debugAim", "debugHeadExp",
         }
         for _, key in ipairs(toggles) do
             local el = Elements[key]
@@ -1272,6 +1360,23 @@ function Arsenal.Init(ctx)
             end,
         })
 
+        -- ✅ DEBUG SECTION
+        SettingsTab:CreateSection("🐛 Debug")
+
+        reg("debugAim", SettingsTab:CreateToggle({
+            Name = "Debug Aim (F9)",
+            Description = "Loga cada tiro (target, part, dist, HP)",
+            Icon = "🎯", Default = false,
+            Callback = function(v) State.debugAim = v end,
+        }))
+
+        reg("debugHeadExp", SettingsTab:CreateToggle({
+            Name = "Debug Head Expander",
+            Description = "Loga applied/failed + tamanho real",
+            Icon = "🔴", Default = false,
+            Callback = function(v) State.debugHeadExp = v end,
+        }))
+
         SettingsTab:CreateSection(T("section.danger", "Danger Zone"))
         SettingsTab:CreateButton({
             Name = T("config.unload", "Unload Script"),
@@ -1279,6 +1384,7 @@ function Arsenal.Init(ctx)
             Callback = function()
                 UNLOADED = true
                 restoreAll(); clearAllESP(); stopAirJump(); stopNoclip()
+                restoreCameraType()
                 if fovCircle then fovCircle:Remove() end
                 applyLowGraphics(false); applyNoShadows(false); applyNoFog(false)
                 applyNoParticles(false); applyFullbright(false)
@@ -1390,7 +1496,6 @@ function Arsenal.Init(ctx)
 
     Window:Notify("✅ " .. SHORT_VERSION, "Arsenal loaded successfully", 4, "success")
 
-    -- ✅ Footer bilíngue
     print("============================================")
     print("[Infinite Zen] 🇧🇷 " .. FULL_VERSION .. " carregado com sucesso!")
     print("[Infinite Zen] 🇺🇸 " .. FULL_VERSION .. " loaded successfully!")
