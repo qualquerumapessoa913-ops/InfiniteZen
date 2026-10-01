@@ -1,6 +1,6 @@
 -- ============================================================
--- INFINITE ZEN - SISTEMA DE IDIOMAS v3.2
--- Lista fixa + Emoji + Auto-download do JSON
+-- INFINITE ZEN - SISTEMA DE IDIOMAS v3.3
+-- Lista fixa + Emoji + Auto-download do JSON (jsDelivr)
 -- ============================================================
 
 local HttpService = game:GetService("HttpService")
@@ -36,7 +36,7 @@ Language.languages = {
 }
 
 -- ═══════════════════════════════════════════════════════════
--- EN + PT-BR (HARDCODED)
+-- EN + PT-BR (HARDCODED) — com chaves v2.2 (noclip, antiafk, camerafov)
 -- ═══════════════════════════════════════════════════════════
 Language.translations = {
     ["en"] = {
@@ -56,6 +56,8 @@ Language.translations = {
         ["section.danger"]="Danger Zone", ["section.language_select"]="Language",
         ["section.language_info"]="Info", ["section.founder"]="Founder & Developer",
         ["section.community"]="Community", ["section.version"]="Version",
+        -- ✅ NOVAS:
+        ["section.camera"]="Camera",
         ["silent.name"]="Silent Aim", ["silent.desc"]="Auto-lock aim when holding click",
         ["silentfov.name"]="Silent FOV", ["silentfov.desc"]="Field of view radius",
         ["aimbot.name"]="Aimbot", ["aimbot.desc"]="Camera lock on closest enemy",
@@ -90,6 +92,9 @@ Language.translations = {
         ["autobhop.name"]="Auto Bhop", ["autobhop.desc"]="Auto-jump while holding space",
         ["noclip.name"]="Noclip", ["noclip.desc"]="Walk through walls",
         ["fullbright.name"]="Fullbright", ["fullbright.desc"]="Map always bright",
+        -- ✅ NOVAS:
+        ["antiafk.name"]="Anti-AFK", ["antiafk.desc"]="Not kicked for inactivity",
+        ["camerafov.name"]="Camera FOV", ["camerafov.desc"]="Field of view",
         ["esp.name"]="Player ESP", ["esp.desc"]="Highlight enemies through walls",
         ["espdist.name"]="Max Distance", ["espdist.desc"]="ESP render range",
         ["espweapon.name"]="Weapon ESP", ["espweapon.desc"]="Show enemy weapons",
@@ -108,18 +113,6 @@ Language.translations = {
         ["lang.current"]="🌐 Current: ", ["lang.hint"]="Choose the hub language (applies instantly).",
         ["lang.saved_to"]="Language saved to:", ["lang.auto_restore"]="Auto-restored on open.",
         ["credits.copy_discord"]="📋 Copy Discord Link", ["credits.role"]="Sr Red",
-        ["mm2.show.murderer"]="Show Murderer", ["mm2.show.sheriff"]="Show Sheriff", ["mm2.show.innocent"]="Show Innocent",
-        ["mm2.murderer.alert"]="Murderer Alert", ["mm2.murderer.alert.desc"]="Alert when killer is nearby",
-        ["mm2.murderer.alert.range"]="Alert Range",
-        ["mm2.gunlocator.name"]="Gun Locator", ["mm2.gunlocator.desc"]="Track dropped gun",
-        ["mm2.autocoin.name"]="Auto Coin Farm", ["mm2.autocoin.desc"]="Fly through coins",
-        ["mm2.autocoin.speed"]="Coin Flight Speed",
-        ["mm2.autograb.name"]="Auto Grab Gun", ["mm2.autograb.desc"]="Grab dropped gun",
-        ["mm2.autograb.range"]="Grab Range",
-        ["mm2.role.murderer"]="Murderer", ["mm2.role.sheriff"]="Sheriff", ["mm2.role.innocent"]="Innocent",
-        ["jb.esp.armor"]="Armor ESP", ["jb.esp.armor.desc"]="Show enemy armor value",
-        ["jb.esp.grenades"]="Grenade ESP", ["jb.esp.grenades.desc"]="Show nearby grenades",
-        ["bs.esp.weapon"]="Weapon ESP", ["bs.esp.armor"]="Armor ESP",
     },
     ["pt-br"] = {
         flag="🇧🇷", displayName="Português (BR)",
@@ -138,6 +131,8 @@ Language.translations = {
         ["section.danger"]="Zona de Perigo", ["section.language_select"]="Idioma",
         ["section.language_info"]="Info", ["section.founder"]="Fundador & Desenvolvedor",
         ["section.community"]="Comunidade", ["section.version"]="Versão",
+        -- ✅ NOVAS:
+        ["section.camera"]="Câmera",
         ["silent.name"]="Mira Silenciosa", ["silent.desc"]="Trava a mira ao segurar clique",
         ["silentfov.name"]="FOV Silencioso", ["silentfov.desc"]="Raio do campo de visão",
         ["aimbot.name"]="Aimbot", ["aimbot.desc"]="Trava câmera no inimigo mais próximo",
@@ -172,6 +167,9 @@ Language.translations = {
         ["autobhop.name"]="Auto Bhop", ["autobhop.desc"]="Pula sozinho segurando espaço",
         ["noclip.name"]="Noclip", ["noclip.desc"]="Atravessa paredes",
         ["fullbright.name"]="Fullbright", ["fullbright.desc"]="Mapa sempre claro",
+        -- ✅ NOVAS:
+        ["antiafk.name"]="Anti-AFK", ["antiafk.desc"]="Não é kickado por inatividade",
+        ["camerafov.name"]="FOV da Câmera", ["camerafov.desc"]="Campo de visão",
         ["esp.name"]="ESP de Jogador", ["esp.desc"]="Destaca inimigos através das paredes",
         ["espdist.name"]="Distância Máxima", ["espdist.desc"]="Alcance do ESP",
         ["espweapon.name"]="ESP de Arma", ["espweapon.desc"]="Mostra as armas dos inimigos",
@@ -190,24 +188,11 @@ Language.translations = {
         ["lang.current"]="🌐 Atual: ", ["lang.hint"]="Escolha o idioma do hub (aplica na hora e é salvo).",
         ["lang.saved_to"]="Idioma salvo em:", ["lang.auto_restore"]="É restaurado ao abrir o hub.",
         ["credits.copy_discord"]="📋 Copiar Link do Discord", ["credits.role"]="Sr Red",
-        ["mm2.show.murderer"]="Mostrar Assassino", ["mm2.show.sheriff"]="Mostrar Xerife", ["mm2.show.innocent"]="Mostrar Inocente",
-        ["mm2.murderer.alert"]="Alerta do Assassino", ["mm2.murderer.alert.desc"]="Avisa quando o assassino tá perto",
-        ["mm2.murderer.alert.range"]="Alcance do Alerta",
-        ["mm2.gunlocator.name"]="Localizador de Arma", ["mm2.gunlocator.desc"]="Rastreia a arma caída do Xerife",
-        ["mm2.autocoin.name"]="Farm Automático de Moedas", ["mm2.autocoin.desc"]="Voa entre as moedas",
-        ["mm2.autocoin.speed"]="Velocidade de Voo",
-        ["mm2.autograb.name"]="Pegar Arma Auto", ["mm2.autograb.desc"]="Pega a arma do Xerife quando cai",
-        ["mm2.autograb.range"]="Alcance de Pegar",
-        ["mm2.role.murderer"]="Assassino", ["mm2.role.sheriff"]="Xerife", ["mm2.role.innocent"]="Inocente",
-        ["jb.esp.armor"]="ESP de Armadura", ["jb.esp.armor.desc"]="Mostra o valor da armadura do inimigo",
-        ["jb.esp.grenades"]="ESP de Granada", ["jb.esp.grenades.desc"]="Mostra granadas próximas",
-        ["bs.esp.weapon"]="ESP de Arma", ["bs.esp.armor"]="ESP de Armadura",
     },
 }
 
 -- ═══════════════════════════════════════════════════════════
 -- AUTO-CRIAR TABELAS VAZIAS pros 20 idiomas
--- Assim setLanguage("es") sempre aceita (cai pro EN via fallback)
 -- ═══════════════════════════════════════════════════════════
 for _, info in ipairs(Language.languages) do
     if not Language.translations[info.code] then
@@ -219,10 +204,15 @@ for _, info in ipairs(Language.languages) do
 end
 
 -- ═══════════════════════════════════════════════════════════
--- CARREGA JSON (local → senão baixa do GitHub)
+-- CARREGA JSON (local → senão jsDelivr → senão raw fallback)
 -- ═══════════════════════════════════════════════════════════
 local EXTRA_FILE = "InfiniteZen_Translations.json"
-local GITHUB_URL = "https://raw.githubusercontent.com/qualquerumapessoa913-ops/InfiniteZen/Moon-Angel/InfiniteZen_Translations.json"
+
+-- ✅ jsDelivr primeiro (não tem rate limit)
+local URLS = {
+    "https://cdn.jsdelivr.net/gh/qualquerumapessoa913-ops/InfiniteZen@Moon-Angel/InfiniteZen_Translations.json",
+    "https://raw.githubusercontent.com/qualquerumapessoa913-ops/InfiniteZen/Moon-Angel/InfiniteZen_Translations.json",
+}
 
 local function tryReadLocal()
     if not readfile then return nil end
@@ -244,16 +234,18 @@ end
 
 local function tryDownload()
     if not game.HttpGet then return nil end
-    local ok, raw = pcall(function()
-        return game:HttpGet(GITHUB_URL, true)
-    end)
-    if ok and raw and raw ~= "" and not raw:find("404") then
-        print("[IZ Lang] ✅ JSON baixado do GitHub")
-        -- Salva local pra próxima execução
-        if writefile then
-            pcall(writefile, EXTRA_FILE, raw)
+
+    for i, url in ipairs(URLS) do
+        local ok, raw = pcall(function() return game:HttpGet(url, true) end)
+        if ok and raw and raw ~= "" and #raw > 100 and not raw:find("^404") and not raw:find("^Not Found") then
+            print("[IZ Lang] ✅ JSON baixado (fonte " .. i .. " — " .. #raw .. " bytes)")
+            if writefile then
+                pcall(writefile, EXTRA_FILE, raw)
+            end
+            return raw
+        else
+            print("[IZ Lang] ⚠️ Fonte " .. i .. " falhou")
         end
-        return raw
     end
     return nil
 end
@@ -261,12 +253,31 @@ end
 local function loadExtraTranslations()
     local raw = tryReadLocal()
 
+    -- Se não tiver local, tenta baixar
     if not raw then
         raw = tryDownload()
+    else
+        -- Tem local: também tenta atualizar do GitHub em background (opcional)
+        -- Se quiser isso, descomenta abaixo:
+        -- task.spawn(function()
+        --     local fresh = tryDownload()
+        --     if fresh then
+        --         local ok, data = pcall(function() return HttpService:JSONDecode(fresh) end)
+        --         if ok and type(data) == "table" then
+        --             for code, tbl in pairs(data) do
+        --                 Language.translations[code] = Language.translations[code] or {}
+        --                 for k, v in pairs(tbl) do
+        --                     Language.translations[code][k] = v
+        --                 end
+        --             end
+        --             print("[IZ Lang] ✅ JSON atualizado do GitHub em background")
+        --         end
+        --     end
+        -- end)
     end
 
     if not raw then
-        warn("[IZ Lang] ⚠️ Não consegui obter o JSON (nem local nem GitHub) — só EN + PT-BR")
+        warn("[IZ Lang] ⚠️ Não consegui obter o JSON — só EN + PT-BR")
         return
     end
 
@@ -284,7 +295,7 @@ local function loadExtraTranslations()
         end
         count = count + 1
     end
-    print("[IZ Lang] ✅ " .. count .. " idiomas extras carregados")
+    print("[IZ Lang] ✅ " .. count .. " idiomas extras carregados/extra languages loaded")
 end
 
 loadExtraTranslations()
@@ -320,7 +331,6 @@ function Language.get(key)
 end
 
 function Language.setLanguage(code)
-    -- Sempre aceita porque a gente auto-populou translations[code]
     if not Language.translations[code] then
         print("[LANG] Código não existe: " .. tostring(code))
         return false

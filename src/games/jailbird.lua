@@ -1,5 +1,5 @@
 -- ============================================================
--- INFINITE ZEN - JAILBIRD v1.2 (FOV lag fix + Otimizações)
+-- INFINITE ZEN - JAILBIRD v1.3 (Head Exp 18 + T Fallback + Bilingual Boot)
 -- ============================================================
 
 local Jailbird = {}
@@ -10,13 +10,22 @@ function Jailbird.Init(ctx)
     local Compat   = ctx.Compat
     local gameName = ctx.gameName
 
-    local function T(key) return Language.get(key) end
+    -- ✅ T com fallback em inglês
+    local function T(key, fallback)
+        local v = Language.get(key)
+        if not v or v == key then return fallback or key end
+        return v
+    end
 
-    local GAME_VERSION = "1.2"
+    local GAME_VERSION = "1.3"
     local FULL_VERSION  = "Infinite Zen V" .. GAME_VERSION .. " - " .. gameName
     local SHORT_VERSION = "V" .. GAME_VERSION .. " - " .. gameName
 
-    print("[Infinite Zen] Inicializando " .. FULL_VERSION .. "...")
+    -- ✅ Mensagens bilíngues (PT + EN)
+    print("============================================")
+    print("[Infinite Zen] 🇧🇷 Inicializando " .. FULL_VERSION .. "...")
+    print("[Infinite Zen] 🇺🇸 Initializing " .. FULL_VERSION .. "...")
+    print("============================================")
 
     local Players           = game:GetService("Players")
     local RunService        = game:GetService("RunService")
@@ -32,9 +41,7 @@ function Jailbird.Init(ctx)
     local UNLOADED  = false
     local IS_MOBILE = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
-    -- ═══════════════════════════════════════════════
     -- UI REGISTRY
-    -- ═══════════════════════════════════════════════
     local Elements = {}
     local Window = nil
 
@@ -51,9 +58,7 @@ function Jailbird.Init(ctx)
         return el
     end
 
-    -- ═══════════════════════════════════════════════
-    -- SCREEN CENTER (cached por frame)
-    -- ═══════════════════════════════════════════════
+    -- SCREEN CENTER (cached)
     local _cachedCenter = Vector2.new(0, 0)
     local _cachedVP     = Vector2.new(0, 0)
 
@@ -66,9 +71,7 @@ function Jailbird.Init(ctx)
         return _cachedCenter
     end
 
-    -- ═══════════════════════════════════════════════
     -- REMOTES
-    -- ═══════════════════════════════════════════════
     local GameEvents
     task.spawn(function()
         while not UNLOADED and not GameEvents do
@@ -89,9 +92,7 @@ function Jailbird.Init(ctx)
         return r
     end
 
-    -- ═══════════════════════════════════════════════
     -- TEAM CHECK
-    -- ═══════════════════════════════════════════════
     local function isEnemy(player)
         if player == LocalPlayer then return false end
         if not player.Character then return false end
@@ -109,9 +110,7 @@ function Jailbird.Init(ctx)
         return player.Team ~= myTeam
     end
 
-    -- ═══════════════════════════════════════════════
     -- STATE
-    -- ═══════════════════════════════════════════════
     local State = {
         silentHeadshot = false, silentFov = 120,
         aimbot = false, aimbotFov = 100, aimbotSmoothness = 0.3,
@@ -130,9 +129,7 @@ function Jailbird.Init(ctx)
         lowGraphics = false, noShadows = false, noFog = false, noParticles = false,
     }
 
-    -- ═══════════════════════════════════════════════
     -- HELPERS
-    -- ═══════════════════════════════════════════════
     local function getBasePart(parent, ...)
         if not parent then return nil end
         for _, name in ipairs({...}) do
@@ -163,9 +160,7 @@ function Jailbird.Init(ctx)
         return workspace:Raycast(origin, unitDir * rayLength, params) == nil
     end
 
-    -- ═══════════════════════════════════════════════
-    -- LOS CACHE (evita raycast spam com FOV grande)
-    -- ═══════════════════════════════════════════════
+    -- LOS CACHE
     local losCache = {}
     local LOS_CACHE_TIME = 0.12
 
@@ -202,9 +197,7 @@ function Jailbird.Init(ctx)
         end
     end
 
-    -- ═══════════════════════════════════════════════
     -- FIRE
-    -- ═══════════════════════════════════════════════
     local function fireWeapon()
         local char = LocalPlayer.Character
         if not char then return false end
@@ -222,9 +215,7 @@ function Jailbird.Init(ctx)
         return true
     end
 
-    -- ═══════════════════════════════════════════════
-    -- FOV CIRCLE (otimizado)
-    -- ═══════════════════════════════════════════════
+    -- FOV CIRCLE
     local fovCircle = Drawing.new("Circle")
     fovCircle.Color = Color3.fromRGB(230, 40, 40)
     fovCircle.Thickness = 1.5
@@ -234,7 +225,6 @@ function Jailbird.Init(ctx)
     fovCircle.Radius = 25
     fovCircle.Visible = false
 
-    -- Atualiza position só se o viewport mudar
     local lastFovState = nil
     local lastFovRadius = -1
 
@@ -269,20 +259,16 @@ function Jailbird.Init(ctx)
         end
     end)
 
-    -- ═══════════════════════════════════════════════
-    -- TARGETING (1 raycast no máximo — early return)
-    -- ═══════════════════════════════════════════════
-    local candidates = {}  -- reaproveitado (evita alocação)
+    -- TARGETING
+    local candidates = {}
 
     local function getClosestEnemyInFov(fovRange)
         local center = getScreenCenter()
         local camPos = Camera.CFrame.Position
         local wp = Camera.WorldToViewportPoint
 
-        -- Limpa a lista (reusa tabela)
         for i = #candidates, 1, -1 do candidates[i] = nil end
 
-        -- Primeira passada: filtra por FOV, sem raycast
         for _, p in ipairs(Players:GetPlayers()) do
             if isEnemy(p) and p.Character then
                 local part = getTargetPart(p)
@@ -298,12 +284,10 @@ function Jailbird.Init(ctx)
             end
         end
 
-        -- Ordena por distância (mais perto do crosshair primeiro)
         if #candidates > 1 then
             table.sort(candidates, function(a, b) return a.dist < b.dist end)
         end
 
-        -- Segunda passada: LOS só até achar o primeiro visível
         if State.aimbotWallCheck then
             for _, c in ipairs(candidates) do
                 if hasLineOfSightCached(c.player, c.part) then
@@ -316,9 +300,7 @@ function Jailbird.Init(ctx)
         end
     end
 
-    -- ═══════════════════════════════════════════════
     -- SILENT HEADSHOT
-    -- ═══════════════════════════════════════════════
     local silentHolding, silentTarget = false, nil
 
     RunService:BindToRenderStep("IZ_JB_Silent", Enum.RenderPriority.Camera.Value + 10, function()
@@ -357,11 +339,9 @@ function Jailbird.Init(ctx)
         silentTarget  = nil
     end)
 
-    -- ═══════════════════════════════════════════════
-    -- AIMBOT (throttled em mobile)
-    -- ═══════════════════════════════════════════════
+    -- AIMBOT
     local aimbotFrameCount = 0
-    local AIMBOT_SKIP = IS_MOBILE and 2 or 1  -- mobile: roda a cada 2 frames
+    local AIMBOT_SKIP = IS_MOBILE and 2 or 1
 
     RunService:BindToRenderStep("IZ_JB_Aimbot", Enum.RenderPriority.Camera.Value + 1, function()
         if UNLOADED or not State.aimbot then return end
@@ -391,9 +371,7 @@ function Jailbird.Init(ctx)
         end
     end)
 
-    -- ═══════════════════════════════════════════════
     -- TRIGGERBOT
-    -- ═══════════════════════════════════════════════
     local triggerLastFire = 0
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.triggerbot then return end
@@ -416,9 +394,7 @@ function Jailbird.Init(ctx)
         end
     end)
 
-    -- ═══════════════════════════════════════════════
     -- AUTO SHOOT
-    -- ═══════════════════════════════════════════════
     local lastAutoShoot = 0
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.autoShoot then return end
@@ -433,9 +409,7 @@ function Jailbird.Init(ctx)
         end
     end)
 
-    -- ═══════════════════════════════════════════════
     -- BACKSTAB
-    -- ═══════════════════════════════════════════════
     local backstabLock = {active = false, target = nil, endTime = 0}
 
     local function getClosestEnemyAnywhere()
@@ -473,14 +447,14 @@ function Jailbird.Init(ctx)
         if UNLOADED then return end
         local target = getClosestEnemyAnywhere()
         if not target or not target.Character then
-            if Window then Window:Notify("⚔️", T("no_enemy"), 3, "error") end
+            if Window then Window:Notify("⚔️", T("no_enemy", "No enemy nearby"), 3, "error") end
             return
         end
         local tHRP = target.Character:FindFirstChild("HumanoidRootPart")
         local mHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         if not tHRP or not mHRP then return end
         if not tHRP:IsA("BasePart") or not mHRP:IsA("BasePart") then return end
-        if Window then Window:Notify("⚔️ " .. T("backstab.name"), target.Name, 2, "info") end
+        if Window then Window:Notify("⚔️ " .. T("backstab.name", "Backstab"), target.Name, 2, "info") end
         mHRP.CFrame = tHRP.CFrame * CFrame.new(0, 0, 2)
         backstabLock.active = true; backstabLock.target = target; backstabLock.endTime = tick() + 0.5
         Camera.CFrame = CFrame.new(mHRP.Position, tHRP.Position)
@@ -493,9 +467,7 @@ function Jailbird.Init(ctx)
         end
     end
 
-    -- ═══════════════════════════════════════════════
-    -- HEAD EXPANDER
-    -- ═══════════════════════════════════════════════
+    -- HEAD EXPANDER (max 18)
     local hitboxSaved = {}
 
     local function saveOriginal(player, part)
@@ -530,7 +502,8 @@ function Jailbird.Init(ctx)
             local base = hitboxSaved[p] and hitboxSaved[p][head]
             if base then
                 pcall(function()
-                    head.Size = Vector3.new(base.X * size, base.Y * math.min(size, 4), base.Z * size)
+                    -- ✅ Aceita até 18 — head Y limitado a 8
+                    head.Size = Vector3.new(base.X * size, base.Y * math.min(size, 8), base.Z * size)
                     head.Transparency = 0.7; head.CanCollide = false; head.Massless = true
                 end)
             end
@@ -540,7 +513,8 @@ function Jailbird.Init(ctx)
             saveOriginal(p, headHB)
             local base = hitboxSaved[p] and hitboxSaved[p][headHB]
             if base then
-                local hbMult = math.min(size * 1.5, 12)
+                -- ✅ Multiplicador aumentado pra 28
+                local hbMult = math.min(size * 1.5, 28)
                 pcall(function()
                     headHB.Size = Vector3.new(base.X * hbMult, base.Y * hbMult, base.Z * hbMult)
                     headHB.Transparency = 1; headHB.CanCollide = false; headHB.Massless = true
@@ -552,7 +526,7 @@ function Jailbird.Init(ctx)
             saveOriginal(p, torso)
             local base = hitboxSaved[p] and hitboxSaved[p][torso]
             if base then
-                local tMult = math.min(size * 0.7, 3)
+                local tMult = math.min(size * 0.7, 6)
                 pcall(function()
                     torso.Size = Vector3.new(base.X * tMult, base.Y * tMult, base.Z * tMult)
                     torso.Transparency = 0.7; torso.CanCollide = false; torso.Massless = true
@@ -578,9 +552,7 @@ function Jailbird.Init(ctx)
         end)
     end)
 
-    -- ═══════════════════════════════════════════════
     -- WEAPON MODS
-    -- ═══════════════════════════════════════════════
     local reloadOriginals = {}
     local weaponModsTick = 0
 
@@ -668,9 +640,7 @@ function Jailbird.Init(ctx)
         end
     end)
 
-    -- ═══════════════════════════════════════════════
     -- AUTO BHOP
-    -- ═══════════════════════════════════════════════
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.autoBhop then return end
         local char = LocalPlayer.Character
@@ -683,9 +653,7 @@ function Jailbird.Init(ctx)
         end
     end)
 
-    -- ═══════════════════════════════════════════════
     -- ANTI-FLASH
-    -- ═══════════════════════════════════════════════
     local flashKeywords = {"flash", "blind", "whiteout", "whitescreen", "flashbang"}
     local function isFlashName(name)
         if type(name) ~= "string" then return false end
@@ -711,9 +679,7 @@ function Jailbird.Init(ctx)
         end
     end)
 
-    -- ═══════════════════════════════════════════════
     -- ANTI-VOTEKICK
-    -- ═══════════════════════════════════════════════
     local vkKeywords = {"votekick", "voting", "vote_kick", "kickvote"}
     local function blockVoteKickGui(child)
         if not child then return false end
@@ -734,9 +700,7 @@ function Jailbird.Init(ctx)
         end
     end)
 
-    -- ═══════════════════════════════════════════════
     -- DAMAGE INDICATOR
-    -- ═══════════════════════════════════════════════
     local dmgArrow = Drawing.new("Triangle")
     dmgArrow.Filled = true
     dmgArrow.Color = Color3.fromRGB(255, 40, 40)
@@ -783,9 +747,7 @@ function Jailbird.Init(ctx)
         dmgArrow.Visible = true
     end)
 
-    -- ═══════════════════════════════════════════════
     -- GRENADE ESP
-    -- ═══════════════════════════════════════════════
     local grenadeKeywords = {"grenade", "frag", "flashbang", "smoke", "molotov", "impact", "sticky", "decoy"}
     local grenadeDrawings = {}
 
@@ -848,9 +810,7 @@ function Jailbird.Init(ctx)
         end)
     end)
 
-    -- ═══════════════════════════════════════════════
     -- ESP
-    -- ═══════════════════════════════════════════════
     local ESP = {data = {}}
 
     local function destroyESPData(d)
@@ -1011,9 +971,7 @@ function Jailbird.Init(ctx)
     end)
     Players.PlayerRemoving:Connect(function(p) removeESP(p) end)
 
-    -- ═══════════════════════════════════════════════
     -- SPEED
-    -- ═══════════════════════════════════════════════
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.speed then return end
         local char = LocalPlayer.Character
@@ -1023,9 +981,7 @@ function Jailbird.Init(ctx)
         end
     end)
 
-    -- ═══════════════════════════════════════════════
     -- AIR JUMP
-    -- ═══════════════════════════════════════════════
     local airJumpConn = nil
     local AIR_JUMP_POWER = 55
 
@@ -1047,9 +1003,7 @@ function Jailbird.Init(ctx)
         if airJumpConn then airJumpConn:Disconnect(); airJumpConn = nil end
     end
 
-    -- ═══════════════════════════════════════════════
     -- FULLBRIGHT originais
-    -- ═══════════════════════════════════════════════
     local origBrightness     = Lighting.Brightness
     local origAmbient        = Lighting.Ambient
     local origOutdoorAmbient = Lighting.OutdoorAmbient
@@ -1062,9 +1016,7 @@ function Jailbird.Init(ctx)
         end
     end
 
-    -- ═══════════════════════════════════════════════
-    -- OPTIMIZATIONS (cache + batch)
-    -- ═══════════════════════════════════════════════
+    -- OPTIMIZATIONS
     local optBackup = {
         fogEnd = Lighting.FogEnd, fogStart = Lighting.FogStart,
         qualityLevel = nil, particles = {},
@@ -1257,9 +1209,7 @@ function Jailbird.Init(ctx)
         end
     end
 
-    -- ═══════════════════════════════════════════════
     -- CONFIG SYSTEM
-    -- ═══════════════════════════════════════════════
     local BASE_FOLDER   = "InfiniteZen_Configs"
     local CONFIG_FOLDER = BASE_FOLDER .. "/Jailbird"
     local AUTOLOAD_FILE = "InfiniteZen_Jailbird_Autoload.txt"
@@ -1310,7 +1260,7 @@ function Jailbird.Init(ctx)
     local function loadConfigNamed(name)
         local ok, content = pcall(function() return readfile(getConfigPath(name)) end)
         if not ok or not content then
-            if Window then Window:Notify("⚠️", T("config.empty"), 4, "error") end
+            if Window then Window:Notify("⚠️", T("config.empty", "No configs saved yet."), 4, "error") end
             return false
         end
         local success, data = pcall(function() return HttpService:JSONDecode(content) end)
@@ -1369,9 +1319,7 @@ function Jailbird.Init(ctx)
         return nil
     end
 
-    -- ═══════════════════════════════════════════════
     -- BUILD UI
-    -- ═══════════════════════════════════════════════
     local function buildUI()
         Window = UI:CreateWindow({
             Title = "INFINITE ZEN",
@@ -1380,52 +1328,52 @@ function Jailbird.Init(ctx)
         })
         Elements = {}
 
-        local CombatTab = Window:CreateTab(T("tab.combat"), "⚔️")
-        CombatTab:CreateSection(T("section.aim"))
+        local CombatTab = Window:CreateTab(T("tab.combat", "Combat"), "⚔️")
+        CombatTab:CreateSection(T("section.aim", "Aim"))
         reg("silentHeadshot", CombatTab:CreateToggle({
-            Name = T("silent.name"), Description = T("silent.desc"),
+            Name = T("silent.name", "Silent Aim"), Description = T("silent.desc", "Auto-lock aim when holding click"),
             Icon = "🎯", Default = false,
             Callback = function(v) State.silentHeadshot = v end,
         }))
         reg("silentFov", CombatTab:CreateSlider({
-            Name = T("silentfov.name"), Description = T("silentfov.desc"),
+            Name = T("silentfov.name", "Silent FOV"), Description = T("silentfov.desc", "Field of view radius"),
             Icon = "📐", Min = 30, Max = 300, Default = 120,
             Callback = function(v) State.silentFov = v end,
         }))
         reg("aimbot", CombatTab:CreateToggle({
-            Name = T("aimbot.name"), Description = T("aimbot.desc"),
+            Name = T("aimbot.name", "Aimbot"), Description = T("aimbot.desc", "Camera lock on closest enemy"),
             Icon = "🤖", Default = false,
             Callback = function(v) State.aimbot = v end,
         }))
         reg("aimbotFov", CombatTab:CreateSlider({
-            Name = T("aimbotfov.name"), Description = T("aimbotfov.desc"),
+            Name = T("aimbotfov.name", "Aimbot FOV"), Description = T("aimbotfov.desc", "Field of view radius"),
             Icon = "📐", Min = 30, Max = 300, Default = 100,
             Callback = function(v) State.aimbotFov = v end,
         }))
         reg("aimbotWallCheck", CombatTab:CreateToggle({
-            Name = T("aimbotwall.name"), Description = T("aimbotwall.desc"),
+            Name = T("aimbotwall.name", "Wall Check"), Description = T("aimbotwall.desc", "Only aim if visible"),
             Icon = "🧱", Default = true,
             Callback = function(v) State.aimbotWallCheck = v end,
         }))
         reg("triggerbot", CombatTab:CreateToggle({
-            Name = T("triggerbot.name"), Description = T("triggerbot.desc"),
+            Name = T("triggerbot.name", "Triggerbot"), Description = T("triggerbot.desc", "Auto-fire on crosshair"),
             Icon = "🎯", Default = false,
             Callback = function(v) State.triggerbot = v end,
         }))
         reg("triggerbotDelay", CombatTab:CreateSlider({
-            Name = T("triggerbotdelay.name"), Description = T("triggerbotdelay.desc"),
+            Name = T("triggerbotdelay.name", "Triggerbot Delay"), Description = T("triggerbotdelay.desc", "Reaction time (ms)"),
             Icon = "⏱️", Min = 1, Max = 100, Default = 5,
             Callback = function(v) State.triggerbotDelay = v end,
         }))
-        CombatTab:CreateSection(T("section.melee"))
+        CombatTab:CreateSection(T("section.melee", "Melee"))
         reg("backstab", CombatTab:CreateToggle({
-            Name = T("backstab.name"), Description = T("backstab.desc"),
+            Name = T("backstab.name", "Backstab"), Description = T("backstab.desc", "Teleport behind enemy (keybind: E)"),
             Icon = "🗡️", Default = false,
             Callback = function(v) State.backstab = v end,
         }))
-        CombatTab:CreateSection(T("section.hitbox"))
+        CombatTab:CreateSection(T("section.hitbox", "Hitbox"))
         reg("headExpander", CombatTab:CreateToggle({
-            Name = T("headexp.name"), Description = T("headexp.desc"),
+            Name = T("headexp.name", "Head Expander"), Description = T("headexp.desc", "Enlarge enemy head hitbox"),
             Icon = "🔴", Default = false,
             Callback = function(v)
                 State.headExpander = v
@@ -1433,72 +1381,72 @@ function Jailbird.Init(ctx)
             end,
         }))
         reg("headExpanderSize", CombatTab:CreateSlider({
-            Name = T("headsize.name"), Description = T("headsize.desc"),
-            Icon = "📏", Min = 1, Max = 8, Default = 3,
+            Name = T("headsize.name", "Head Size"), Description = T("headsize.desc", "Multiplier for head size"),
+            Icon = "📏", Min = 1, Max = 18, Default = 3,  -- ✅ 8 → 18
             Callback = function(v) State.headExpanderSize = v end,
         }))
 
-        local WeaponTab = Window:CreateTab(T("tab.weapon"), "🔫")
-        WeaponTab:CreateSection(T("section.recoil"))
+        local WeaponTab = Window:CreateTab(T("tab.weapon", "Weapon"), "🔫")
+        WeaponTab:CreateSection(T("section.recoil", "Recoil"))
         reg("noRecoil", WeaponTab:CreateToggle({
-            Name = T("norecoil.name"), Description = T("norecoil.desc"),
+            Name = T("norecoil.name", "No Recoil"), Description = T("norecoil.desc", "Remove all weapon recoil"),
             Icon = "🎯", Default = false,
             Callback = function(v) State.noRecoil = v end,
         }))
         reg("noSpread", WeaponTab:CreateToggle({
-            Name = T("nospread.name"), Description = T("nospread.desc"),
+            Name = T("nospread.name", "No Spread"), Description = T("nospread.desc", "Remove bullet dispersion"),
             Icon = "🎯", Default = false,
             Callback = function(v) State.noSpread = v end,
         }))
-        WeaponTab:CreateSection(T("section.firerate"))
+        WeaponTab:CreateSection(T("section.firerate", "Fire Rate"))
         reg("rapidFire", WeaponTab:CreateToggle({
-            Name = T("rapidfire.name"), Description = T("rapidfire.desc"),
+            Name = T("rapidfire.name", "Rapid Fire"), Description = T("rapidfire.desc", "Reduce fire delay to minimum"),
             Icon = "⚡", Default = false,
             Callback = function(v) State.rapidFire = v end,
         }))
         reg("fastReload", WeaponTab:CreateToggle({
-            Name = T("fastreload.name"), Description = T("fastreload.desc"),
+            Name = T("fastreload.name", "Fast Reload"), Description = T("fastreload.desc", "Faster reload animation"),
             Icon = "🔄", Default = false,
             Callback = function(v) State.fastReload = v end,
         }))
         reg("instaReload", WeaponTab:CreateToggle({
-            Name = T("instareload.name"), Description = T("instareload.desc"),
+            Name = T("instareload.name", "Insta Reload"), Description = T("instareload.desc", "Instant reload"),
             Icon = "💨", Default = false,
             Callback = function(v) State.instaReload = v end,
         }))
-        WeaponTab:CreateSection(T("section.ammo"))
+        WeaponTab:CreateSection(T("section.ammo", "Ammo"))
         reg("infiniteAmmo", WeaponTab:CreateToggle({
-            Name = T("infiniteammo.name"), Description = T("infiniteammo.desc"),
+            Name = T("infiniteammo.name", "Infinite Ammo"), Description = T("infiniteammo.desc", "Unlimited ammunition"),
             Icon = "🔋", Default = false,
             Callback = function(v) State.infiniteAmmo = v end,
         }))
-        WeaponTab:CreateSection(T("section.auto"))
+        WeaponTab:CreateSection(T("section.auto", "Auto"))
         reg("autoShoot", WeaponTab:CreateToggle({
-            Name = T("autoshot.name"), Description = T("autoshot.desc"),
+            Name = T("autoshot.name", "Auto Shoot"), Description = T("autoshot.desc", "Auto-fire on visible enemies"),
             Icon = "🔥", Default = false,
             Callback = function(v) State.autoShoot = v end,
         }))
         reg("autoShootFov", WeaponTab:CreateSlider({
-            Name = T("autoshotfov.name"), Description = T("autoshotfov.desc"),
+            Name = T("autoshotfov.name", "Auto Shoot FOV"), Description = T("autoshotfov.desc", "Radius for auto-fire"),
             Icon = "📐", Min = 30, Max = 300, Default = 100,
             Callback = function(v) State.autoShootFov = v end,
         }))
 
-        local MoveTab = Window:CreateTab(T("tab.movement"), "🏃")
-        MoveTab:CreateSection(T("section.speed"))
+        local MoveTab = Window:CreateTab(T("tab.movement", "Movement"), "🏃")
+        MoveTab:CreateSection(T("section.speed", "Speed"))
         reg("speed", MoveTab:CreateToggle({
-            Name = T("speed.name"), Description = T("speed.desc"),
+            Name = T("speed.name", "Speed"), Description = T("speed.desc", "Custom walkspeed"),
             Icon = "⚡", Default = false,
             Callback = function(v) State.speed = v end,
         }))
         reg("speedValue", MoveTab:CreateSlider({
-            Name = T("speedvalue.name"), Description = T("speedvalue.desc"),
+            Name = T("speedvalue.name", "Speed Value"), Description = T("speedvalue.desc", "WalkSpeed value"),
             Icon = "📏", Min = 12, Max = 300, Default = 50,
             Callback = function(v) State.speedValue = v end,
         }))
-        MoveTab:CreateSection(T("section.jump"))
+        MoveTab:CreateSection(T("section.jump", "Jump"))
         reg("airJump", MoveTab:CreateToggle({
-            Name = T("airjump.name"), Description = T("airjump.desc"),
+            Name = T("airjump.name", "Infinite Jump"), Description = T("airjump.desc", "Jump mid-air infinitely"),
             Icon = "🦘", Default = false,
             Callback = function(v)
                 State.airJump = v
@@ -1506,12 +1454,12 @@ function Jailbird.Init(ctx)
             end,
         }))
         reg("autoBhop", MoveTab:CreateToggle({
-            Name = T("autobhop.name"), Description = T("autobhop.desc"),
+            Name = T("autobhop.name", "Auto Bhop"), Description = T("autobhop.desc", "Auto-jump while holding space"),
             Icon = "🏃", Default = false,
             Callback = function(v) State.autoBhop = v end,
         }))
         reg("fullbright", MoveTab:CreateToggle({
-            Name = T("fullbright.name"), Description = T("fullbright.desc"),
+            Name = T("fullbright.name", "Fullbright"), Description = T("fullbright.desc", "Map always bright"),
             Icon = "💡", Default = false,
             Callback = function(v)
                 State.fullbright = v
@@ -1519,10 +1467,10 @@ function Jailbird.Init(ctx)
             end,
         }))
 
-        local VisualsTab = Window:CreateTab(T("tab.visuals"), "👁️")
-        VisualsTab:CreateSection(T("section.esp"))
+        local VisualsTab = Window:CreateTab(T("tab.visuals", "Visuals"), "👁️")
+        VisualsTab:CreateSection(T("section.esp", "ESP"))
         reg("esp", VisualsTab:CreateToggle({
-            Name = T("esp.name"), Description = T("esp.desc"),
+            Name = T("esp.name", "Player ESP"), Description = T("esp.desc", "Highlight enemies through walls"),
             Icon = "👤", Default = false,
             Callback = function(v)
                 State.esp = v
@@ -1534,55 +1482,55 @@ function Jailbird.Init(ctx)
             end,
         }))
         reg("espMaxDistance", VisualsTab:CreateSlider({
-            Name = T("espdist.name"), Description = T("espdist.desc"),
+            Name = T("espdist.name", "Max Distance"), Description = T("espdist.desc", "ESP render range"),
             Icon = "📐", Min = 100, Max = 5000, Default = 500,
             Callback = function(v) State.espMaxDistance = v end,
         }))
         reg("espWeapon", VisualsTab:CreateToggle({
-            Name = T("espweapon.name"), Description = T("espweapon.desc"),
+            Name = T("espweapon.name", "Weapon ESP"), Description = T("espweapon.desc", "Show enemy weapons"),
             Icon = "🔫", Default = true,
             Callback = function(v) State.espWeapon = v end,
         }))
         reg("espArmor", VisualsTab:CreateToggle({
-            Name = T("jb.esp.armor"), Description = T("jb.esp.armor.desc"),
+            Name = T("jb.esp.armor", "Armor ESP"), Description = T("jb.esp.armor.desc", "Show enemy armor value"),
             Icon = "🛡️", Default = true,
             Callback = function(v) State.espArmor = v end,
         }))
         reg("espGrenades", VisualsTab:CreateToggle({
-            Name = T("jb.esp.grenades"), Description = T("jb.esp.grenades.desc"),
+            Name = T("jb.esp.grenades", "Grenade ESP"), Description = T("jb.esp.grenades.desc", "Show nearby grenades"),
             Icon = "💣", Default = false,
             Callback = function(v) State.espGrenades = v end,
         }))
-        VisualsTab:CreateSection(T("section.utility"))
+        VisualsTab:CreateSection(T("section.utility", "Utility"))
         reg("damageIndicator", VisualsTab:CreateToggle({
-            Name = T("damageindicator.name"), Description = T("damageindicator.desc"),
+            Name = T("damageindicator.name", "Damage Indicator"), Description = T("damageindicator.desc", "Red arrow when hit"),
             Icon = "🩸", Default = false,
             Callback = function(v) State.damageIndicator = v end,
         }))
-        VisualsTab:CreateSection(T("section.environment"))
+        VisualsTab:CreateSection(T("section.environment", "Environment"))
         reg("lowGraphics", VisualsTab:CreateToggle({
-            Name = T("lowgfx.name"), Description = T("lowgfx.desc"),
+            Name = T("lowgfx.name", "Low Graphics"), Description = T("lowgfx.desc", "Reduce rendering quality for FPS"),
             Icon = "📉", Default = false,
             Callback = function(v) State.lowGraphics = v; applyLowGraphics(v) end,
         }))
         reg("noShadows", VisualsTab:CreateToggle({
-            Name = T("noshadow.name"), Description = T("noshadow.desc"),
+            Name = T("noshadow.name", "No Shadows"), Description = T("noshadow.desc", "Remove all shadows"),
             Icon = "🌑", Default = false,
             Callback = function(v) State.noShadows = v; applyNoShadows(v) end,
         }))
         reg("noFog", VisualsTab:CreateToggle({
-            Name = T("nofog.name"), Description = T("nofog.desc"),
+            Name = T("nofog.name", "No Fog"), Description = T("nofog.desc", "Remove fog and atmosphere"),
             Icon = "🌫️", Default = false,
             Callback = function(v) State.noFog = v; applyNoFog(v) end,
         }))
         reg("noParticles", VisualsTab:CreateToggle({
-            Name = T("nopart.name"), Description = T("nopart.desc"),
+            Name = T("nopart.name", "No Particles"), Description = T("nopart.desc", "Remove all particle effects"),
             Icon = "✨", Default = false,
             Callback = function(v) State.noParticles = v; applyNoParticles(v) end,
         }))
 
-        local SettingsTab = Window:CreateTab(T("tab.settings"), "⚙️")
-        SettingsTab:CreateSection(T("section.create_config"))
+        local SettingsTab = Window:CreateTab(T("tab.settings", "Settings"), "⚙️")
+        SettingsTab:CreateSection(T("section.create_config", "Create Config"))
 
         local configInput = Instance.new("Frame", SettingsTab.container)
         configInput.Size = UDim2.new(1, 0, 0, 40)
@@ -1598,13 +1546,13 @@ function Jailbird.Init(ctx)
         cInput.Font = Enum.Font.GothamMedium
         cInput.TextSize = 12
         cInput.TextColor3 = Color3.fromRGB(240, 240, 245)
-        cInput.PlaceholderText = T("config.placeholder")
+        cInput.PlaceholderText = T("config.placeholder", "Config name + Enter to save...")
         cInput.PlaceholderColor3 = Color3.fromRGB(90, 90, 105)
         cInput.Text = ""
         cInput.ClearTextOnFocus = false
         cInput.TextXAlignment = Enum.TextXAlignment.Left
 
-        SettingsTab:CreateSection(T("section.saved_configs"))
+        SettingsTab:CreateSection(T("section.saved_configs", "Saved Configs"))
 
         local configListFrame = Instance.new("Frame", SettingsTab.container)
         configListFrame.Size = UDim2.new(1, 0, 0, 160)
@@ -1639,7 +1587,7 @@ function Jailbird.Init(ctx)
                 empty.Font = Enum.Font.Gotham
                 empty.TextSize = 11
                 empty.TextColor3 = Color3.fromRGB(90, 90, 105)
-                empty.Text = T("config.empty")
+                empty.Text = T("config.empty", "No configs saved yet.")
                 return
             end
             for _, name in ipairs(configs) do
@@ -1713,54 +1661,54 @@ function Jailbird.Init(ctx)
         end)
 
         SettingsTab:CreateButton({
-            Name = T("config.refresh"),
+            Name = T("config.refresh", "🔄 Refresh List"),
             Callback = function() refreshConfigList() end,
         })
         SettingsTab:CreateButton({
-            Name = T("config.disable_autoload"),
+            Name = T("config.disable_autoload", "🚫 Disable Autoload"),
             Callback = function() clearAutoload(); refreshConfigList() end,
         })
         refreshConfigList()
 
-        SettingsTab:CreateSection(T("section.optimizations"))
+        SettingsTab:CreateSection(T("section.optimizations", "Optimizations"))
         SettingsTab:CreateButton({
-            Name = T("config.fps_boost"),
+            Name = T("config.fps_boost", "⚡ Max FPS Boost"),
             Callback = function()
                 State.lowGraphics = true; applyLowGraphics(true)
                 State.noShadows = true; applyNoShadows(true)
                 State.noFog = true; applyNoFog(true)
                 State.noParticles = true; applyNoParticles(true)
                 syncUIFromState()
-                Window:Notify("⚡", T("config.fps_boost"), 3, "success")
+                Window:Notify("⚡", T("config.fps_boost", "Max FPS Boost"), 3, "success")
             end,
         })
         SettingsTab:CreateButton({
-            Name = T("config.reset_opt"),
+            Name = T("config.reset_opt", "🔄 Reset Optimizations"),
             Callback = function()
                 State.lowGraphics = false; applyLowGraphics(false)
                 State.noShadows = false; applyNoShadows(false)
                 State.noFog = false; applyNoFog(false)
                 State.noParticles = false; applyNoParticles(false)
                 syncUIFromState()
-                Window:Notify("🔄", T("config.reset_opt"), 3, "info")
+                Window:Notify("🔄", T("config.reset_opt", "Reset Optimizations"), 3, "info")
             end,
         })
 
-        SettingsTab:CreateSection(T("section.security"))
+        SettingsTab:CreateSection(T("section.security", "Security"))
         reg("antiFlash", SettingsTab:CreateToggle({
-            Name = T("antiflash.name"), Description = T("antiflash.desc"),
+            Name = T("antiflash.name", "Anti-Flash"), Description = T("antiflash.desc", "Blocks flashbang effect"),
             Icon = "🛡️", Default = false,
             Callback = function(v) State.antiFlash = v end,
         }))
         reg("antiVK", SettingsTab:CreateToggle({
-            Name = T("antivotekick.name"), Description = T("antivotekick.desc"),
+            Name = T("antivotekick.name", "Anti-VoteKick"), Description = T("antivotekick.desc", "Blocks votekick attempts"),
             Icon = "🛡️", Default = false,
             Callback = function(v) State.antiVK = v end,
         }))
 
-        SettingsTab:CreateSection(T("section.danger"))
+        SettingsTab:CreateSection(T("section.danger", "Danger Zone"))
         SettingsTab:CreateButton({
-            Name = T("config.unload"),
+            Name = T("config.unload", "Unload Script"),
             Danger = true,
             Callback = function()
                 UNLOADED = true
@@ -1777,14 +1725,14 @@ function Jailbird.Init(ctx)
                 if dmgArrow then dmgArrow:Remove() end
                 pcall(function() RunService:UnbindFromRenderStep("IZ_JB_Silent") end)
                 pcall(function() RunService:UnbindFromRenderStep("IZ_JB_Aimbot") end)
-                if Window then Window:Notify("Unload", T("config.unload"), 2, "warning") end
+                if Window then Window:Notify("Unload", T("config.unload", "Unload Script"), 2, "warning") end
                 task.wait(0.3)
                 if Window then Window:Destroy() end
             end,
         })
 
-        local LanguageTab = Window:CreateTab(T("tab.language"), "🌍")
-        LanguageTab:CreateSection(T("section.language_select"))
+        local LanguageTab = Window:CreateTab(T("tab.language", "Language"), "🌍")
+        LanguageTab:CreateSection(T("section.language_select", "Language"))
 
         local available = Language.getAvailable()
         local currentCode = Language.getCurrent()
@@ -1794,10 +1742,10 @@ function Jailbird.Init(ctx)
         end
 
         LanguageTab:CreateLabel(
-            T("lang.current") .. (currentInfo and (currentInfo.flag .. " " .. currentInfo.displayName) or currentCode),
+            T("lang.current", "🌐 Current: ") .. (currentInfo and (currentInfo.flag .. " " .. currentInfo.displayName) or currentCode),
             Color3.fromRGB(230, 40, 40)
         )
-        LanguageTab:CreateLabel(T("lang.hint"), Color3.fromRGB(140, 140, 155))
+        LanguageTab:CreateLabel(T("lang.hint", "Choose the hub language"), Color3.fromRGB(140, 140, 155))
 
         local opts = {}
         local defaultIdx = 1
@@ -1807,7 +1755,7 @@ function Jailbird.Init(ctx)
         end
 
         LanguageTab:CreateDropdown({
-            Name = T("tab.language"), Description = T("lang.hint"),
+            Name = T("tab.language", "Language"), Description = T("lang.hint", "Choose the hub language"),
             Icon = "🌍", Options = opts, Default = defaultIdx,
             Callback = function(_, idx)
                 local info = available[idx]
@@ -1816,17 +1764,17 @@ function Jailbird.Init(ctx)
             end,
         })
 
-        LanguageTab:CreateSection(T("section.language_info"))
-        LanguageTab:CreateLabel(T("lang.saved_to") .. " InfiniteZen_Language.txt", Color3.fromRGB(140, 140, 155))
-        LanguageTab:CreateLabel(T("lang.auto_restore"), Color3.fromRGB(90, 90, 105))
+        LanguageTab:CreateSection(T("section.language_info", "Info"))
+        LanguageTab:CreateLabel(T("lang.saved_to", "Language saved to:") .. " InfiniteZen_Language.txt", Color3.fromRGB(140, 140, 155))
+        LanguageTab:CreateLabel(T("lang.auto_restore", "Auto-restored on open."), Color3.fromRGB(90, 90, 105))
 
-        local CreditsTab = Window:CreateTab(T("tab.credits"), "➕")
-        CreditsTab:CreateSection(T("section.founder"))
-        CreditsTab:CreateLabel(T("credits.role"), Color3.fromRGB(255, 50, 50))
-        CreditsTab:CreateSection(T("section.community"))
+        local CreditsTab = Window:CreateTab(T("tab.credits", "Credits"), "➕")
+        CreditsTab:CreateSection(T("section.founder", "Founder & Developer"))
+        CreditsTab:CreateLabel(T("credits.role", "Sr Red"), Color3.fromRGB(255, 50, 50))
+        CreditsTab:CreateSection(T("section.community", "Community"))
         CreditsTab:CreateLabel("discord.gg/ScZfU2mAGm", Color3.fromRGB(88, 101, 242))
         CreditsTab:CreateButton({
-            Name = T("credits.copy_discord"),
+            Name = T("credits.copy_discord", "📋 Copy Discord Link"),
             Callback = function()
                 if setclipboard then
                     setclipboard("https://discord.gg/ScZfU2mAGm")
@@ -1834,14 +1782,12 @@ function Jailbird.Init(ctx)
                 end
             end,
         })
-        CreditsTab:CreateSection(T("section.version"))
+        CreditsTab:CreateSection(T("section.version", "Version"))
         CreditsTab:CreateLabel(FULL_VERSION, Color3.fromRGB(140, 140, 155))
         CreditsTab:CreateLabel("© 2026 Sr Red", Color3.fromRGB(90, 90, 105))
     end
 
-    -- ═══════════════════════════════════════════════
     -- KEYBINDS
-    -- ═══════════════════════════════════════════════
     UserInputService.InputBegan:Connect(function(input, gp)
         if UNLOADED or gp then return end
         if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
@@ -1850,9 +1796,7 @@ function Jailbird.Init(ctx)
         end
     end)
 
-    -- ═══════════════════════════════════════════════
-    -- REBUILD AO TROCAR IDIOMA
-    -- ═══════════════════════════════════════════════
+    -- REBUILD
     local rebuilding = false
     _G.IZ_RefreshLanguage = function()
         if UNLOADED or rebuilding then return end
@@ -1879,8 +1823,13 @@ function Jailbird.Init(ctx)
         end
     end)
 
-    Window:Notify("✅ " .. SHORT_VERSION, "Jailbird loaded successfully", 4, "success")
-    print("[Infinite Zen] ✅ " .. FULL_VERSION .. " carregado!")
+    Window:Notify("✅ " .. SHORT_VERSION, T("loaded", "Jailbird loaded successfully"), 4, "success")
+
+    -- ✅ Mensagens de carregamento bilíngues
+    print("============================================")
+    print("[Infinite Zen] 🇧🇷 " .. FULL_VERSION .. " carregado com sucesso!")
+    print("[Infinite Zen] 🇺🇸 " .. FULL_VERSION .. " loaded successfully!")
+    print("============================================")
 end
 
 return Jailbird

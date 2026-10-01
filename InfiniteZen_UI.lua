@@ -1,30 +1,59 @@
 -- ============================================================
--- INFINITE ZEN - UI LIBRARY v1.1
--- Estilo PHANTOM + Suporte a Tradução
+-- INFINITE ZEN - UI LIBRARY v1.2 🎃 HALLOWEEN EDITION
+-- Estilo PHANTOM + Tema Halloween + Suporte a Tradução
 -- ============================================================
 
 local Library = {}
-Library.Version = "1.1"
+Library.Version = "1.2-halloween"
 
 Library.Theme = {
-    Bg          = Color3.fromRGB(10, 10, 15),
-    Sidebar     = Color3.fromRGB(13, 13, 18),
-    Surface     = Color3.fromRGB(18, 18, 24),
-    Surface2    = Color3.fromRGB(24, 24, 32),
-    Border      = Color3.fromRGB(35, 35, 45),
-    HeaderBg    = Color3.fromRGB(13, 13, 18),
-    Primary     = Color3.fromRGB(230, 40, 40),
-    PrimaryDark = Color3.fromRGB(160, 20, 20),
-    PrimaryGlow = Color3.fromRGB(255, 60, 60),
-    Text        = Color3.fromRGB(240, 240, 245),
-    TextDim     = Color3.fromRGB(140, 140, 155),
-    TextMuted   = Color3.fromRGB(90, 90, 105),
-    Success     = Color3.fromRGB(50, 200, 120),
-    Warning     = Color3.fromRGB(255, 180, 50),
-    Danger      = Color3.fromRGB(230, 40, 40),
+    -- 🎃 Fundo escuro como a noite
+    Bg          = Color3.fromRGB(10, 6, 14),
+    Sidebar     = Color3.fromRGB(14, 8, 18),
+    Surface     = Color3.fromRGB(20, 12, 24),
+    Surface2    = Color3.fromRGB(28, 16, 34),
+    Border      = Color3.fromRGB(60, 30, 80),
+    HeaderBg    = Color3.fromRGB(14, 8, 18),
+
+    -- 🎃 Laranja abóbora (cor principal)
+    Primary     = Color3.fromRGB(255, 108, 20),
+    PrimaryDark = Color3.fromRGB(180, 60, 0),
+    PrimaryGlow = Color3.fromRGB(255, 160, 60),
+
+    -- 👻 Roxo bruxa (accent)
+    Accent      = Color3.fromRGB(155, 60, 220),
+    AccentGlow  = Color3.fromRGB(200, 120, 255),
+
+    -- ☠️ Verde tóxico
+    Toxic       = Color3.fromRGB(120, 255, 90),
+
+    -- Texto
+    Text        = Color3.fromRGB(245, 230, 240),
+    TextDim     = Color3.fromRGB(180, 150, 190),
+    TextMuted   = Color3.fromRGB(120, 90, 140),
+
+    -- Status
+    Success     = Color3.fromRGB(120, 255, 90),
+    Warning     = Color3.fromRGB(255, 190, 50),
+    Danger      = Color3.fromRGB(220, 30, 30),
+
     Font        = Enum.Font.GothamMedium,
     FontBold    = Enum.Font.GothamBold,
     FontBlack   = Enum.Font.GothamBlack,
+}
+
+-- 🎃 Emojis temáticos pra decoração
+Library.Halloween = {
+    Pumpkin = "🎃",
+    Ghost   = "👻",
+    Bat     = "🦇",
+    Skull   = "☠️",
+    Witch   = "🧙",
+    Spider  = "🕷️",
+    Web     = "🕸️",
+    Candle  = "🕯️",
+    Coffin  = "⚰️",
+    Candy   = "🍬",
 }
 
 local TweenService = game:GetService("TweenService")
@@ -59,7 +88,7 @@ end
 
 -- ═══ SISTEMA DE TRADUÇÃO ═══
 Library._translator = nil
-Library._translatable = setmetatable({}, {__mode = "k"}) -- weak keys
+Library._translatable = setmetatable({}, {__mode = "k"})
 
 local function registerTranslatable(el, meta)
     if el then
@@ -67,13 +96,11 @@ local function registerTranslatable(el, meta)
     end
 end
 
--- Função global de tradução (definida pelo consumidor da lib)
 function Library:SetTranslator(fn)
     Library._translator = fn
     self:RefreshTranslations()
 end
 
--- Reaplica as traduções em TODOS os elementos registrados
 function Library:RefreshTranslations()
     if not Library._translator then return end
     for el, meta in pairs(Library._translatable) do
@@ -115,7 +142,7 @@ local function Notify(GUI, title, content, duration, kind)
     kind = kind or "info"
     local colors = {
         info = Library.Theme.Primary,
-        success = Library.Theme.Success,
+        success = Library.Theme.Toxic,
         warning = Library.Theme.Warning,
         error = Library.Theme.Danger,
     }
@@ -139,8 +166,19 @@ local function Notify(GUI, title, content, duration, kind)
     bar.BorderSizePixel = 0
     corner(bar, 2)
 
+    -- 🎃 Abóbora decorativa
+    local deco = Instance.new("TextLabel", n)
+    deco.Size = UDim2.new(0, 20, 1, 0)
+    deco.Position = UDim2.new(1, -28, 0, 0)
+    deco.BackgroundTransparency = 1
+    deco.Font = Enum.Font.GothamBold
+    deco.Text = Library.Halloween.Pumpkin
+    deco.TextColor3 = accent
+    deco.TextSize = 16
+    deco.TextTransparency = 0.4
+
     local titleL = Instance.new("TextLabel", n)
-    titleL.Size = UDim2.new(1, -30, 0, 22)
+    titleL.Size = UDim2.new(1, -50, 0, 22)
     titleL.Position = UDim2.new(0, 20, 0, 10)
     titleL.BackgroundTransparency = 1
     titleL.Font = Library.Theme.FontBold
@@ -150,7 +188,7 @@ local function Notify(GUI, title, content, duration, kind)
     titleL.Text = title
 
     local contentL = Instance.new("TextLabel", n)
-    contentL.Size = UDim2.new(1, -30, 0, 30)
+    contentL.Size = UDim2.new(1, -50, 0, 30)
     contentL.Position = UDim2.new(0, 20, 0, 32)
     contentL.BackgroundTransparency = 1
     contentL.Font = Library.Theme.Font
@@ -184,6 +222,7 @@ function Library:CreateWindow(config)
     config = config or {}
     local Window = {}
     local T = Library.Theme
+    local H = Library.Halloween
 
     local title = config.Title or "INFINITE ZEN"
     local subtitle = config.Subtitle or "v1.0"
@@ -211,6 +250,16 @@ function Library:CreateWindow(config)
     local mainStroke = stroke(Main, T.Primary, 1.5)
     mainStroke.Transparency = 0.3
 
+    -- 🎃 Glow roxo por trás do main (efeito assombrado)
+    local glow = Instance.new("Frame", Main)
+    glow.Size = UDim2.new(1, 20, 1, 20)
+    glow.Position = UDim2.new(0, -10, 0, -10)
+    glow.BackgroundColor3 = T.Accent
+    glow.BackgroundTransparency = 0.85
+    glow.BorderSizePixel = 0
+    glow.ZIndex = 0
+    corner(glow, 16)
+
     local scale = Instance.new("UIScale", Main)
     scale.Scale = isMobile and 0.8 or 1
 
@@ -226,22 +275,33 @@ function Library:CreateWindow(config)
     headerBar.BackgroundColor3 = T.Border
     headerBar.BorderSizePixel = 0
 
+    -- 🎃 Logo com abóbora
     local Logo = Instance.new("TextLabel", Header)
     Logo.Size = UDim2.new(0, 200, 0, 24)
-    Logo.Position = UDim2.new(0, 20, 0, 8)
+    Logo.Position = UDim2.new(0, 44, 0, 8)
     Logo.BackgroundTransparency = 1
     Logo.Font = T.FontBlack
     Logo.Text = title:upper()
-    Logo.TextColor3 = T.Text
+    Logo.TextColor3 = T.Primary
     Logo.TextSize = 18
     Logo.TextXAlignment = Enum.TextXAlignment.Left
 
+    -- 🎃 Emoji abóbora grande à esquerda
+    local LogoIcon = Instance.new("TextLabel", Header)
+    LogoIcon.Size = UDim2.new(0, 32, 0, 32)
+    LogoIcon.Position = UDim2.new(0, 12, 0, 10)
+    LogoIcon.BackgroundTransparency = 1
+    LogoIcon.Font = T.FontBlack
+    LogoIcon.Text = H.Pumpkin
+    LogoIcon.TextSize = 22
+    LogoIcon.TextXAlignment = Enum.TextXAlignment.Left
+
     local Sub = Instance.new("TextLabel", Header)
     Sub.Size = UDim2.new(0, 200, 0, 16)
-    Sub.Position = UDim2.new(0, 20, 0, 28)
+    Sub.Position = UDim2.new(0, 44, 0, 28)
     Sub.BackgroundTransparency = 1
     Sub.Font = T.Font
-    Sub.Text = subtitle
+    Sub.Text = "🦇 " .. subtitle
     Sub.TextColor3 = T.TextMuted
     Sub.TextSize = 11
     Sub.TextXAlignment = Enum.TextXAlignment.Left
@@ -270,7 +330,7 @@ function Library:CreateWindow(config)
     SearchBox.Font = T.Font
     SearchBox.TextSize = 12
     SearchBox.TextColor3 = T.Text
-    SearchBox.PlaceholderText = "Search features..."
+    SearchBox.PlaceholderText = "Procurar features... 👻"
     SearchBox.PlaceholderColor3 = T.TextMuted
     SearchBox.Text = ""
     SearchBox.TextXAlignment = Enum.TextXAlignment.Left
@@ -305,6 +365,7 @@ function Library:CreateWindow(config)
     Sidebar.BackgroundColor3 = T.Sidebar
     Sidebar.BorderSizePixel = 0
     corner(Sidebar, 10)
+    stroke(Sidebar, T.Border, 1)
 
     local SidebarList = Instance.new("UIListLayout", Sidebar)
     SidebarList.Padding = UDim.new(0, 4)
@@ -324,7 +385,7 @@ function Library:CreateWindow(config)
         ReopenBtn.Size = UDim2.new(0, 55, 0, 55)
         ReopenBtn.Position = UDim2.new(0, 20, 0, 100)
         ReopenBtn.BackgroundColor3 = T.Primary
-        ReopenBtn.Text = "∞"
+        ReopenBtn.Text = H.Pumpkin
         ReopenBtn.Font = T.FontBlack
         ReopenBtn.TextSize = 24
         ReopenBtn.TextColor3 = T.Text
@@ -418,7 +479,7 @@ function Library:CreateWindow(config)
         btn.Size = UDim2.new(0, 48, 0, 48)
         btn.BackgroundColor3 = T.Surface
         btn.BackgroundTransparency = 1
-        btn.Text = icon or "●"
+        btn.Text = icon or H.Pumpkin
         btn.Font = T.FontBold
         btn.TextSize = 20
         btn.TextColor3 = T.TextDim
@@ -469,7 +530,6 @@ function Library:CreateWindow(config)
         table.insert(tabs, tab)
         if #tabs == 1 then task.defer(activate) end
 
-        -- Retorna row + titleLbl + descLbl pra podermos registrar tradução
         local function createRow(cfg)
             local row = Instance.new("Frame", container)
             row.Size = UDim2.new(1, 0, 0, 58)
@@ -483,10 +543,12 @@ function Library:CreateWindow(config)
             row.MouseEnter:Connect(function()
                 TweenService:Create(row, TweenInfo.new(0.15), { BackgroundColor3 = T.Surface2 }):Play()
                 rs.Transparency = 0.3
+                rs.Color = T.Accent
             end)
             row.MouseLeave:Connect(function()
                 TweenService:Create(row, TweenInfo.new(0.15), { BackgroundColor3 = T.Surface }):Play()
                 rs.Transparency = 0.5
+                rs.Color = T.Border
             end)
 
             local iconFrame = Instance.new("Frame", row)
@@ -501,7 +563,7 @@ function Library:CreateWindow(config)
             iconLbl.Size = UDim2.new(1, 0, 1, 0)
             iconLbl.BackgroundTransparency = 1
             iconLbl.Font = T.FontBold
-            iconLbl.Text = cfg.Icon or "●"
+            iconLbl.Text = cfg.Icon or H.Pumpkin
             iconLbl.TextColor3 = T.Primary
             iconLbl.TextSize = 14
 
@@ -539,13 +601,25 @@ function Library:CreateWindow(config)
             sec.Size = UDim2.new(1, 0, 0, 24)
             sec.BackgroundTransparency = 1
             sec.LayoutOrder = #container:GetChildren()
+
+            -- 🎃 Decoração: emoji + linha
+            local deco = Instance.new("TextLabel", sec)
+            deco.Size = UDim2.new(0, 20, 1, 0)
+            deco.Position = UDim2.new(0, 4, 0, 0)
+            deco.BackgroundTransparency = 1
+            deco.Font = T.FontBlack
+            deco.Text = H.Spider
+            deco.TextColor3 = T.Primary
+            deco.TextSize = 12
+            deco.TextXAlignment = Enum.TextXAlignment.Left
+
             local lbl = Instance.new("TextLabel", sec)
-            lbl.Size = UDim2.new(1, -8, 1, 0)
-            lbl.Position = UDim2.new(0, 4, 0, 0)
+            lbl.Size = UDim2.new(1, -28, 1, 0)
+            lbl.Position = UDim2.new(0, 26, 0, 0)
             lbl.BackgroundTransparency = 1
             lbl.Font = T.FontBold
             lbl.Text = name:upper()
-            lbl.TextColor3 = T.TextMuted
+            lbl.TextColor3 = T.Accent
             lbl.TextSize = 11
             lbl.TextXAlignment = Enum.TextXAlignment.Left
 
@@ -773,7 +847,7 @@ function Library:CreateWindow(config)
                 ob.MouseEnter:Connect(function()
                     ob.BackgroundTransparency = 0
                     ob.BackgroundColor3 = T.Surface2
-                    ob.TextColor3 = T.Text
+                    ob.TextColor3 = T.Primary
                 end)
                 ob.MouseLeave:Connect(function()
                     ob.BackgroundTransparency = 1
@@ -823,7 +897,7 @@ function Library:CreateWindow(config)
             local row = Instance.new("TextButton", container)
             row.Size = UDim2.new(1, 0, 0, 40)
             row.BackgroundColor3 = cfg.Danger and T.Danger or T.Primary
-            row.Text = cfg.Name or "Button"
+            row.Text = (cfg.Danger and H.Skull .. "  " or H.Pumpkin .. "  ") .. (cfg.Name or "Button")
             row.Font = T.FontBold
             row.TextSize = 13
             row.TextColor3 = T.Text
