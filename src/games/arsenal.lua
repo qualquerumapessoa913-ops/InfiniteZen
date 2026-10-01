@@ -196,7 +196,7 @@ function Arsenal.Init(ctx)
         end
     end)
 
--- AIMBOT (v1.6.1 — sem Scriptable, câmera natural)
+    -- AIMBOT (v1.4 — câmera natural, SEM forceScriptableCamera)
     RunService.RenderStepped:Connect(function()
         if UNLOADED or not State.aimbot then return end
         local mouse = getMouseViewportPos()
@@ -216,7 +216,7 @@ function Arsenal.Init(ctx)
         if closest and closest.Character then
             local head = closest.Character:FindFirstChild("Head")
             if head and head:IsA("BasePart") then
-                -- ✅ SEM forceScriptableCamera — câmera natural
+                -- ✅ v1.4 style: só seta CFrame, deixa o Arsenal sobrescrever natural
                 Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position)
             end
         end

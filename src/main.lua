@@ -1,10 +1,11 @@
 -- ============================================================
--- INFINITE ZEN - MAIN LOADER
+-- INFINITE ZEN - MAIN LOADER (v2.1 — Bilingual)
 -- ============================================================
 
 print("============================================")
 print("  🌌 INFINITE ZEN HUB")
-print("  Versão: 2.0")
+print("  🇧🇷 Versão: 2.1")
+print("  🇺🇸 Version: 2.1")
 print("============================================")
 
 local Players = game:GetService("Players")
@@ -24,7 +25,7 @@ local gameId = game.GameId
 local gameInfo = CONFIG.SUPPORTED_GAMES[placeId] or CONFIG.SUPPORTED_GAMES[gameId]
 
 -- ═══════════════════════════════════════════════
--- CARREGAMENTO
+-- CARREGAMENTO / LOADING
 -- ═══════════════════════════════════════════════
 
 local function loadModule(path)
@@ -34,18 +35,18 @@ local function loadModule(path)
     end)
 
     if not success or not result or result == "" then
-        warn("[Infinite Zen] ❌ Falha ao baixar: " .. path)
+        warn("[Infinite Zen] ❌ Falha ao baixar / Failed to download: " .. path)
         return nil
     end
 
     if result:find("^404") or result:find("Not Found") then
-        warn("[Infinite Zen] ❌ 404 em: " .. path)
+        warn("[Infinite Zen] ❌ 404 em / on: " .. path)
         return nil
     end
 
     local fn, err = loadstring(result)
     if not fn then
-        warn("[Infinite Zen] ❌ Erro de sintaxe em " .. path .. ": " .. tostring(err))
+        warn("[Infinite Zen] ❌ Erro de sintaxe / Syntax error em/on " .. path .. ": " .. tostring(err))
         return nil
     end
     return fn
@@ -59,7 +60,7 @@ end)
 
 if okCompat and CompatResult then
     Compat = CompatResult
-    print("[Infinite Zen] ✅ Compat layer carregada")
+    print("[Infinite Zen] ✅ Compat layer carregada / loaded")
     if Compat.report then pcall(Compat.report) end
 else
     warn("[Infinite Zen] ⚠️ Compat fallback")
@@ -103,9 +104,9 @@ end
 local UI = loadModule("InfiniteZen_UI.lua")
 if UI then
     UI = UI()
-    print("[Infinite Zen] ✅ UI Library carregada")
+    print("[Infinite Zen] ✅ UI Library carregada / loaded")
 else
-    warn("[Infinite Zen] ❌ Falha ao carregar UI Library")
+    warn("[Infinite Zen] ❌ Falha ao carregar UI Library / Failed to load UI Library")
 end
 
 -- ═══ LANGUAGE ═══
@@ -131,10 +132,11 @@ end
 
 -- ═══════════════════════════════════════════════
 -- UNIVERSAL — SÓ RODA EM JOGO NÃO SUPORTADO
+-- UNIVERSAL — ONLY RUNS IN UNSUPPORTED GAMES
 -- ═══════════════════════════════════════════════
 if not gameInfo then
-    print("[Infinite Zen] ⚠️ Jogo não suportado (PlaceId: " .. placeId .. ")")
-    print("[Infinite Zen] 📦 Tentando carregar Universal Features...")
+    print("[Infinite Zen] ⚠️ Jogo não suportado / Unsupported game (PlaceId: " .. placeId .. ")")
+    print("[Infinite Zen] 📦 Tentando carregar Universal Features / Trying to load Universal Features...")
 
     local UniversalFn = loadModule("src/games/universal.lua")
 
@@ -150,13 +152,13 @@ if not gameInfo then
                 loadModule = loadModule,
             })
             if okRun then
-                print("[Infinite Zen] ✅ Universal Features carregadas")
+                print("[Infinite Zen] ✅ Universal Features carregadas / loaded")
             else
-                warn("[Infinite Zen] ❌ Universal.Init erro: " .. tostring(errRun))
+                warn("[Infinite Zen] ❌ Universal.Init erro / error: " .. tostring(errRun))
             end
         end
     else
-        warn("[Infinite Zen] ❌ universal.lua não encontrado — sem features pra esse jogo")
+        warn("[Infinite Zen] ❌ universal.lua não encontrado / not found — sem features pra esse jogo / no features for this game")
     end
 
     return
@@ -164,19 +166,20 @@ end
 
 -- ═══════════════════════════════════════════════
 -- JOGO SUPORTADO → CARREGA SÓ O MÓDULO DO JOGO
+-- SUPPORTED GAME → LOADS ONLY THE GAME MODULE
 -- ═══════════════════════════════════════════════
-print("[Infinite Zen] 🎮 Jogo: " .. gameInfo.name)
-print("[Infinite Zen] 📦 Módulo: " .. gameInfo.module)
+print("[Infinite Zen] 🎮 Jogo / Game: " .. gameInfo.name)
+print("[Infinite Zen] 📦 Módulo / Module: " .. gameInfo.module)
 
 local gameModuleFn = loadModule("src/games/" .. gameInfo.module .. ".lua")
 if not gameModuleFn then
-    warn("[Infinite Zen] ❌ Falha ao carregar módulo do jogo.")
+    warn("[Infinite Zen] ❌ Falha ao carregar módulo do jogo / Failed to load game module.")
     return
 end
 
 local okMod, gameModule = pcall(gameModuleFn)
 if not okMod or not gameModule then
-    warn("[Infinite Zen] ❌ Erro ao executar módulo: " .. tostring(gameModule))
+    warn("[Infinite Zen] ❌ Erro ao executar módulo / Error running module: " .. tostring(gameModule))
     return
 end
 
@@ -189,10 +192,10 @@ if gameModule.Init then
         placeId = placeId,
     })
     if not okInit then
-        warn("[Infinite Zen] ❌ Init erro: " .. tostring(errInit))
+        warn("[Infinite Zen] ❌ Init erro / error: " .. tostring(errInit))
         return
     end
 end
 
-print("[Infinite Zen] ✅ Carregado para: " .. gameInfo.name)
+print("[Infinite Zen] ✅ Carregado para / Loaded for: " .. gameInfo.name)
 print("============================================")
