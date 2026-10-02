@@ -1,5 +1,5 @@
 -- ============================================================
--- INFINITE ZEN - ARSENAL (v1.5.1) — Silent HS Kill Mode
+-- INFINITE ZEN - ARSENAL (v1.8) — Rainbow Gun + Ghost Gun
 -- ============================================================
 
 local Arsenal = {}
@@ -16,7 +16,7 @@ function Arsenal.Init(ctx)
         return v
     end
 
-    local GAME_VERSION = "1.5.1"
+    local GAME_VERSION = "1.8"
     local FULL_VERSION = "Infinite Zen V" .. GAME_VERSION .. " - " .. gameName
     local SHORT_VERSION = "V" .. GAME_VERSION .. " - " .. gameName
 
@@ -57,25 +57,23 @@ function Arsenal.Init(ctx)
         if not el or type(el.SetState) ~= "function" then return false end
         return pcall(function() el.SetState(val) end)
     end
-
     local function setSlider(el, val)
         if not el or type(el.SetValue) ~= "function" then return false end
         return pcall(function() el.SetValue(val) end)
     end
-
     local function reg(id, el)
         if id and el then Elements[id] = el end
         return el
     end
 
     local State = {
-        silentHeadshot = false, silentFov = 150,
         aimbot = false,
         headExpander = false, headExpanderSize = 3,
         backstab = false,
         noRecoil = false, rapidFire = false,
         fastReload = false, instaReload = false,
-        autoShoot = false, autoShootFov = 150,
+        rainbowGun = false, rainbowSpeed = 0.05,
+        ghostGun = false, ghostTransparency = 0.7,
         speed = false, speedValue = 50,
         airJump = false,
         jumpPower = 70,
@@ -85,14 +83,11 @@ function Arsenal.Init(ctx)
         cameraFov = 70,
         esp = false, espMaxDistance = 500,
         lowGraphics = false, noShadows = false, noFog = false, noParticles = false,
-        debugAim = false,
         debugHeadExp = false,
-        silentKeybind = "X",
-        silentMaxDuration = 5,
         keybinds = {
-            silentHeadshot = "X", aimbot = nil, headExpander = nil,
+            aimbot = nil, headExpander = nil,
             backstab = "E", noRecoil = nil, rapidFire = nil,
-            fastReload = nil, instaReload = nil, autoShoot = nil,
+            fastReload = nil, instaReload = nil,
             speed = nil, airJump = nil, esp = nil, noclip = nil,
         },
     }
@@ -138,7 +133,6 @@ function Arsenal.Init(ctx)
         return player.Team ~= myTeam
     end
 
-    -- ✅ Alvo mais próximo do mouse (não do centro) — "o que você tá olhando"
     local function getClosestEnemyInFov(fov, useLOS)
         local mouse = getMouseViewportPos()
         local closest, minDist = nil, fov
@@ -162,46 +156,6 @@ function Arsenal.Init(ctx)
         return closest
     end
 
-    -- ✅ Click com múltiplos fallbacks
-    local function tryClick()
-        local clicked = false
-
-        -- Método 1: mouse1click
-        if type(mouse1click) == "function" then
-            local ok = pcall(mouse1click)
-            if ok then clicked = true end
-        end
-
-        -- Método 2: mouse1press/mouse1release
-        if not clicked and type(mouse1press) == "function" and type(mouse1release) == "function" then
-            local ok = pcall(function()
-                mouse1press()
-                task.wait(0.01)
-                mouse1release()
-            end)
-            if ok then clicked = true end
-        end
-
-        -- Método 3: VirtualInput
-        if not clicked then
-            pcall(function()
-                VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-                task.wait(0.01)
-                VirtualInput:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-            end)
-        end
-    end
-
-    -- ✅ Move mouse físico em direção ao alvo
-    local function moveMouseTo(targetPart, intensity)
-        if not mousemoverel then return end
-        local sp = Camera:WorldToViewportPoint(targetPart.Position)
-        local center = Vector2.new(Camera.ViewportSize.X * 0.5, Camera.ViewportSize.Y * 0.5)
-        local dx = (sp.X - center.X) * (intensity or 0.5)
-        local dy = (sp.Y - center.Y) * (intensity or 0.5)
-        pcall(mousemoverel, dx, dy)
-    end
-
     -- FOV CIRCLE
     local fovCircle = Drawing.new("Circle")
     fovCircle.Color = Color3.fromRGB(255, 30, 40); fovCircle.Thickness = 1.5
@@ -212,11 +166,7 @@ function Arsenal.Init(ctx)
         if UNLOADED then return end
         local mouse = getMouseScreenPos()
         fovCircle.Position = Vector2.new(mouse.X, mouse.Y)
-        if State.silentHeadshot or State.silentActive then
-            fovCircle.Visible = true; fovCircle.Radius = State.silentFov / 6
-        elseif State.autoShoot then
-            fovCircle.Visible = true; fovCircle.Radius = State.autoShootFov / 6
-        elseif State.aimbot then
+        if State.aimbot then
             fovCircle.Visible = true; fovCircle.Radius = 25
         else
             fovCircle.Visible = false
@@ -225,7 +175,7 @@ function Arsenal.Init(ctx)
 
     -- AIMBOT (natural, sem Scriptable)
     RunService.RenderStepped:Connect(function()
-        if UNLOADED or not State.aimbot or State.silentActive then return end
+        if UNLOADED or not State.aimbot then return end
         local target = getClosestEnemyInFov(25, false)
         if target and target.Character then
             local head = target.Character:FindFirstChild("Head")
@@ -236,128 +186,141 @@ function Arsenal.Init(ctx)
     end)
 
     -- ═══════════════════════════════════════════════════════════
-    -- ✅ SILENT HEADSHOT v2 — KILL MODE
-    -- Press X → lock camera no inimigo mais próximo → atira até morrer
+    -- 🌈 RAINBOW GUN
     -- ═══════════════════════════════════════════════════════════
-    local silentActive = false
-    local silentTarget = nil
-    local silentSavedCam = nil
-    local silentEndTime = 0
-    local lastSilentShot = 0
+    local rainbowParts = {}
+    local rainbowTick = 0
 
-    local function activateSilentKill()
-        if silentActive then return end
-        if not State.silentHeadshot then return end
-        local target = getClosestEnemyInFov(State.silentFov, false)
-        if not target or not target.Character then
-            if Window then Window:Notify("🎯", "No enemy in FOV", 2, "warning") end
-            return
+    -- ✅ Acha a arma equipada (ViewModel OR Character)
+    local function getActiveWeapon()
+        local char = LocalPlayer.Character
+        if char then
+            local tool = char:FindFirstChildOfClass("Tool")
+            if tool then return tool end
         end
-        silentActive = true
-        silentTarget = target
-        silentSavedCam = Camera.CFrame
-        silentEndTime = tick() + State.silentMaxDuration
-        if Window then
-            Window:Notify("🎯 " .. T("silent.name", "Silent Kill"),
-                "Target: " .. target.Name, 2, "success")
+        local vm = workspace:FindFirstChild("ViewModel")
+        if vm then
+            for _, child in ipairs(vm:GetChildren()) do
+                if child:IsA("Model") or child:IsA("Tool") then
+                    return child
+                end
+            end
         end
-        if State.debugAim then
-            print("[SILENT-DEBUG] Activated | target=" .. target.Name)
+        return nil
+    end
+
+    local function getWeaponParts(weapon)
+        local parts = {}
+        if not weapon then return parts end
+        for _, d in ipairs(weapon:GetDescendants()) do
+            if d:IsA("BasePart") and not d:IsA("Part") == false then
+                table.insert(parts, d)
+            end
+        end
+        -- Fallback: pega qualquer BasePart
+        if #parts == 0 then
+            for _, d in ipairs(weapon:GetDescendants()) do
+                if d:IsA("BasePart") then
+                    table.insert(parts, d)
+                end
+            end
+        end
+        return parts
+    end
+
+    local function HSVToRGB(h, s, v)
+        return Color3.fromHSV(h, s, v)
+    end
+
+    local function applyRainbowGun()
+        rainbowTick = rainbowTick + 1
+        local weapon = getActiveWeapon()
+        if not weapon then return end
+
+        local parts = getWeaponParts(weapon)
+        local hue = (tick() * 0.5) % 1
+        local color = HSVToRGB(hue, 1, 1)
+
+        for _, part in ipairs(parts) do
+            pcall(function()
+                part.Color = color
+                part.Material = Enum.Material.Neon
+                part.Reflectance = 0.3
+                -- Remove Texture se tiver (pra cor aparecer)
+                local texture = part:FindFirstChildOfClass("Texture")
+                if texture then texture.Transparency = 1 end
+                local decal = part:FindFirstChildOfClass("Decal")
+                if decal then decal.Transparency = 1 end
+            end)
         end
     end
 
-    local function deactivateSilentKill(reason)
-        if not silentActive then return end
-        silentActive = false
-        silentTarget = nil
-        if silentSavedCam then
-            pcall(function() Camera.CFrame = silentSavedCam end)
-            silentSavedCam = nil
-        end
-        if State.debugAim then
-            print("[SILENT-DEBUG] Deactivated | reason=" .. tostring(reason))
+    local function stopRainbowGun()
+        local weapon = getActiveWeapon()
+        if not weapon then return end
+        local parts = getWeaponParts(weapon)
+        for _, part in ipairs(parts) do
+            pcall(function()
+                part.Material = Enum.Material.Metal
+                part.Reflectance = 0
+                local texture = part:FindFirstChildOfClass("Texture")
+                if texture then texture.Transparency = 0 end
+                local decal = part:FindFirstChildOfClass("Decal")
+                if decal then decal.Transparency = 0 end
+            end)
         end
     end
 
-    RunService.RenderStepped:Connect(function()
-        if UNLOADED or not silentActive then return end
-
-        -- Timeout
-        if tick() > silentEndTime then
-            deactivateSilentKill("timeout")
-            return
-        end
-
-        -- Target válido?
-        local target = silentTarget
-        if not target or not target.Character then
-            deactivateSilentKill("target_gone")
-            return
-        end
-
-        local head = target.Character:FindFirstChild("Head")
-        local hum = target.Character:FindFirstChildOfClass("Humanoid")
-        if not head or not head:IsA("BasePart") or not hum then
-            deactivateSilentKill("no_head")
-            return
-        end
-
-        if hum.Health <= 0 then
-            deactivateSilentKill("killed")
-            return
-        end
-
-        -- ✅ Mira exata
-        Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, head.Position)
-
-        -- ✅ Move mouse físico pra sincronizar
-        moveMouseTo(head, 0.6)
-
-        -- ✅ Auto-fire a cada 0.1s
-        if tick() - lastSilentShot >= 0.1 then
-            tryClick()
-            lastSilentShot = tick()
-            if State.debugAim then
-                print(string.format("[SILENT-DEBUG] Firing | target=%s | HP=%d",
-                    target.Name, math.floor(hum.Health)))
+    -- Loop do rainbow
+    task.spawn(function()
+        while not UNLOADED do
+            task.wait(State.rainbowSpeed or 0.05)
+            if State.rainbowGun then
+                pcall(applyRainbowGun)
             end
         end
     end)
 
-    -- ✅ Keybind X (ou custom)
-    UserInputService.InputBegan:Connect(function(input, gp)
-        if UNLOADED or gp then return end
-        if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
-        if not State.silentHeadshot then return end
-        if input.KeyCode.Name == State.silentKeybind then
-            activateSilentKill()
+    -- ═══════════════════════════════════════════════════════════
+    -- 👻 GHOST GUN (semi-transparente)
+    -- ═══════════════════════════════════════════════════════════
+    local function applyGhostGun()
+        local weapon = getActiveWeapon()
+        if not weapon then return end
+        local parts = getWeaponParts(weapon)
+        for _, part in ipairs(parts) do
+            pcall(function()
+                part.LocalTransparencyModifier = State.ghostTransparency
+                part.Transparency = State.ghostTransparency
+                part.CanCollide = false
+            end)
+        end
+    end
+
+    local function stopGhostGun()
+        local weapon = getActiveWeapon()
+        if not weapon then return end
+        local parts = getWeaponParts(weapon)
+        for _, part in ipairs(parts) do
+            pcall(function()
+                part.LocalTransparencyModifier = 0
+                part.Transparency = 0
+                part.CanCollide = true
+            end)
+        end
+    end
+
+    -- Loop do ghost
+    task.spawn(function()
+        while not UNLOADED do
+            task.wait(0.1)
+            if State.ghostGun then
+                pcall(applyGhostGun)
+            end
         end
     end)
 
-    -- AUTO SHOOT (continua funcionando quando X fica pressionado)
-    RunService.Heartbeat:Connect(function()
-        if UNLOADED or not State.autoShoot or silentActive then return end
-        if tick() - lastSilentShot < 0.12 then return end
-        local target = getClosestEnemyInFov(State.autoShootFov, false)
-        if not target or not target.Character then return end
-        local head = target.Character:FindFirstChild("Head")
-        if not head then return end
-        Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, head.Position)
-        moveMouseTo(head, 0.5)
-        RunService.RenderStepped:Wait()
-        if not head.Parent then return end
-        Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, head.Position)
-        tryClick()
-        lastSilentShot = tick()
-
-        if State.debugAim then
-            local hum = target.Character and target.Character:FindFirstChildOfClass("Humanoid")
-            print(string.format("[AUTO-DEBUG] target=%s | HP=%d",
-                target.Name, hum and hum.Health or 0))
-        end
-    end)
-
-    -- HEAD EXPANDER v2 (fix: HB_NAMES)
+    -- HEAD EXPANDER v2
     local hitboxSaved = {}
     local expandStats = {applied = 0, failed = 0}
 
@@ -514,7 +477,7 @@ function Arsenal.Init(ctx)
         Camera.CFrame = CFrame.new(mHRP.Position, tHRP.Position)
         task.wait(0.02)
         for _ = 1, 3 do
-            tryClick()
+            pcall(function() mouse1click() end)
             task.wait(0.05)
         end
     end
@@ -929,20 +892,20 @@ function Arsenal.Init(ctx)
 
     local function syncUIFromState()
         local toggles = {
-            "silentHeadshot", "aimbot", "headExpander", "backstab",
+            "aimbot", "headExpander", "backstab",
             "noRecoil", "rapidFire", "fastReload", "instaReload",
-            "autoShoot", "speed", "airJump", "noclip", "antiAfk",
+            "rainbowGun", "ghostGun",
+            "speed", "airJump", "noclip", "antiAfk",
             "esp", "lowGraphics", "noShadows", "noFog", "noParticles",
-            "fullbright", "debugAim", "debugHeadExp",
+            "fullbright", "debugHeadExp",
         }
         for _, key in ipairs(toggles) do
             local el = Elements[key]
             if el and State[key] ~= nil then setToggle(el, State[key]) end
         end
         local sliders = {
-            "silentFov", "headExpanderSize", "autoShootFov",
+            "headExpanderSize", "rainbowSpeed", "ghostTransparency",
             "speedValue", "espMaxDistance", "jumpPower", "cameraFov",
-            "silentMaxDuration",
         }
         for _, key in ipairs(sliders) do
             local el = Elements[key]
@@ -1025,23 +988,9 @@ function Arsenal.Init(ctx)
         })
         Elements = {}
 
+        -- COMBAT
         local CombatTab = Window:CreateTab(T("tab.combat", "Combat"), "⚔️")
         CombatTab:CreateSection(T("section.aim", "Aim"))
-        reg("silentHeadshot", CombatTab:CreateToggle({
-            Name = T("silent.name", "Silent Headshot"), Description = T("silent.desc", "Press keybind to lock+kill nearest enemy"),
-            Icon = "🎯", Default = false,
-            Callback = function(v) State.silentHeadshot = v end,
-        }))
-        reg("silentFov", CombatTab:CreateSlider({
-            Name = T("silentfov.name", "Silent FOV"), Description = T("silentfov.desc", "Aim radius"),
-            Icon = "📐", Min = 30, Max = 500, Default = 150,
-            Callback = function(v) State.silentFov = v end,
-        }))
-        reg("silentMaxDuration", CombatTab:CreateSlider({
-            Name = "Max Duration", Description = "Auto restore camera after N seconds",
-            Icon = "⏱️", Min = 1, Max = 15, Default = 5,
-            Callback = function(v) State.silentMaxDuration = v end,
-        }))
         reg("aimbot", CombatTab:CreateToggle({
             Name = T("aimbot.name", "Aimbot"), Description = T("aimbot.desc", "Locks camera on nearest enemy"),
             Icon = "🤖", Default = false,
@@ -1065,6 +1014,7 @@ function Arsenal.Init(ctx)
             Callback = function(v) State.backstab = v end,
         }))
 
+        -- WEAPON
         local WeaponTab = Window:CreateTab(T("tab.weapon", "Weapon"), "🔫")
         WeaponTab:CreateSection(T("section.recoil", "Recoil"))
         reg("noRecoil", WeaponTab:CreateToggle({
@@ -1096,18 +1046,37 @@ function Arsenal.Init(ctx)
             Icon = "💨", Default = false,
             Callback = function(v) State.instaReload = v end,
         }))
-        WeaponTab:CreateSection(T("section.auto", "Auto"))
-        reg("autoShoot", WeaponTab:CreateToggle({
-            Name = T("autoshot.name", "Auto Shoot"), Description = T("autoshot.desc", "Shoots enemy in FOV"),
-            Icon = "🔥", Default = false,
-            Callback = function(v) State.autoShoot = v end,
+
+        -- ✅ NOVA SEÇÃO: Visual Mods
+        WeaponTab:CreateSection("🎨 Visual Mods")
+        reg("rainbowGun", WeaponTab:CreateToggle({
+            Name = T("rainbowgun.name", "🌈 Rainbow Gun"), Description = T("rainbowgun.desc", "Cycles weapon colors like a rainbow"),
+            Icon = "🌈", Default = false,
+            Callback = function(v)
+                State.rainbowGun = v
+                if not v then stopRainbowGun() end
+            end,
         }))
-        reg("autoShootFov", WeaponTab:CreateSlider({
-            Name = T("autoshotfov.name", "Auto Shoot FOV"), Description = T("autoshotfov.desc", "Auto-fire radius"),
-            Icon = "📐", Min = 30, Max = 400, Default = 150,
-            Callback = function(v) State.autoShootFov = v end,
+        reg("rainbowSpeed", WeaponTab:CreateSlider({
+            Name = T("rainbowspeed.name", "Rainbow Speed"), Description = T("rainbowspeed.desc", "Delay between color changes"),
+            Icon = "⚡", Min = 0.01, Max = 0.3, Default = 0.05,
+            Callback = function(v) State.rainbowSpeed = v end,
+        }))
+        reg("ghostGun", WeaponTab:CreateToggle({
+            Name = T("ghostgun.name", "👻 Ghost Gun"), Description = T("ghostgun.desc", "Makes weapon semi-transparent"),
+            Icon = "👻", Default = false,
+            Callback = function(v)
+                State.ghostGun = v
+                if not v then stopGhostGun() end
+            end,
+        }))
+        reg("ghostTransparency", WeaponTab:CreateSlider({
+            Name = T("ghosttrans.name", "Ghost Transparency"), Description = T("ghosttrans.desc", "0 = invisible, 1 = opaque"),
+            Icon = "👻", Min = 0, Max = 1, Default = 0.7,
+            Callback = function(v) State.ghostTransparency = v end,
         }))
 
+        -- MOVEMENT
         local MoveTab = Window:CreateTab(T("tab.movement", "Movement"), "🏃")
         MoveTab:CreateSection(T("section.speed", "Speed"))
         reg("speed", MoveTab:CreateToggle({
@@ -1157,6 +1126,7 @@ function Arsenal.Init(ctx)
             Callback = function(v) State.antiAfk = v end,
         }))
 
+        -- VISUALS
         local VisualsTab = Window:CreateTab(T("tab.visuals", "Visuals"), "👁️")
         VisualsTab:CreateSection(T("section.esp", "ESP"))
         reg("esp", VisualsTab:CreateToggle({
@@ -1209,6 +1179,7 @@ function Arsenal.Init(ctx)
             Callback = function(v) State.fullbright = v; applyFullbright(v) end,
         }))
 
+        -- SETTINGS
         local SettingsTab = Window:CreateTab(T("tab.settings", "Settings"), "⚙️")
         SettingsTab:CreateSection(T("section.create_config", "Create Config"))
 
@@ -1386,13 +1357,6 @@ function Arsenal.Init(ctx)
 
         SettingsTab:CreateSection("🐛 Debug")
 
-        reg("debugAim", SettingsTab:CreateToggle({
-            Name = "Debug Aim (F9)",
-            Description = "Logs each shot (target, part, dist, HP)",
-            Icon = "🎯", Default = false,
-            Callback = function(v) State.debugAim = v end,
-        }))
-
         reg("debugHeadExp", SettingsTab:CreateToggle({
             Name = "Debug Head Expander",
             Description = "Logs applied/failed + real size",
@@ -1406,7 +1370,8 @@ function Arsenal.Init(ctx)
             Danger = true,
             Callback = function()
                 UNLOADED = true
-                deactivateSilentKill("unload")
+                stopRainbowGun()
+                stopGhostGun()
                 restoreAll(); clearAllESP(); stopAirJump(); stopNoclip()
                 if fovCircle then fovCircle:Remove() end
                 applyLowGraphics(false); applyNoShadows(false); applyNoFog(false)
@@ -1476,7 +1441,7 @@ function Arsenal.Init(ctx)
         CreditsTab:CreateLabel("© 2026 Sr Red", Color3.fromRGB(90, 90, 105))
     end
 
-    -- KEYBINDS gerais (backstab etc)
+    -- KEYBINDS
     UserInputService.InputBegan:Connect(function(input, gp)
         if UNLOADED or gp then return end
         if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
