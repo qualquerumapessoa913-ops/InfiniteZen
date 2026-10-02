@@ -1,11 +1,11 @@
 -- ============================================================
--- INFINITE ZEN - MAIN LOADER (v2.1 — Bilingual)
+-- INFINITE ZEN - MAIN LOADER (v2.2 — Cache + Bilingual)
 -- ============================================================
 
 print("============================================")
 print("  🌌 INFINITE ZEN HUB")
-print("  🇧🇷 Versão: 2.1")
-print("  🇺🇸 Version: 2.1")
+print("  🇧🇷 Versão: 2.2")
+print("  🇺🇸 Version: 2.2")
 print("============================================")
 
 local Players = game:GetService("Players")
@@ -15,6 +15,7 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 local CONFIG = {
     REPO = "https://raw.githubusercontent.com/qualquerumapessoa913-ops/InfiniteZen/Moon-Angel",
     DEFAULT_LANG = "en",
+    CACHE_DIR = "InfiniteZen_Cache",
     SUPPORTED_GAMES = {
         [286090429]   = {name = "Arsenal",       module = "arsenal"},
         [14939963714] = {name = "Jailbird",      module = "jailbird"},
@@ -27,44 +28,94 @@ local gameId = game.GameId
 local gameInfo = CONFIG.SUPPORTED_GAMES[placeId] or CONFIG.SUPPORTED_GAMES[gameId]
 
 -- ═══════════════════════════════════════════════
--- CARREGAMENTO / LOADING
+-- CACHE SETUP
+-- ═══════════════════════════════════════════════
+
+local function ensureCacheDir()
+    if not makefolder then return end
+    if isfolder and isfolder(CONFIG.CACHE_DIR) then return end
+    pcall(makefolder, CONFIG.CACHE_DIR)
+end
+
+ensureCacheDir()
+
+local function cachePathFor(path)
+    -- "src/utils/hwid.lua" -> "InfiniteZen_Cache/src_utils_hwid.lua"
+    local safe = path:gsub("[/\\]", "_")
+    return CONFIG.CACHE_DIR .. "/" .. safe
+end
+
+local function readCache(path)
+    if not readfile then return nil end
+    local cp = cachePathFor(path)
+    local ok, raw = pcall(readfile, cp)
+    if ok and raw and raw ~= "" then return raw end
+    return nil
+end
+
+local function writeCache(path, raw)
+    if not writefile then return end
+    local cp = cachePathFor(path)
+    pcall(writefile, cp, raw)
+end
+
+-- ═══════════════════════════════════════════════
+-- CARREGAMENTO / LOADING (com cache)
 -- ═══════════════════════════════════════════════
 
 local function loadModule(path)
     local url = CONFIG.REPO .. "/" .. path
-    local success, result = pcall(function()
-        return game:HttpGet(url, true)
-    end)
 
-    if not success or not result or result == "" then
-        warn("[Infinite Zen] ❌ Falha ao baixar / Failed to download: " .. path)
-        return nil
+    -- ─── Camada 1: rede ───
+    local okNet, result = pcall(function() return game:HttpGet(url, true) end)
+
+    local validNet = okNet
+        and result
+        and result ~= ""
+        and not result:find("^404")
+        and not result:find("Not Found")
+        and not result:find("^<!DOCTYPE")
+
+    if validNet then
+        writeCache(path, result)
+        local fn, err = loadstring(result)
+        if not fn then
+            warn("[Infinite Zen] ❌ Sintaxe em / Syntax in " .. path .. ": " .. tostring(err))
+            return nil
+        end
+        return fn, "network"
     end
 
-    if result:find("^404") or result:find("Not Found") then
-        warn("[Infinite Zen] ❌ 404 em / on: " .. path)
-        return nil
+    -- ─── Camada 2: cache local ───
+    local cached = readCache(path)
+    if cached then
+        local fn, err = loadstring(cached)
+        if fn then
+            print("[Infinite Zen] 📦 Cache usado / using cache: " .. path)
+            return fn, "cache"
+        end
+        warn("[Infinite Zen] ❌ Cache corrompido / corrupt cache: " .. path .. " — " .. tostring(err))
     end
 
-    local fn, err = loadstring(result)
-    if not fn then
-        warn("[Infinite Zen] ❌ Erro de sintaxe / Syntax error em/on " .. path .. ": " .. tostring(err))
-        return nil
-    end
-    return fn
+    -- ─── Camada 3: nada ───
+    warn("[Infinite Zen] ❌ Falha total / total failure: " .. path)
+    return nil, "none"
 end
 
 -- ═══ COMPAT ═══
 local Compat
-local okCompat, CompatResult = pcall(function()
-    return loadModule("src/utils/compat.lua")()
-end)
+local CompatFn = loadModule("src/utils/compat.lua")
 
-if okCompat and CompatResult then
-    Compat = CompatResult
-    print("[Infinite Zen] ✅ Compat layer carregada / loaded")
-    if Compat.report then pcall(Compat.report) end
-else
+if CompatFn then
+    local ok, CompatResult = pcall(CompatFn)
+    if ok and CompatResult then
+        Compat = CompatResult
+        print("[Infinite Zen] ✅ Compat layer carregada / loaded")
+        if Compat.report then pcall(Compat.report) end
+    end
+end
+
+if not Compat then
     warn("[Infinite Zen] ⚠️ Compat fallback")
     Compat = {
         getExecutor = function() return "Unknown" end,
@@ -172,8 +223,14 @@ end
 -- ═══ UI LIBRARY ═══
 local UI = loadModule("InfiniteZen_UI.lua")
 if UI then
-    UI = UI()
-    print("[Infinite Zen] ✅ UI Library carregada / loaded")
+    local okUI, UIResult = pcall(UI)
+    if okUI and UIResult then
+        UI = UIResult
+        print("[Infinite Zen] ✅ UI Library carregada / loaded")
+    else
+        warn("[Infinite Zen] ❌ UI Library erro / error: " .. tostring(UIResult))
+        UI = nil
+    end
 else
     warn("[Infinite Zen] ❌ Falha ao carregar UI Library / Failed to load UI Library")
 end
@@ -185,23 +242,93 @@ if LanguageFn then
     local okLang, result = pcall(LanguageFn)
     if okLang and result then
         Language = result
+    else
+        warn("[Infinite Zen] ❌ language.lua erro / error: " .. tostring(result))
     end
 end
 
 if not Language then
-    warn("[Infinite Zen] ⚠️ Language fallback")
+    warn("[Infinite Zen] ⚠️ Language fallback (JSON direto)")
+
+    local HttpService = game:GetService("HttpService")
+    local JSON_URL = CONFIG.REPO .. "/InfiniteZen_Translations.json"
+    local LANG_FILE = "InfiniteZen_Language.txt"
+    local JSON_CACHE = CONFIG.CACHE_DIR .. "/InfiniteZen_Translations.json"
+
+    local translations = {}
+    local current = "en"
+
+    -- tenta rede
+    local okGet, raw = pcall(function() return game:HttpGet(JSON_URL, true) end)
+    if okGet and raw and raw ~= "" and #raw > 100 and not raw:find("^404") then
+        if writefile then pcall(writefile, JSON_CACHE, raw) end
+        local okDec, data = pcall(function() return HttpService:JSONDecode(raw) end)
+        if okDec and type(data) == "table" then
+            translations = data
+            print("[Infinite Zen] ✅ JSON via rede / via network")
+        end
+    end
+
+    -- fallback: cache local do JSON
+    if not next(translations) and readfile then
+        local okR, cached = pcall(readfile, JSON_CACHE)
+        if okR and cached and cached ~= "" then
+            local okDec, data = pcall(function() return HttpService:JSONDecode(cached) end)
+            if okDec and type(data) == "table" then
+                translations = data
+                print("[Infinite Zen] 📦 JSON via cache")
+            end
+        end
+    end
+
+    -- restaura idioma salvo
+    if readfile then
+        local okR, content = pcall(readfile, LANG_FILE)
+        if okR and content and content ~= "" then
+            local code = content:gsub("%s+", "")
+            if translations[code] then current = code end
+        end
+    end
+
     Language = {
-        get = function(k) return k end,
-        setLanguage = function() end,
-        getCurrent = function() return "en" end,
-        getAvailable = function() return {{code="en", flag="🇺🇸", displayName="English"}} end,
-        onChange = function() end,
+        current = current,
+        translations = translations,
+        get = function(key)
+            local t = translations[current]
+            if t and t[key] then return t[key] end
+            local en = translations["en"]
+            if en and en[key] then return en[key] end
+            return key
+        end,
+        setLanguage = function(code)
+            if translations[code] then current = code; return true end
+            return false
+        end,
+        getCurrent = function() return current end,
+        getCurrentData = function() return translations[current] end,
+        getFlag = function()
+            local t = translations[current]
+            return (t and t.flag) or "🌐"
+        end,
+        getAvailable = function()
+            local list = {}
+            for code, tbl in pairs(translations) do
+                if type(tbl) == "table" then
+                    table.insert(list, {
+                        code = code,
+                        flag = tbl.flag or "🌐",
+                        displayName = tbl.displayName or code,
+                    })
+                end
+            end
+            return list
+        end,
+        onChange = function() return function() end end,
     }
 end
 
 -- ═══════════════════════════════════════════════
 -- UNIVERSAL — SÓ RODA EM JOGO NÃO SUPORTADO
--- UNIVERSAL — ONLY RUNS IN UNSUPPORTED GAMES
 -- ═══════════════════════════════════════════════
 if not gameInfo then
     print("[Infinite Zen] ⚠️ Jogo não suportado / Unsupported game (PlaceId: " .. placeId .. ")")
@@ -235,7 +362,6 @@ end
 
 -- ═══════════════════════════════════════════════
 -- JOGO SUPORTADO → CARREGA SÓ O MÓDULO DO JOGO
--- SUPPORTED GAME → LOADS ONLY THE GAME MODULE
 -- ═══════════════════════════════════════════════
 print("[Infinite Zen] 🎮 Jogo / Game: " .. gameInfo.name)
 print("[Infinite Zen] 📦 Módulo / Module: " .. gameInfo.module)
