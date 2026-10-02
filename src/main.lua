@@ -102,6 +102,73 @@ else
     }
 end
 
+-- ═══ HWID CHECK ═══
+local HWIDModule = loadModule("src/utils/hwid.lua")
+if HWIDModule then
+    local okHwid, HWID = pcall(HWIDModule)
+    if okHwid and HWID and type(HWID.check) == "function" then
+        local okCheck, allowed, reason, data = pcall(HWID.check)
+
+        if not okCheck then
+            warn("[IZM] HWID check exception — allowing: " .. tostring(allowed))
+        elseif allowed then
+            print("[IZM] ✅ HWID check passed")
+            if data and data.payload and data.payload.ip then
+                print("[IZM] HWID:", data.payload.hwid)
+                print("[IZM] IP:", data.payload.ip, "-", data.payload.city, "/", data.payload.country)
+                print("[IZM] Fingerprint:", data.payload.fingerprint)
+            end
+        else
+            warn("[IZM] 🚫 BLOCKED: " .. tostring(reason))
+
+            local sg = Instance.new("ScreenGui")
+            sg.Name = "IZM_Blocked"
+            sg.ResetOnSpawn = false
+            sg.Parent = PlayerGui
+
+            local frame = Instance.new("Frame", sg)
+            frame.Size = UDim2.new(0, 420, 0, 160)
+            frame.Position = UDim2.new(0.5, -210, 0.5, -80)
+            frame.BackgroundColor3 = Color3.fromRGB(20, 10, 15)
+            frame.BorderSizePixel = 0
+            Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 12)
+
+            local stroke = Instance.new("UIStroke", frame)
+            stroke.Color = Color3.fromRGB(230, 40, 40)
+            stroke.Thickness = 1.5
+
+            local title = Instance.new("TextLabel", frame)
+            title.Size = UDim2.new(1, -20, 0, 32)
+            title.Position = UDim2.new(0, 10, 0, 15)
+            title.BackgroundTransparency = 1
+            title.Font = Enum.Font.GothamBlack
+            title.TextSize = 18
+            title.TextColor3 = Color3.fromRGB(255, 60, 60)
+            title.Text = "ACCESS DENIED"
+
+            local msg = Instance.new("TextLabel", frame)
+            msg.Size = UDim2.new(1, -20, 0, 90)
+            msg.Position = UDim2.new(0, 10, 0, 55)
+            msg.BackgroundTransparency = 1
+            msg.Font = Enum.Font.Gotham
+            msg.TextSize = 13
+            msg.TextColor3 = Color3.fromRGB(220, 220, 220)
+            msg.TextWrapped = true
+            msg.TextYAlignment = Enum.TextYAlignment.Top
+            msg.Text = "You have been banned from Infinite Zen.\n\n" ..
+                        "Reason: " .. tostring(reason) .. "\n\n" ..
+                        "Join the Discord to appeal: discord.gg/ScZfU2mAGm"
+
+            return
+        end
+    else
+        warn("[IZM] ⚠️ hwid.lua inválido / invalid — pulando check / skipping check")
+    end
+else
+    warn("[IZM] ⚠️ hwid.lua não encontrado / not found — pulando check / skipping check")
+end
+-- ═══ FIM HWID CHECK ═══
+
 -- ═══ UI LIBRARY ═══
 local UI = loadModule("InfiniteZen_UI.lua")
 if UI then
