@@ -1,5 +1,5 @@
 -- ============================================================
--- INFINITE ZEN - JAILBIRD v1.3 (Head Exp 18 + T Fallback + Bilingual Boot)
+-- INFINITE ZEN - JAILBIRD v1.3.1
 -- ============================================================
 
 local Jailbird = {}
@@ -10,18 +10,16 @@ function Jailbird.Init(ctx)
     local Compat   = ctx.Compat
     local gameName = ctx.gameName
 
-    -- ✅ T com fallback em inglês
     local function T(key, fallback)
         local v = Language.get(key)
         if not v or v == key then return fallback or key end
         return v
     end
 
-    local GAME_VERSION = "1.3"
+    local GAME_VERSION = "1.3.1"
     local FULL_VERSION  = "Infinite Zen V" .. GAME_VERSION .. " - " .. gameName
     local SHORT_VERSION = "V" .. GAME_VERSION .. " - " .. gameName
 
-    -- ✅ Mensagens bilíngues (PT + EN)
     print("============================================")
     print("[Infinite Zen] 🇧🇷 Inicializando " .. FULL_VERSION .. "...")
     print("[Infinite Zen] 🇺🇸 Initializing " .. FULL_VERSION .. "...")
@@ -41,7 +39,6 @@ function Jailbird.Init(ctx)
     local UNLOADED  = false
     local IS_MOBILE = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
-    -- UI REGISTRY
     local Elements = {}
     local Window = nil
 
@@ -58,7 +55,6 @@ function Jailbird.Init(ctx)
         return el
     end
 
-    -- SCREEN CENTER (cached)
     local _cachedCenter = Vector2.new(0, 0)
     local _cachedVP     = Vector2.new(0, 0)
 
@@ -71,7 +67,6 @@ function Jailbird.Init(ctx)
         return _cachedCenter
     end
 
-    -- REMOTES
     local GameEvents
     task.spawn(function()
         while not UNLOADED and not GameEvents do
@@ -92,7 +87,6 @@ function Jailbird.Init(ctx)
         return r
     end
 
-    -- TEAM CHECK
     local function isEnemy(player)
         if player == LocalPlayer then return false end
         if not player.Character then return false end
@@ -110,26 +104,21 @@ function Jailbird.Init(ctx)
         return player.Team ~= myTeam
     end
 
-    -- STATE
     local State = {
-        silentHeadshot = false, silentFov = 120,
         aimbot = false, aimbotFov = 100, aimbotSmoothness = 0.3,
         aimbotMaxDist = 500, aimbotHitbox = 1, aimbotWallCheck = true,
-        triggerbot = false, triggerbotDelay = 5,
         headExpander = false, headExpanderSize = 3,
         backstab = false,
         noRecoil = false, rapidFire = false, fastReload = false,
-        instaReload = false, noSpread = false, infiniteAmmo = false,
-        autoShoot = false, autoShootFov = 100, autoShootDelay = 0.05,
+        instaReload = false, noSpread = false,
         speed = false, speedValue = 50, airJump = false,
-        autoBhop = false, fullbright = false,
+        fullbright = false,
         esp = false, espMaxDistance = 500,
         espWeapon = true, espArmor = true, espGrenades = false,
-        damageIndicator = false, antiFlash = false, antiVK = false,
+        damageIndicator = false, antiFlash = false,
         lowGraphics = false, noShadows = false, noFog = false, noParticles = false,
     }
 
-    -- HELPERS
     local function getBasePart(parent, ...)
         if not parent then return nil end
         for _, name in ipairs({...}) do
@@ -160,7 +149,6 @@ function Jailbird.Init(ctx)
         return workspace:Raycast(origin, unitDir * rayLength, params) == nil
     end
 
-    -- LOS CACHE
     local losCache = {}
     local LOS_CACHE_TIME = 0.12
 
@@ -197,7 +185,6 @@ function Jailbird.Init(ctx)
         end
     end
 
-    -- FIRE
     local function fireWeapon()
         local char = LocalPlayer.Character
         if not char then return false end
@@ -215,7 +202,6 @@ function Jailbird.Init(ctx)
         return true
     end
 
-    -- FOV CIRCLE
     local fovCircle = Drawing.new("Circle")
     fovCircle.Color = Color3.fromRGB(230, 40, 40)
     fovCircle.Thickness = 1.5
@@ -231,18 +217,8 @@ function Jailbird.Init(ctx)
     RunService.RenderStepped:Connect(function()
         if UNLOADED then return end
 
-        local shouldShow, newRadius
-        if State.silentHeadshot then
-            shouldShow, newRadius = true, State.silentFov
-        elseif State.autoShoot then
-            shouldShow, newRadius = true, State.autoShootFov
-        elseif State.triggerbot then
-            shouldShow, newRadius = true, 20
-        elseif State.aimbot then
-            shouldShow, newRadius = true, State.aimbotFov
-        else
-            shouldShow = false
-        end
+        local shouldShow = State.aimbot
+        local newRadius = State.aimbotFov
 
         if fovCircle.Visible ~= shouldShow then
             fovCircle.Visible = shouldShow
@@ -259,7 +235,6 @@ function Jailbird.Init(ctx)
         end
     end)
 
-    -- TARGETING
     local candidates = {}
 
     local function getClosestEnemyInFov(fovRange)
@@ -300,46 +275,6 @@ function Jailbird.Init(ctx)
         end
     end
 
-    -- SILENT HEADSHOT
-    local silentHolding, silentTarget = false, nil
-
-    RunService:BindToRenderStep("IZ_JB_Silent", Enum.RenderPriority.Camera.Value + 10, function()
-        if UNLOADED or not silentHolding then return end
-        if not silentTarget or not silentTarget.Character then silentHolding = false; return end
-        local head = getBasePart(silentTarget.Character, "Head")
-        if not head then silentHolding = false; return end
-        pcall(function()
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position + Vector3.new(0, 0.15, 0))
-        end)
-    end)
-
-    UserInputService.InputBegan:Connect(function(input, gp)
-        if UNLOADED or gp or not State.silentHeadshot then return end
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1
-           and input.UserInputType ~= Enum.UserInputType.Touch then return end
-        local target = getClosestEnemyInFov(State.silentFov)
-        if not target or not target.Character then return end
-        silentTarget = target
-        silentHolding = true
-        local lr = getRemote("LookRotation")
-        if lr then
-            local head = getBasePart(target.Character, "Head")
-            if head then
-                local targetCF = CFrame.new(Camera.CFrame.Position, head.Position + Vector3.new(0, 0.15, 0))
-                pcall(function() lr:FireServer(targetCF) end)
-            end
-        end
-    end)
-
-    UserInputService.InputEnded:Connect(function(input, gp)
-        if UNLOADED or gp then return end
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1
-           and input.UserInputType ~= Enum.UserInputType.Touch then return end
-        silentHolding = false
-        silentTarget  = nil
-    end)
-
-    -- AIMBOT
     local aimbotFrameCount = 0
     local AIMBOT_SKIP = IS_MOBILE and 2 or 1
 
@@ -371,45 +306,6 @@ function Jailbird.Init(ctx)
         end
     end)
 
-    -- TRIGGERBOT
-    local triggerLastFire = 0
-    RunService.RenderStepped:Connect(function()
-        if UNLOADED or not State.triggerbot then return end
-        if tick() - triggerLastFire < (State.triggerbotDelay / 1000) then return end
-        local center = getScreenCenter()
-        for _, p in ipairs(Players:GetPlayers()) do
-            if isEnemy(p) and p.Character then
-                local part = getTargetPart(p)
-                if part then
-                    local sp, onScreen, depth = Camera:WorldToViewportPoint(part.Position)
-                    if onScreen and depth and depth > 0 then
-                        if (Vector2.new(sp.X, sp.Y) - center).Magnitude < 25 then
-                            triggerLastFire = tick()
-                            fireWeapon()
-                            break
-                        end
-                    end
-                end
-            end
-        end
-    end)
-
-    -- AUTO SHOOT
-    local lastAutoShoot = 0
-    RunService.Heartbeat:Connect(function()
-        if UNLOADED or not State.autoShoot then return end
-        if tick() - lastAutoShoot < State.autoShootDelay then return end
-        local target = getClosestEnemyInFov(State.autoShootFov)
-        if target and target.Character then
-            local part = getTargetPart(target)
-            if part then
-                lastAutoShoot = tick()
-                fireWeapon()
-            end
-        end
-    end)
-
-    -- BACKSTAB
     local backstabLock = {active = false, target = nil, endTime = 0}
 
     local function getClosestEnemyAnywhere()
@@ -467,7 +363,6 @@ function Jailbird.Init(ctx)
         end
     end
 
-    -- HEAD EXPANDER (max 18)
     local hitboxSaved = {}
 
     local function saveOriginal(player, part)
@@ -502,7 +397,6 @@ function Jailbird.Init(ctx)
             local base = hitboxSaved[p] and hitboxSaved[p][head]
             if base then
                 pcall(function()
-                    -- ✅ Aceita até 18 — head Y limitado a 8
                     head.Size = Vector3.new(base.X * size, base.Y * math.min(size, 8), base.Z * size)
                     head.Transparency = 0.7; head.CanCollide = false; head.Massless = true
                 end)
@@ -513,7 +407,6 @@ function Jailbird.Init(ctx)
             saveOriginal(p, headHB)
             local base = hitboxSaved[p] and hitboxSaved[p][headHB]
             if base then
-                -- ✅ Multiplicador aumentado pra 28
                 local hbMult = math.min(size * 1.5, 28)
                 pcall(function()
                     headHB.Size = Vector3.new(base.X * hbMult, base.Y * hbMult, base.Z * hbMult)
@@ -552,7 +445,6 @@ function Jailbird.Init(ctx)
         end)
     end)
 
-    -- WEAPON MODS
     local reloadOriginals = {}
     local weaponModsTick = 0
 
@@ -575,7 +467,7 @@ function Jailbird.Init(ctx)
 
     RunService.Heartbeat:Connect(function()
         if UNLOADED then return end
-        if not (State.rapidFire or State.noRecoil or State.fastReload or State.instaReload or State.noSpread or State.infiniteAmmo) then return end
+        if not (State.rapidFire or State.noRecoil or State.fastReload or State.instaReload or State.noSpread) then return end
 
         weaponModsTick = weaponModsTick + 1
         if weaponModsTick % 5 ~= 0 then return end
@@ -605,20 +497,6 @@ function Jailbird.Init(ctx)
                     pcall(function() v.Value = 0 end)
                 end
             end
-            if State.infiniteAmmo then
-                local vals = findValueContainer(root, {"ammo", "magazine"})
-                for _, v in ipairs(vals) do
-                    local n = v.Name:lower()
-                    if n ~= "mag" then
-                        pcall(function()
-                            if not reloadOriginals["ammo_" .. tostring(v)] then
-                                reloadOriginals["ammo_" .. tostring(v)] = v.Value
-                            end
-                            v.Value = 9999
-                        end)
-                    end
-                end
-            end
             if State.fastReload and not State.instaReload then
                 local vals = findValueContainer(root, {"reloadtime", "reloadspeed"})
                 for _, v in ipairs(vals) do
@@ -640,20 +518,6 @@ function Jailbird.Init(ctx)
         end
     end)
 
-    -- AUTO BHOP
-    RunService.Heartbeat:Connect(function()
-        if UNLOADED or not State.autoBhop then return end
-        local char = LocalPlayer.Character
-        if not char then return end
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if not hum then return end
-        local st = hum:GetState()
-        if st == Enum.HumanoidStateType.Landed or st == Enum.HumanoidStateType.Running then
-            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then hum.Jump = true end
-        end
-    end)
-
-    -- ANTI-FLASH
     local flashKeywords = {"flash", "blind", "whiteout", "whitescreen", "flashbang"}
     local function isFlashName(name)
         if type(name) ~= "string" then return false end
@@ -679,28 +543,6 @@ function Jailbird.Init(ctx)
         end
     end)
 
-    -- ANTI-VOTEKICK
-    local vkKeywords = {"votekick", "voting", "vote_kick", "kickvote"}
-    local function blockVoteKickGui(child)
-        if not child then return false end
-        local lower = child.Name:lower()
-        for _, kw in ipairs(vkKeywords) do
-            if lower:find(kw) then
-                pcall(function() child:Destroy() end)
-                return true
-            end
-        end
-        return false
-    end
-
-    PlayerGui.ChildAdded:Connect(function(child)
-        if UNLOADED or not State.antiVK then return end
-        if blockVoteKickGui(child) then
-            if Window then Window:Notify("🛡️", "Anti-VK", 3, "info") end
-        end
-    end)
-
-    -- DAMAGE INDICATOR
     local dmgArrow = Drawing.new("Triangle")
     dmgArrow.Filled = true
     dmgArrow.Color = Color3.fromRGB(255, 40, 40)
@@ -747,7 +589,6 @@ function Jailbird.Init(ctx)
         dmgArrow.Visible = true
     end)
 
-    -- GRENADE ESP
     local grenadeKeywords = {"grenade", "frag", "flashbang", "smoke", "molotov", "impact", "sticky", "decoy"}
     local grenadeDrawings = {}
 
@@ -810,7 +651,6 @@ function Jailbird.Init(ctx)
         end)
     end)
 
-    -- ESP
     local ESP = {data = {}}
 
     local function destroyESPData(d)
@@ -971,7 +811,6 @@ function Jailbird.Init(ctx)
     end)
     Players.PlayerRemoving:Connect(function(p) removeESP(p) end)
 
-    -- SPEED
     RunService.Heartbeat:Connect(function()
         if UNLOADED or not State.speed then return end
         local char = LocalPlayer.Character
@@ -981,7 +820,6 @@ function Jailbird.Init(ctx)
         end
     end)
 
-    -- AIR JUMP
     local airJumpConn = nil
     local AIR_JUMP_POWER = 55
 
@@ -1003,7 +841,6 @@ function Jailbird.Init(ctx)
         if airJumpConn then airJumpConn:Disconnect(); airJumpConn = nil end
     end
 
-    -- FULLBRIGHT originais
     local origBrightness     = Lighting.Brightness
     local origAmbient        = Lighting.Ambient
     local origOutdoorAmbient = Lighting.OutdoorAmbient
@@ -1016,7 +853,6 @@ function Jailbird.Init(ctx)
         end
     end
 
-    -- OPTIMIZATIONS
     local optBackup = {
         fogEnd = Lighting.FogEnd, fogStart = Lighting.FogStart,
         qualityLevel = nil, particles = {},
@@ -1209,7 +1045,6 @@ function Jailbird.Init(ctx)
         end
     end
 
-    -- CONFIG SYSTEM
     local BASE_FOLDER   = "InfiniteZen_Configs"
     local CONFIG_FOLDER = BASE_FOLDER .. "/Jailbird"
     local AUTOLOAD_FILE = "InfiniteZen_Jailbird_Autoload.txt"
@@ -1225,20 +1060,19 @@ function Jailbird.Init(ctx)
 
     local function syncUIFromState()
         local toggles = {
-            "silentHeadshot", "aimbot", "triggerbot", "backstab", "headExpander",
-            "noRecoil", "noSpread", "rapidFire", "fastReload", "instaReload", "infiniteAmmo",
-            "autoShoot", "speed", "airJump", "autoBhop", "fullbright",
+            "aimbot", "backstab", "headExpander",
+            "noRecoil", "noSpread", "rapidFire", "fastReload", "instaReload",
+            "speed", "airJump", "fullbright",
             "esp", "espWeapon", "espArmor", "espGrenades", "damageIndicator",
             "lowGraphics", "noShadows", "noFog", "noParticles",
-            "antiFlash", "antiVK",
+            "antiFlash",
         }
         for _, k in ipairs(toggles) do
             local el = Elements[k]
             if el and State[k] ~= nil then setToggle(el, State[k]) end
         end
         local sliders = {
-            "silentFov", "aimbotFov", "triggerbotDelay", "headExpanderSize",
-            "autoShootFov", "speedValue", "espMaxDistance",
+            "aimbotFov", "headExpanderSize", "speedValue", "espMaxDistance",
         }
         for _, k in ipairs(sliders) do
             local el = Elements[k]
@@ -1319,7 +1153,6 @@ function Jailbird.Init(ctx)
         return nil
     end
 
-    -- BUILD UI
     local function buildUI()
         Window = UI:CreateWindow({
             Title = "INFINITE ZEN",
@@ -1330,16 +1163,6 @@ function Jailbird.Init(ctx)
 
         local CombatTab = Window:CreateTab(T("tab.combat", "Combat"), "⚔️")
         CombatTab:CreateSection(T("section.aim", "Aim"))
-        reg("silentHeadshot", CombatTab:CreateToggle({
-            Name = T("silent.name", "Silent Aim"), Description = T("silent.desc", "Auto-lock aim when holding click"),
-            Icon = "🎯", Default = false,
-            Callback = function(v) State.silentHeadshot = v end,
-        }))
-        reg("silentFov", CombatTab:CreateSlider({
-            Name = T("silentfov.name", "Silent FOV"), Description = T("silentfov.desc", "Field of view radius"),
-            Icon = "📐", Min = 30, Max = 300, Default = 120,
-            Callback = function(v) State.silentFov = v end,
-        }))
         reg("aimbot", CombatTab:CreateToggle({
             Name = T("aimbot.name", "Aimbot"), Description = T("aimbot.desc", "Camera lock on closest enemy"),
             Icon = "🤖", Default = false,
@@ -1354,16 +1177,6 @@ function Jailbird.Init(ctx)
             Name = T("aimbotwall.name", "Wall Check"), Description = T("aimbotwall.desc", "Only aim if visible"),
             Icon = "🧱", Default = true,
             Callback = function(v) State.aimbotWallCheck = v end,
-        }))
-        reg("triggerbot", CombatTab:CreateToggle({
-            Name = T("triggerbot.name", "Triggerbot"), Description = T("triggerbot.desc", "Auto-fire on crosshair"),
-            Icon = "🎯", Default = false,
-            Callback = function(v) State.triggerbot = v end,
-        }))
-        reg("triggerbotDelay", CombatTab:CreateSlider({
-            Name = T("triggerbotdelay.name", "Triggerbot Delay"), Description = T("triggerbotdelay.desc", "Reaction time (ms)"),
-            Icon = "⏱️", Min = 1, Max = 100, Default = 5,
-            Callback = function(v) State.triggerbotDelay = v end,
         }))
         CombatTab:CreateSection(T("section.melee", "Melee"))
         reg("backstab", CombatTab:CreateToggle({
@@ -1382,7 +1195,7 @@ function Jailbird.Init(ctx)
         }))
         reg("headExpanderSize", CombatTab:CreateSlider({
             Name = T("headsize.name", "Head Size"), Description = T("headsize.desc", "Multiplier for head size"),
-            Icon = "📏", Min = 1, Max = 18, Default = 3,  -- ✅ 8 → 18
+            Icon = "📏", Min = 1, Max = 18, Default = 3,
             Callback = function(v) State.headExpanderSize = v end,
         }))
 
@@ -1414,23 +1227,6 @@ function Jailbird.Init(ctx)
             Icon = "💨", Default = false,
             Callback = function(v) State.instaReload = v end,
         }))
-        WeaponTab:CreateSection(T("section.ammo", "Ammo"))
-        reg("infiniteAmmo", WeaponTab:CreateToggle({
-            Name = T("infiniteammo.name", "Infinite Ammo"), Description = T("infiniteammo.desc", "Unlimited ammunition"),
-            Icon = "🔋", Default = false,
-            Callback = function(v) State.infiniteAmmo = v end,
-        }))
-        WeaponTab:CreateSection(T("section.auto", "Auto"))
-        reg("autoShoot", WeaponTab:CreateToggle({
-            Name = T("autoshot.name", "Auto Shoot"), Description = T("autoshot.desc", "Auto-fire on visible enemies"),
-            Icon = "🔥", Default = false,
-            Callback = function(v) State.autoShoot = v end,
-        }))
-        reg("autoShootFov", WeaponTab:CreateSlider({
-            Name = T("autoshotfov.name", "Auto Shoot FOV"), Description = T("autoshotfov.desc", "Radius for auto-fire"),
-            Icon = "📐", Min = 30, Max = 300, Default = 100,
-            Callback = function(v) State.autoShootFov = v end,
-        }))
 
         local MoveTab = Window:CreateTab(T("tab.movement", "Movement"), "🏃")
         MoveTab:CreateSection(T("section.speed", "Speed"))
@@ -1452,11 +1248,6 @@ function Jailbird.Init(ctx)
                 State.airJump = v
                 if v then startAirJump() else stopAirJump() end
             end,
-        }))
-        reg("autoBhop", MoveTab:CreateToggle({
-            Name = T("autobhop.name", "Auto Bhop"), Description = T("autobhop.desc", "Auto-jump while holding space"),
-            Icon = "🏃", Default = false,
-            Callback = function(v) State.autoBhop = v end,
         }))
         reg("fullbright", MoveTab:CreateToggle({
             Name = T("fullbright.name", "Fullbright"), Description = T("fullbright.desc", "Map always bright"),
@@ -1700,11 +1491,6 @@ function Jailbird.Init(ctx)
             Icon = "🛡️", Default = false,
             Callback = function(v) State.antiFlash = v end,
         }))
-        reg("antiVK", SettingsTab:CreateToggle({
-            Name = T("antivotekick.name", "Anti-VoteKick"), Description = T("antivotekick.desc", "Blocks votekick attempts"),
-            Icon = "🛡️", Default = false,
-            Callback = function(v) State.antiVK = v end,
-        }))
 
         SettingsTab:CreateSection(T("section.danger", "Danger Zone"))
         SettingsTab:CreateButton({
@@ -1723,7 +1509,6 @@ function Jailbird.Init(ctx)
                 applyNoParticles(false)
                 if fovCircle then fovCircle:Remove() end
                 if dmgArrow then dmgArrow:Remove() end
-                pcall(function() RunService:UnbindFromRenderStep("IZ_JB_Silent") end)
                 pcall(function() RunService:UnbindFromRenderStep("IZ_JB_Aimbot") end)
                 if Window then Window:Notify("Unload", T("config.unload", "Unload Script"), 2, "warning") end
                 task.wait(0.3)
@@ -1787,7 +1572,6 @@ function Jailbird.Init(ctx)
         CreditsTab:CreateLabel("© 2026 Sr Red", Color3.fromRGB(90, 90, 105))
     end
 
-    -- KEYBINDS
     UserInputService.InputBegan:Connect(function(input, gp)
         if UNLOADED or gp then return end
         if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
@@ -1796,7 +1580,6 @@ function Jailbird.Init(ctx)
         end
     end)
 
-    -- REBUILD
     local rebuilding = false
     _G.IZ_RefreshLanguage = function()
         if UNLOADED or rebuilding then return end
@@ -1825,7 +1608,6 @@ function Jailbird.Init(ctx)
 
     Window:Notify("✅ " .. SHORT_VERSION, T("loaded", "Jailbird loaded successfully"), 4, "success")
 
-    -- ✅ Mensagens de carregamento bilíngues
     print("============================================")
     print("[Infinite Zen] 🇧🇷 " .. FULL_VERSION .. " carregado com sucesso!")
     print("[Infinite Zen] 🇺🇸 " .. FULL_VERSION .. " loaded successfully!")
