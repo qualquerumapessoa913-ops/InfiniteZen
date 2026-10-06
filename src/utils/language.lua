@@ -1,5 +1,5 @@
 -- ============================================================
--- INFINITE ZEN - LANGUAGE v3.6
+-- INFINITE ZEN - LANGUAGE v3.7
 -- ============================================================
 
 local HttpService = game:GetService("HttpService")
@@ -33,7 +33,6 @@ Language.languages = {
 
 Language.translations = {}
 
--- Auto-criar tabelas base pros 20 idiomas hardcoded
 for _, info in ipairs(Language.languages) do
     Language.translations[info.code] = {
         flag = info.flag,
@@ -41,7 +40,6 @@ for _, info in ipairs(Language.languages) do
     }
 end
 
--- ═══ HARDCODED: EN + PT-BR (backup caso JSON não carregue) ═══
 Language.translations["en"] = {
     flag="🇺🇸", displayName="English (US)",
     ["tab.combat"]="Combat", ["tab.weapon"]="Weapon", ["tab.movement"]="Movement",
@@ -60,7 +58,6 @@ Language.translations["en"] = {
     ["section.language_select"]="Language", ["section.language_info"]="Info",
     ["section.founder"]="Founder & Developer", ["section.community"]="Community", ["section.version"]="Version",
 
-    -- Aim
     ["aimbot.name"]="Aimbot", ["aimbot.desc"]="Camera lock on closest enemy",
     ["aimbotfov.name"]="Aimbot FOV", ["aimbotfov.desc"]="Field of view radius",
     ["aimbotsmooth.name"]="Smoothness", ["aimbotsmooth.desc"]="Lower = faster",
@@ -69,44 +66,35 @@ Language.translations["en"] = {
     ["aimbothitbox.name"]="Hitbox", ["aimbothitbox.desc"]="Which part to aim",
     ["wallcheck.name"]="Wall Check", ["wallcheck.desc"]="Only with line of sight",
 
-    -- Auto
-    ["triggerbot.name"]="Triggerbot", ["triggerbot.desc"]="Auto-fire on crosshair",
-    ["triggerbotdelay.name"]="Delay", ["triggerbotdelay.desc"]="Reaction time (ms)",
     ["killaura.name"]="Kill Aura", ["killaura.desc"]="Attacks automatically",
     ["killaurarange.name"]="Aura Range", ["killauradelay.name"]="Aura Delay",
     ["autobackstab.name"]="Auto Backstab", ["autobackstab.desc"]="Attacks when enemy's back is turned",
     ["backstab.name"]="Backstab", ["backstab.desc"]="Teleport behind enemy (E)",
 
-    -- Hitbox / Melee
     ["headexp.name"]="Head Expander", ["headexp.desc"]="Enlarge enemy head hitbox",
     ["headsize.name"]="Head Size", ["headsize.desc"]="Size multiplier",
 
-    -- Weapon
     ["norecoil.name"]="No Recoil", ["norecoil.desc"]="Remove all weapon recoil",
     ["nospread.name"]="No Spread", ["nospread.desc"]="Remove bullet dispersion",
     ["rapidfire.name"]="Rapid Fire", ["rapidfire.desc"]="Reduce fire delay to minimum",
     ["fastreload.name"]="Fast Reload", ["fastreload.desc"]="Faster reload animation",
     ["instareload.name"]="Insta Reload", ["instareload.desc"]="Instant reload",
-    ["infiniteammo.name"]="Infinite Ammo", ["infiniteammo.desc"]="Unlimited ammunition",
     ["rainbowgun.name"]="Rainbow Gun", ["rainbowgun.desc"]="Cycles weapon colors like a rainbow",
     ["rainbowspeed.name"]="Rainbow Speed", ["rainbowspeed.desc"]="Delay between color changes",
     ["ghostgun.name"]="Ghost Gun", ["ghostgun.desc"]="Makes weapon semi-transparent",
     ["ghosttrans.name"]="Ghost Transparency", ["ghosttrans.desc"]="0 = invisible, 1 = opaque",
 
-    -- Movement
     ["speed.name"]="Speed", ["speed.desc"]="Custom walkspeed",
     ["speedvalue.name"]="Speed Value", ["speedvalue.desc"]="WalkSpeed value",
     ["fly.name"]="Fly", ["fly.desc"]="Free flight (WASD + Space/Ctrl)",
     ["flyspeed.name"]="Fly Speed", ["flyspeed.desc"]="Flight speed",
     ["airjump.name"]="Infinite Jump", ["airjump.desc"]="Jump mid-air infinitely",
     ["jumppower.name"]="Jump Power", ["jumppower.desc"]="Jump velocity",
-    ["autobhop.name"]="Auto Bhop", ["autobhop.desc"]="Jumps automatically",
     ["noclip.name"]="Noclip", ["noclip.desc"]="Walk through walls",
     ["fullbright.name"]="Fullbright", ["fullbright.desc"]="Map always bright",
     ["antiafk.name"]="Anti-AFK", ["antiafk.desc"]="Not kicked for inactivity",
     ["camerafov.name"]="Camera FOV", ["camerafov.desc"]="Field of view",
 
-    -- Visuals
     ["esp.name"]="Player ESP", ["esp.desc"]="Highlight enemies through walls",
     ["espdist.name"]="Max Distance", ["espdist.desc"]="ESP render range",
     ["espweapon.name"]="Weapon ESP", ["espweapon.desc"]="Show enemy weapons",
@@ -117,22 +105,17 @@ Language.translations["en"] = {
     ["nofog.name"]="No Fog", ["nofog.desc"]="Remove fog and atmosphere",
     ["nopart.name"]="No Particles", ["nopart.desc"]="Remove all particle effects",
     ["antiflash.name"]="Anti-Flash", ["antiflash.desc"]="Block flashbang effect",
-    ["antivotekick.name"]="Anti-VoteKick", ["antivotekick.desc"]="Block votekicks",
 
-    -- Config / Danger
     ["config.placeholder"]="Config name + Enter to save...", ["config.refresh"]="🔄 Refresh List",
     ["config.disable_autoload"]="🚫 Disable Autoload", ["config.fps_boost"]="⚡ Max FPS Boost",
     ["config.reset_opt"]="🔄 Reset Optimizations", ["config.unload"]="Unload Script",
     ["config.empty"]="No configs saved yet.",
 
-    -- Language tab
     ["lang.current"]="🌐 Current: ", ["lang.hint"]="Choose the hub language",
     ["lang.saved_to"]="Language saved to:", ["lang.auto_restore"]="Auto-restored on open.",
 
-    -- Credits
     ["credits.copy_discord"]="📋 Copy Discord Link", ["credits.role"]="Sr Red",
 
-    -- MM2
     ["mm2.show.murderer"]="Show Murderer", ["mm2.show.sheriff"]="Show Sheriff", ["mm2.show.innocent"]="Show Innocent",
     ["mm2.murderer.alert"]="Murderer Alert", ["mm2.murderer.alert.desc"]="Alerts when murderer is near",
     ["mm2.murderer.alert.range"]="Alert Range",
@@ -141,11 +124,9 @@ Language.translations["en"] = {
     ["mm2.autograb.name"]="Auto Grab Gun", ["mm2.autograb.desc"]="Grabs dropped Sheriff gun", ["mm2.autograb.range"]="Grab Range",
     ["mm2.role.murderer"]="Murderer", ["mm2.role.sheriff"]="Sheriff", ["mm2.role.innocent"]="Innocent",
 
-    -- Jailbird
     ["jb.esp.armor"]="Armor ESP", ["jb.esp.armor.desc"]="Show enemy armor value",
     ["jb.esp.grenades"]="Grenade ESP", ["jb.esp.grenades.desc"]="Show nearby grenades",
 
-    -- BloxStrike
     ["bs.esp.weapon"]="Weapon ESP", ["bs.esp.armor"]="Armor ESP",
 }
 
@@ -167,7 +148,6 @@ Language.translations["pt-br"] = {
     ["section.language_select"]="Idioma", ["section.language_info"]="Info",
     ["section.founder"]="Fundador & Desenvolvedor", ["section.community"]="Comunidade", ["section.version"]="Versão",
 
-    -- Mira
     ["aimbot.name"]="Aimbot", ["aimbot.desc"]="Trava câmera no inimigo mais próximo",
     ["aimbotfov.name"]="FOV do Aimbot", ["aimbotfov.desc"]="Raio do campo de visão",
     ["aimbotsmooth.name"]="Suavidade", ["aimbotsmooth.desc"]="Menor = mais rápido",
@@ -176,44 +156,35 @@ Language.translations["pt-br"] = {
     ["aimbothitbox.name"]="Hitbox", ["aimbothitbox.desc"]="Qual parte mirar",
     ["wallcheck.name"]="Verificar Parede", ["wallcheck.desc"]="Só com linha de visão",
 
-    -- Auto
-    ["triggerbot.name"]="Triggerbot", ["triggerbot.desc"]="Disparo automático na mira",
-    ["triggerbotdelay.name"]="Atraso", ["triggerbotdelay.desc"]="Tempo de reação (ms)",
     ["killaura.name"]="Aura de Morte", ["killaura.desc"]="Ataca automaticamente",
     ["killaurarange.name"]="Alcance da Aura", ["killauradelay.name"]="Atraso da Aura",
     ["autobackstab.name"]="Facada Automática", ["autobackstab.desc"]="Ataca quando o inimigo vira as costas",
     ["backstab.name"]="Backstab", ["backstab.desc"]="Teleporta atrás do inimigo (E)",
 
-    -- Hitbox / Melee
     ["headexp.name"]="Head Expander", ["headexp.desc"]="Aumenta a hitbox da cabeça",
     ["headsize.name"]="Tamanho da Cabeça", ["headsize.desc"]="Multiplicador do tamanho",
 
-    -- Arma
     ["norecoil.name"]="Sem Recuo", ["norecoil.desc"]="Remove todo recuo",
     ["nospread.name"]="Sem Dispersão", ["nospread.desc"]="Remove dispersão das balas",
     ["rapidfire.name"]="Tiro Rápido", ["rapidfire.desc"]="Reduz delay entre tiros",
     ["fastreload.name"]="Reload Rápido", ["fastreload.desc"]="Recarga mais rápida",
     ["instareload.name"]="Reload Instantâneo", ["instareload.desc"]="Recarga na hora",
-    ["infiniteammo.name"]="Munição Infinita", ["infiniteammo.desc"]="Munição ilimitada",
     ["rainbowgun.name"]="Arma Arco-Íris", ["rainbowgun.desc"]="Muda a cor da arma em ciclo arco-íris",
     ["rainbowspeed.name"]="Velocidade do Arco-Íris", ["rainbowspeed.desc"]="Delay entre trocas de cor",
     ["ghostgun.name"]="Arma Fantasma", ["ghostgun.desc"]="Deixa a arma semi-transparente",
     ["ghosttrans.name"]="Transparência Fantasma", ["ghosttrans.desc"]="0 = invisível, 1 = opaca",
 
-    -- Movimento
     ["speed.name"]="Velocidade", ["speed.desc"]="Velocidade personalizada",
     ["speedvalue.name"]="Valor da Velocidade", ["speedvalue.desc"]="Valor do WalkSpeed",
     ["fly.name"]="Voar", ["fly.desc"]="Voo livre (WASD + Espaço/Ctrl)",
     ["flyspeed.name"]="Velocidade de Voo", ["flyspeed.desc"]="Velocidade de voo",
     ["airjump.name"]="Pulo Infinito", ["airjump.desc"]="Pula no ar infinitamente",
     ["jumppower.name"]="Força do Pulo", ["jumppower.desc"]="Velocidade do pulo",
-    ["autobhop.name"]="Auto Bhop", ["autobhop.desc"]="Pula automaticamente",
     ["noclip.name"]="Noclip", ["noclip.desc"]="Atravessa paredes",
     ["fullbright.name"]="Fullbright", ["fullbright.desc"]="Mapa sempre claro",
     ["antiafk.name"]="Anti-AFK", ["antiafk.desc"]="Não é kickado por inatividade",
     ["camerafov.name"]="FOV da Câmera", ["camerafov.desc"]="Campo de visão",
 
-    -- Visual
     ["esp.name"]="ESP de Jogador", ["esp.desc"]="Destaca inimigos através das paredes",
     ["espdist.name"]="Distância Máxima", ["espdist.desc"]="Alcance do ESP",
     ["espweapon.name"]="ESP de Arma", ["espweapon.desc"]="Mostra armas dos inimigos",
@@ -224,22 +195,17 @@ Language.translations["pt-br"] = {
     ["nofog.name"]="Sem Névoa", ["nofog.desc"]="Remove névoa e atmosfera",
     ["nopart.name"]="Sem Partículas", ["nopart.desc"]="Remove efeitos de partículas",
     ["antiflash.name"]="Anti-Flash", ["antiflash.desc"]="Bloqueia flashbang",
-    ["antivotekick.name"]="Anti-VoteKick", ["antivotekick.desc"]="Bloqueia votekicks",
 
-    -- Config / Perigo
     ["config.placeholder"]="Nome do config + Enter pra salvar...", ["config.refresh"]="🔄 Atualizar Lista",
     ["config.disable_autoload"]="🚫 Desativar Autoload", ["config.fps_boost"]="⚡ Boost Máximo de FPS",
     ["config.reset_opt"]="🔄 Resetar Otimizações", ["config.unload"]="Descarregar Script",
     ["config.empty"]="Nenhum config salvo ainda.",
 
-    -- Idioma
     ["lang.current"]="🌐 Atual: ", ["lang.hint"]="Escolha o idioma do hub",
     ["lang.saved_to"]="Idioma salvo em:", ["lang.auto_restore"]="É restaurado ao abrir o hub.",
 
-    -- Créditos
     ["credits.copy_discord"]="📋 Copiar Link do Discord", ["credits.role"]="Sr Red",
 
-    -- MM2
     ["mm2.show.murderer"]="Mostrar Assassino", ["mm2.show.sheriff"]="Mostrar Xerife", ["mm2.show.innocent"]="Mostrar Inocente",
     ["mm2.murderer.alert"]="Alerta do Assassino", ["mm2.murderer.alert.desc"]="Avisa quando o assassino está perto",
     ["mm2.murderer.alert.range"]="Alcance do Alerta",
@@ -248,15 +214,12 @@ Language.translations["pt-br"] = {
     ["mm2.autograb.name"]="Pegar Arma Auto", ["mm2.autograb.desc"]="Pega arma caída do Xerife", ["mm2.autograb.range"]="Alcance de Pegar",
     ["mm2.role.murderer"]="Assassino", ["mm2.role.sheriff"]="Xerife", ["mm2.role.innocent"]="Inocente",
 
-    -- Jailbird
     ["jb.esp.armor"]="ESP de Armadura", ["jb.esp.armor.desc"]="Mostra valor de armadura do inimigo",
     ["jb.esp.grenades"]="ESP de Granada", ["jb.esp.grenades.desc"]="Mostra granadas próximas",
 
-    -- BloxStrike
     ["bs.esp.weapon"]="ESP de Arma", ["bs.esp.armor"]="ESP de Armadura",
 }
 
--- ═══ Helper: registra idioma novo na lista ordenada ═══
 local function ensureLanguageRegistered(code)
     for _, info in ipairs(Language.languages) do
         if info.code == code then return end
@@ -269,7 +232,6 @@ local function ensureLanguageRegistered(code)
     })
 end
 
--- ═══ CARREGA JSON EXTERNO ═══
 local EXTRA_FILE = "InfiniteZen_Translations.json"
 local JSON_URL = "https://raw.githubusercontent.com/qualquerumapessoa913-ops/InfiniteZen/Moon-Angel/InfiniteZen_Translations.json"
 
@@ -297,6 +259,18 @@ local function tryDownload()
     return nil
 end
 
+local REMOVED_KEYS = {
+    ["silent.name"] = true, ["silent.desc"] = true,
+    ["silentfov.name"] = true, ["silentfov.desc"] = true,
+    ["triggerbot.name"] = true, ["triggerbot.desc"] = true,
+    ["triggerbotdelay.name"] = true, ["triggerbotdelay.desc"] = true,
+    ["autoshot.name"] = true, ["autoshot.desc"] = true,
+    ["autoshotfov.name"] = true, ["autoshotfov.desc"] = true,
+    ["infiniteammo.name"] = true, ["infiniteammo.desc"] = true,
+    ["autobhop.name"] = true, ["autobhop.desc"] = true,
+    ["antivotekick.name"] = true, ["antivotekick.desc"] = true,
+}
+
 local function loadExtraTranslations()
     local raw = tryReadLocal() or tryDownload()
 
@@ -311,7 +285,6 @@ local function loadExtraTranslations()
         return
     end
 
-    -- Metadados que NÃO devem ser sobrescritos pelo JSON (já temos emoji)
     local META = { flag = true, displayName = true, shortCode = true }
 
     local count, newLangs = 0, 0
@@ -324,8 +297,8 @@ local function loadExtraTranslations()
 
             for k, v in pairs(tbl) do
                 if type(k) == "string" and (type(v) == "string" or type(v) == "number") then
-                    if META[k] and Language.translations[code][k] then
-                        -- preserva emoji/displayName hardcoded
+                    if REMOVED_KEYS[k] then
+                    elseif META[k] and Language.translations[code][k] then
                     else
                         Language.translations[code][k] = v
                     end
@@ -343,7 +316,6 @@ if not okLoad then
     warn("[IZ Lang] ❌ loadExtraTranslations falhou: " .. tostring(errLoad))
 end
 
--- ═══ Idioma salvo ═══
 local LANG_FILE = "InfiniteZen_Language.txt"
 pcall(function()
     if not readfile then return end
@@ -357,7 +329,6 @@ pcall(function()
     end
 end)
 
--- ═══ API ═══
 function Language.get(key)
     if type(key) ~= "string" then return key end
     local t = Language.translations[Language.current]
