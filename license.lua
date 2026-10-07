@@ -2,7 +2,7 @@
 -- INFINITE ZEN — LOADER (Powered by FlowAuth) 🎃 HALLOWEEN
 -- ═══════════════════════════════════════════════════════════
 
-local FLOWAUTH_LOADER_HASH = "530fbe83145609971c18e015a321916a"
+local FLOWAUTH_LOADER_HASH = "a9c0105cc4be38b6d7f7f676de6ea7dc"
 local FLOWAUTH_LOADER_URL  = "https://flowauth.net/v1/loaders/" .. FLOWAUTH_LOADER_HASH .. ".lua"
 local DISCORD_INVITE       = "https://discord.gg/ScZfU2mAGm"
 local KEY_FILE             = "izm_flowauth_key.txt"
