@@ -186,18 +186,29 @@ function Arsenal.Init(ctx)
     end)
 
     -- ═══════════════════════════════════════════════════════════
-    -- 🌈 RAINBOW GUN
+    -- 🎨 WEAPON VISUAL MODS (Rainbow + Ghost)
     -- ═══════════════════════════════════════════════════════════
-    local rainbowParts = {}
-    local rainbowTick = 0
 
-    -- ✅ Acha a arma equipada (ViewModel OR Character)
+    -- Pega TODAS as BaseParts da arma ativa (inclui MeshPart!)
+    local function getWeaponParts(weapon)
+        local parts = {}
+        if not weapon then return parts end
+        for _, d in ipairs(weapon:GetDescendants()) do
+            if d:IsA("BasePart") then
+                table.insert(parts, d)
+            end
+        end
+        return parts
+    end
+
+    -- Acha a arma ativa (Character tool OU ViewModel)
     local function getActiveWeapon()
         local char = LocalPlayer.Character
         if char then
             local tool = char:FindFirstChildOfClass("Tool")
             if tool then return tool end
         end
+
         local vm = workspace:FindFirstChild("ViewModel")
         if vm then
             for _, child in ipairs(vm:GetChildren()) do
@@ -205,73 +216,63 @@ function Arsenal.Init(ctx)
                     return child
                 end
             end
+            return vm
         end
+
         return nil
     end
 
-    local function getWeaponParts(weapon)
-        local parts = {}
-        if not weapon then return parts end
-        for _, d in ipairs(weapon:GetDescendants()) do
-            if d:IsA("BasePart") and not d:IsA("Part") == false then
-                table.insert(parts, d)
-            end
-        end
-        -- Fallback: pega qualquer BasePart
-        if #parts == 0 then
-            for _, d in ipairs(weapon:GetDescendants()) do
-                if d:IsA("BasePart") then
-                    table.insert(parts, d)
-                end
-            end
-        end
-        return parts
+    -- Guarda o "último weapon" pra detectar troca
+    local trackedWeapon = nil
+    local rainbowOriginals = {}  -- part -> {color, material, reflectance}
+    local ghostOriginals = {}    -- part -> {ltm, canCollide}
+
+    -- ─── RAINBOW ───
+    local function saveRainbowOriginal(part)
+        if rainbowOriginals[part] then return end
+        rainbowOriginals[part] = {
+            color = part.Color,
+            material = part.Material,
+            reflectance = part.Reflectance,
+        }
     end
 
-    local function HSVToRGB(h, s, v)
-        return Color3.fromHSV(h, s, v)
+    local function restoreRainbowOriginal(part)
+        local orig = rainbowOriginals[part]
+        if not orig then return end
+        pcall(function()
+            part.Color = orig.color
+            part.Material = orig.material
+            part.Reflectance = orig.reflectance
+        end)
+        rainbowOriginals[part] = nil
+    end
+
+    local function restoreAllRainbow()
+        for part, _ in pairs(rainbowOriginals) do
+            restoreRainbowOriginal(part)
+        end
+        rainbowOriginals = {}
     end
 
     local function applyRainbowGun()
-        rainbowTick = rainbowTick + 1
         local weapon = getActiveWeapon()
         if not weapon then return end
-
         local parts = getWeaponParts(weapon)
+
         local hue = (tick() * 0.5) % 1
-        local color = HSVToRGB(hue, 1, 1)
+        local color = Color3.fromHSV(hue, 1, 1)
 
         for _, part in ipairs(parts) do
+            saveRainbowOriginal(part)
             pcall(function()
                 part.Color = color
                 part.Material = Enum.Material.Neon
-                part.Reflectance = 0.3
-                -- Remove Texture se tiver (pra cor aparecer)
-                local texture = part:FindFirstChildOfClass("Texture")
-                if texture then texture.Transparency = 1 end
-                local decal = part:FindFirstChildOfClass("Decal")
-                if decal then decal.Transparency = 1 end
+                part.Reflectance = 0.15
             end)
         end
     end
 
-    local function stopRainbowGun()
-        local weapon = getActiveWeapon()
-        if not weapon then return end
-        local parts = getWeaponParts(weapon)
-        for _, part in ipairs(parts) do
-            pcall(function()
-                part.Material = Enum.Material.Metal
-                part.Reflectance = 0
-                local texture = part:FindFirstChildOfClass("Texture")
-                if texture then texture.Transparency = 0 end
-                local decal = part:FindFirstChildOfClass("Decal")
-                if decal then decal.Transparency = 0 end
-            end)
-        end
-    end
-
-    -- Loop do rainbow
     task.spawn(function()
         while not UNLOADED do
             task.wait(State.rainbowSpeed or 0.05)
@@ -281,36 +282,44 @@ function Arsenal.Init(ctx)
         end
     end)
 
-    -- ═══════════════════════════════════════════════════════════
-    -- 👻 GHOST GUN (semi-transparente)
-    -- ═══════════════════════════════════════════════════════════
+    -- ─── GHOST ───
+    local function saveGhostOriginal(part)
+        if ghostOriginals[part] then return end
+        ghostOriginals[part] = {
+            ltm = part.LocalTransparencyModifier,
+            canCollide = part.CanCollide,
+        }
+    end
+
+    local function restoreGhostOriginal(part)
+        local orig = ghostOriginals[part]
+        if not orig then return end
+        pcall(function()
+            part.LocalTransparencyModifier = orig.ltm
+            part.CanCollide = orig.canCollide
+        end)
+        ghostOriginals[part] = nil
+    end
+
+    local function restoreAllGhost()
+        for part, _ in pairs(ghostOriginals) do
+            restoreGhostOriginal(part)
+        end
+        ghostOriginals = {}
+    end
+
     local function applyGhostGun()
         local weapon = getActiveWeapon()
         if not weapon then return end
         local parts = getWeaponParts(weapon)
         for _, part in ipairs(parts) do
+            saveGhostOriginal(part)
             pcall(function()
                 part.LocalTransparencyModifier = State.ghostTransparency
-                part.Transparency = State.ghostTransparency
-                part.CanCollide = false
             end)
         end
     end
 
-    local function stopGhostGun()
-        local weapon = getActiveWeapon()
-        if not weapon then return end
-        local parts = getWeaponParts(weapon)
-        for _, part in ipairs(parts) do
-            pcall(function()
-                part.LocalTransparencyModifier = 0
-                part.Transparency = 0
-                part.CanCollide = true
-            end)
-        end
-    end
-
-    -- Loop do ghost
     task.spawn(function()
         while not UNLOADED do
             task.wait(0.1)
@@ -320,7 +329,27 @@ function Arsenal.Init(ctx)
         end
     end)
 
+    -- Detecta troca de arma → limpa originals antigos
+    task.spawn(function()
+        while not UNLOADED do
+            task.wait(1)
+            local current = getActiveWeapon()
+            if current ~= trackedWeapon then
+                if not State.rainbowGun then restoreAllRainbow() end
+                if not State.ghostGun then restoreAllGhost() end
+                trackedWeapon = current
+            end
+        end
+    end)
+
+    -- Restore helpers pros callbacks
+    local function stopRainbowGun() restoreAllRainbow() end
+    local function stopGhostGun()   restoreAllGhost()   end
+
+    -- ═══════════════════════════════════════════════════════════
     -- HEAD EXPANDER v2
+    -- ═══════════════════════════════════════════════════════════
+
     local hitboxSaved = {}
     local expandStats = {applied = 0, failed = 0}
 
