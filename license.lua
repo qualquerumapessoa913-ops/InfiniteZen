@@ -23,6 +23,7 @@ local COLOR = {
     Accent     = Color3.fromRGB(155, 60, 220),   -- Roxo bruxa
     Bg         = Color3.fromRGB(15, 8, 20),      -- Preto-roxo
     Surface    = Color3.fromRGB(25, 14, 32),
+    SurfaceHover = Color3.fromRGB(40, 24, 52),
     Text       = Color3.fromRGB(245, 230, 240),
     TextDim    = Color3.fromRGB(180, 150, 190),
     TextMuted  = Color3.fromRGB(120, 90, 140),
@@ -101,7 +102,12 @@ local function buildUI()
             while e.Parent do
                 local floatY = math.sin(tick() * 0.8 + i) * 15
                 local floatX = math.cos(tick() * 0.5 + i) * 10
-                e.Position = UDim2.new(e.Position.X.Scale, e.Position.X.Offset + floatX * 0.02, e.Position.Y.Scale, e.Position.Y.Offset + floatY * 0.02)
+                e.Position = UDim2.new(
+                    e.Position.X.Scale,
+                    e.Position.X.Offset + floatX * 0.02,
+                    e.Position.Y.Scale,
+                    e.Position.Y.Offset + floatY * 0.02
+                )
                 task.wait(0.05)
             end
         end)
@@ -274,7 +280,7 @@ local function buildUI()
     dStroke.Transparency = 0.6
 
     discordBtn.MouseEnter:Connect(function()
-        discordBtn.BackgroundColor3 = COLOR.Surface + Color3.fromRGB(15, 10, 20)
+        discordBtn.BackgroundColor3 = COLOR.SurfaceHover
     end)
     discordBtn.MouseLeave:Connect(function()
         discordBtn.BackgroundColor3 = COLOR.Surface
@@ -283,9 +289,13 @@ local function buildUI()
     discordBtn.MouseButton1Click:Connect(function()
         if setclipboard then pcall(setclipboard, DISCORD_INVITE) end
         pcall(function()
-            if syn and syn.request then syn.request({ Url = DISCORD_INVITE, Method = "GET" })
-            elseif request then request({ Url = DISCORD_INVITE, Method = "GET" })
-            elseif http_request then http_request({ Url = DISCORD_INVITE, Method = "GET" }) end
+            if syn and syn.request then
+                syn.request({ Url = DISCORD_INVITE, Method = "GET" })
+            elseif request then
+                request({ Url = DISCORD_INVITE, Method = "GET" })
+            elseif http_request then
+                http_request({ Url = DISCORD_INVITE, Method = "GET" })
+            end
         end)
         statusFrame.Visible = true
         status.Text = "📋  " .. EMOJI.Candy .. " Convite copiado / Invite copied!"
@@ -295,17 +305,26 @@ local function buildUI()
     -- Drag
     local dragging, dragStart, startPos
     card.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true; dragStart = input.Position; startPos = card.Position
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = card.Position
         end
     end)
     card.InputEnded:Connect(function()
         dragging = false
     end)
     UIS.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch) then
             local d = input.Position - dragStart
-            card.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+            card.Position = UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + d.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + d.Y
+            )
         end
     end)
 
