@@ -84,6 +84,7 @@ function Arsenal.Init(ctx)
         esp = false, espMaxDistance = 500,
         lowGraphics = false, noShadows = false, noFog = false, noParticles = false,
         debugHeadExp = false,
+        debugWeapon = false,
         keybinds = {
             aimbot = nil, headExpander = nil,
             backstab = "E", noRecoil = nil, rapidFire = nil,
@@ -189,37 +190,61 @@ function Arsenal.Init(ctx)
     -- 🎨 WEAPON VISUAL MODS (Rainbow + Ghost)
     -- ═══════════════════════════════════════════════════════════
 
-    -- Pega TODAS as BaseParts da arma ativa (inclui MeshPart!)
-    local function getWeaponParts(weapon)
-        local parts = {}
-        if not weapon then return parts end
-        for _, d in ipairs(weapon:GetDescendants()) do
-            if d:IsA("BasePart") then
-                table.insert(parts, d)
+    -- Acha a arma ativa (Camera.Arms do Arsenal OU Tool no Character)
+    local function getActiveWeapon()
+        local cam = workspace.CurrentCamera
+        if cam then
+            for _, child in ipairs(cam:GetChildren()) do
+                if child:IsA("Model") or child:IsA("Tool") then
+                    local n = child.Name:lower()
+                    -- Ignora efeitos visuais (BulletHoles, etc)
+                    if not n:find("bullet") and not n:find("hole")
+                        and not n:find("particle") and not n:find("effect")
+                        and not n:find("debris") then
+                        -- Confirma que tem BasePart dentro
+                        for _, d in ipairs(child:GetDescendants()) do
+                            if d:IsA("BasePart") then
+                                return child
+                            end
+                        end
+                    end
+                end
             end
         end
-        return parts
-    end
 
-    -- Acha a arma ativa (Character tool OU ViewModel)
-    local function getActiveWeapon()
+        -- Fallback: Tool no Character
         local char = LocalPlayer.Character
         if char then
             local tool = char:FindFirstChildOfClass("Tool")
             if tool then return tool end
         end
 
-        local vm = workspace:FindFirstChild("ViewModel")
-        if vm then
-            for _, child in ipairs(vm:GetChildren()) do
-                if child:IsA("Model") or child:IsA("Tool") then
-                    return child
+        return nil
+    end
+
+    -- Pega TODAS as BaseParts da arma (MeshPart incluso). Pula braços (CSSArms).
+    local function getWeaponParts(weapon)
+        local parts = {}
+        if not weapon then return parts end
+        for _, d in ipairs(weapon:GetDescendants()) do
+            if d:IsA("BasePart") then
+                -- Verifica se é dos braços (CSSArms) → pula
+                local skip = false
+                local p = d
+                while p and p ~= weapon do
+                    if p.Name == "CSSArms" or p.Name == "Arms" then
+                        -- Só pula se for uma parte DENTRO de CSSArms (braços)
+                        if p.Name == "CSSArms" then skip = true end
+                        break
+                    end
+                    p = p.Parent
+                end
+                if not skip then
+                    table.insert(parts, d)
                 end
             end
-            return vm
         end
-
-        return nil
+        return parts
     end
 
     -- Guarda o "último weapon" pra detectar troca
@@ -338,6 +363,26 @@ function Arsenal.Init(ctx)
                 if not State.rainbowGun then restoreAllRainbow() end
                 if not State.ghostGun then restoreAllGhost() end
                 trackedWeapon = current
+
+                if State.debugWeapon then
+                    print("[WEAPON-DEBUG] Troca → " .. (current and current:GetFullName() or "NIL"))
+                end
+            end
+        end
+    end)
+
+    -- Debug: log da arma atual
+    task.spawn(function()
+        while not UNLOADED do
+            task.wait(3)
+            if State.debugWeapon then
+                local w = getActiveWeapon()
+                if w then
+                    local p = getWeaponParts(w)
+                    print(string.format("[WEAPON-DEBUG] %s | parts=%d", w:GetFullName(), #p))
+                else
+                    print("[WEAPON-DEBUG] Arma NIL")
+                end
             end
         end
     end)
@@ -926,7 +971,7 @@ function Arsenal.Init(ctx)
             "rainbowGun", "ghostGun",
             "speed", "airJump", "noclip", "antiAfk",
             "esp", "lowGraphics", "noShadows", "noFog", "noParticles",
-            "fullbright", "debugHeadExp",
+            "fullbright", "debugHeadExp", "debugWeapon",
         }
         for _, key in ipairs(toggles) do
             local el = Elements[key]
@@ -1076,7 +1121,6 @@ function Arsenal.Init(ctx)
             Callback = function(v) State.instaReload = v end,
         }))
 
-        -- ✅ NOVA SEÇÃO: Visual Mods
         WeaponTab:CreateSection("🎨 Visual Mods")
         reg("rainbowGun", WeaponTab:CreateToggle({
             Name = T("rainbowgun.name", "🌈 Rainbow Gun"), Description = T("rainbowgun.desc", "Cycles weapon colors like a rainbow"),
@@ -1391,6 +1435,13 @@ function Arsenal.Init(ctx)
             Description = "Logs applied/failed + real size",
             Icon = "🔴", Default = false,
             Callback = function(v) State.debugHeadExp = v end,
+        }))
+
+        reg("debugWeapon", SettingsTab:CreateToggle({
+            Name = "Debug Weapon",
+            Description = "Logs current weapon + parts count",
+            Icon = "🔫", Default = false,
+            Callback = function(v) State.debugWeapon = v end,
         }))
 
         SettingsTab:CreateSection(T("section.danger", "Danger Zone"))
