@@ -18,10 +18,10 @@ local PlayerGui   = LP:WaitForChild("PlayerGui")
 
 -- 🎃 Paleta Halloween
 local COLOR = {
-    Primary    = Color3.fromRGB(255, 108, 20),   -- Laranja abóbora
+    Primary    = Color3.fromRGB(255, 108, 20),
     PrimaryDark= Color3.fromRGB(180, 60, 0),
-    Accent     = Color3.fromRGB(155, 60, 220),   -- Roxo bruxa
-    Bg         = Color3.fromRGB(15, 8, 20),      -- Preto-roxo
+    Accent     = Color3.fromRGB(155, 60, 220),
+    Bg         = Color3.fromRGB(15, 8, 20),
     Surface    = Color3.fromRGB(25, 14, 32),
     SurfaceHover = Color3.fromRGB(40, 24, 52),
     Text       = Color3.fromRGB(245, 230, 240),
@@ -73,14 +73,16 @@ local function buildUI()
     sg.ResetOnSpawn = false
     sg.IgnoreGuiInset = true
     sg.DisplayOrder = 9999
+    sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     sg.Parent = PlayerGui
 
-    -- Backdrop
+    -- Backdrop (bem atrás)
     local backdrop = Instance.new("Frame", sg)
     backdrop.Size = UDim2.new(1, 0, 1, 0)
     backdrop.BackgroundColor3 = Color3.new(0, 0, 0)
     backdrop.BackgroundTransparency = 0.3
     backdrop.BorderSizePixel = 0
+    backdrop.ZIndex = 0
 
     -- 🎃 Emojis decorativos flutuando no fundo
     local bgDecos = {"🎃", "👻", "🦇", "🕷️", "🧙", "💀", "🎃", "👻"}
@@ -95,9 +97,8 @@ local function buildUI()
         e.TextTransparency = 0.7
         e.TextColor3 = (i % 2 == 0) and COLOR.Primary or COLOR.Accent
         e.Rotation = math.random(-30, 30)
-        e.ZIndex = 0
+        e.ZIndex = 1
 
-        -- 🎃 Animação flutuante
         task.spawn(function()
             while e.Parent do
                 local floatY = math.sin(tick() * 0.8 + i) * 15
@@ -119,7 +120,7 @@ local function buildUI()
     card.Position = UDim2.new(0.5, -300, 0.5, -230)
     card.BackgroundColor3 = COLOR.Bg
     card.BorderSizePixel = 0
-    card.ZIndex = 5
+    card.ZIndex = 10
     Instance.new("UICorner", card).CornerRadius = UDim.new(0, 14)
 
     -- 🎃 Glow roxo atrás do card
@@ -129,7 +130,7 @@ local function buildUI()
     glow.BackgroundColor3 = COLOR.Accent
     glow.BackgroundTransparency = 0.85
     glow.BorderSizePixel = 0
-    glow.ZIndex = -1
+    glow.ZIndex = 9
     Instance.new("UICorner", glow).CornerRadius = UDim.new(0, 20)
 
     local stroke = Instance.new("UIStroke", card)
@@ -142,14 +143,15 @@ local function buildUI()
     top.Size = UDim2.new(1, 0, 0, 55)
     top.BackgroundColor3 = COLOR.Primary
     top.BorderSizePixel = 0
+    top.ZIndex = 11
     Instance.new("UICorner", top).CornerRadius = UDim.new(0, 14)
     local topFix = Instance.new("Frame", top)
     topFix.Size = UDim2.new(1, 0, 0, 20)
     topFix.Position = UDim2.new(0, 0, 1, -20)
     topFix.BackgroundColor3 = COLOR.Primary
     topFix.BorderSizePixel = 0
+    topFix.ZIndex = 11
 
-    -- 🎃 Ícone abóbora à esquerda
     local icon = Instance.new("TextLabel", top)
     icon.Size = UDim2.new(0, 40, 1, 0)
     icon.Position = UDim2.new(0, 15, 0, 0)
@@ -158,6 +160,7 @@ local function buildUI()
     icon.Text = EMOJI.Pumpkin
     icon.TextSize = 26
     icon.TextXAlignment = Enum.TextXAlignment.Left
+    icon.ZIndex = 12
 
     local title = Instance.new("TextLabel", top)
     title.Size = UDim2.new(1, -70, 1, 0)
@@ -168,6 +171,7 @@ local function buildUI()
     title.TextColor3 = Color3.fromRGB(255, 255, 255)
     title.TextXAlignment = Enum.TextXAlignment.Left
     title.Text = "INFINITE ZEN  " .. EMOJI.Bat
+    title.ZIndex = 12
 
     -- Subtitle
     local sub = Instance.new("TextLabel", card)
@@ -179,6 +183,7 @@ local function buildUI()
     sub.TextColor3 = COLOR.TextDim
     sub.TextXAlignment = Enum.TextXAlignment.Left
     sub.Text = EMOJI.Ghost .. "  Digite sua key para continuar / Enter your key to continue"
+    sub.ZIndex = 11
 
     -- Input box
     local boxFrame = Instance.new("Frame", card)
@@ -186,6 +191,7 @@ local function buildUI()
     boxFrame.Position = UDim2.new(0, 20, 0, 105)
     boxFrame.BackgroundColor3 = COLOR.Surface
     boxFrame.BorderSizePixel = 0
+    boxFrame.ZIndex = 11
     Instance.new("UICorner", boxFrame).CornerRadius = UDim.new(0, 8)
     local boxStroke = Instance.new("UIStroke", boxFrame)
     boxStroke.Color = COLOR.Primary
@@ -200,6 +206,7 @@ local function buildUI()
     boxKeyIcon.Text = "🔑"
     boxKeyIcon.TextSize = 14
     boxKeyIcon.TextColor3 = COLOR.Primary
+    boxKeyIcon.ZIndex = 12
 
     local box = Instance.new("TextBox", boxFrame)
     box.Size = UDim2.new(1, -45, 1, 0)
@@ -213,6 +220,7 @@ local function buildUI()
     box.Text = ""
     box.ClearTextOnFocus = false
     box.TextXAlignment = Enum.TextXAlignment.Left
+    box.ZIndex = 12
 
     -- Status frame
     local statusFrame = Instance.new("Frame", card)
@@ -220,9 +228,9 @@ local function buildUI()
     statusFrame.Position = UDim2.new(0, 20, 0, 155)
     statusFrame.BackgroundColor3 = COLOR.Surface
     statusFrame.BorderSizePixel = 0
+    statusFrame.ZIndex = 11
     Instance.new("UICorner", statusFrame).CornerRadius = UDim.new(0, 8)
 
-    -- 🎃 Decoração no canto
     local statusDeco = Instance.new("TextLabel", statusFrame)
     statusDeco.Size = UDim2.new(0, 30, 0, 30)
     statusDeco.Position = UDim2.new(1, -35, 0, 10)
@@ -231,6 +239,7 @@ local function buildUI()
     statusDeco.Text = EMOJI.Candle
     statusDeco.TextSize = 20
     statusDeco.TextTransparency = 0.4
+    statusDeco.ZIndex = 12
 
     local status = Instance.new("TextLabel", statusFrame)
     status.Size = UDim2.new(1, -50, 1, -20)
@@ -243,6 +252,7 @@ local function buildUI()
     status.TextYAlignment = Enum.TextYAlignment.Top
     status.TextWrapped = true
     status.Text = ""
+    status.ZIndex = 12
 
     -- Botão Load
     local confirmBtn = Instance.new("TextButton", card)
@@ -254,6 +264,7 @@ local function buildUI()
     confirmBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     confirmBtn.Text = EMOJI.Pumpkin .. "  CARREGAR SCRIPT / LOAD SCRIPT"
     confirmBtn.AutoButtonColor = false
+    confirmBtn.ZIndex = 11
     Instance.new("UICorner", confirmBtn).CornerRadius = UDim.new(0, 8)
 
     confirmBtn.MouseEnter:Connect(function()
@@ -273,6 +284,7 @@ local function buildUI()
     discordBtn.TextColor3 = COLOR.TextDim
     discordBtn.Text = "💬  Entrar no Discord / Join Discord"
     discordBtn.AutoButtonColor = false
+    discordBtn.ZIndex = 11
     Instance.new("UICorner", discordBtn).CornerRadius = UDim.new(0, 6)
     local dStroke = Instance.new("UIStroke", discordBtn)
     dStroke.Color = COLOR.Accent
