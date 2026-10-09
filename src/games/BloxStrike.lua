@@ -1,5 +1,5 @@
 -- ============================================================
--- INFINITE ZEN - BLOXSTRIKE v1.1 (Bulletproof)
+-- Infinite Zen - BloxStrike - v1.0
 -- ============================================================
 
 local BloxStrike = {}
@@ -10,15 +10,15 @@ function BloxStrike.Init(ctx)
     local Compat   = ctx.Compat
     local gameName = ctx.gameName
 
-    local function T(key)
+    local function T(key, fallback)
         if Language and type(Language.get) == "function" then
             local ok, v = pcall(Language.get, key)
-            if ok and v then return v end
+            if ok and v and v ~= key then return v end
         end
-        return key
+        return fallback or key
     end
 
-    local GAME_VERSION = "1.1"
+    local GAME_VERSION = "1.0"
     local FULL_VERSION  = "Infinite Zen V" .. GAME_VERSION .. " - " .. gameName
     local SHORT_VERSION = "V" .. GAME_VERSION .. " - " .. gameName
 
@@ -31,19 +31,14 @@ function BloxStrike.Init(ctx)
     local RunService        = game:GetService("RunService")
     local UserInputService  = game:GetService("UserInputService")
     local VirtualInput      = game:GetService("VirtualInputManager")
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local HttpService       = game:GetService("HttpService")
     local Lighting          = game:GetService("Lighting")
     local LocalPlayer       = Players.LocalPlayer
-    local PlayerGui         = LocalPlayer:WaitForChild("PlayerGui")
     local Camera            = workspace.CurrentCamera
 
     local UNLOADED  = false
     local IS_MOBILE = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
-    -- ═══════════════════════════════════════════════
-    -- SAFE DRAWING WRAPPER
-    -- ═══════════════════════════════════════════════
     local DrawingAvailable = false
     do
         local ok, dt = pcall(function() return Drawing end)
@@ -54,12 +49,12 @@ function BloxStrike.Init(ctx)
                 pcall(function() test:Remove() end)
                 print("[IZ BS] Drawing OK")
             else
-                print("[IZ BS] 🇧🇷 Drawing.new falhou - features visuais desativadas")
-                print("[IZ BS] 🇺🇸 Drawing.new failed - visual features disabled")
+                print("[IZ BS] 🇧🇷 Drawing.new falhou - usando fallback Instance")
+                print("[IZ BS] 🇺🇸 Drawing.new failed - using Instance fallback")
             end
         else
-            print("[IZ BS] 🇧🇷 Drawing nao existe neste executor")
-            print("[IZ BS] 🇺🇸 Drawing not available in this executor")
+            print("[IZ BS] 🇧🇷 Drawing nao disponivel - usando fallback Instance")
+            print("[IZ BS] 🇺🇸 Drawing not available - using Instance fallback")
         end
     end
 
@@ -76,9 +71,6 @@ function BloxStrike.Init(ctx)
         return obj
     end
 
-    -- ═══════════════════════════════════════════════
-    -- SAFE BIND
-    -- ═══════════════════════════════════════════════
     local function safeBind(name, priority, fn)
         local ok = pcall(function()
             RunService:BindToRenderStep(name, priority, fn)
@@ -95,33 +87,11 @@ function BloxStrike.Init(ctx)
     local camPriority = 1
     pcall(function() camPriority = Enum.RenderPriority.Camera.Value end)
 
-    -- ═══════════════════════════════════════════════
-    -- UI REGISTRY
-    -- ═══════════════════════════════════════════════
-    local Elements = {}
-    local Window   = nil
-
-    local function setToggle(el, val)
-        if not el or type(el.SetState) ~= "function" then return false end
-        return pcall(function() el.SetState(val) end)
-    end
-    local function setSlider(el, val)
-        if not el or type(el.SetValue) ~= "function" then return false end
-        return pcall(function() el.SetValue(val) end)
-    end
-    local function reg(id, el)
-        if id and el then Elements[id] = el end
-        return el
-    end
-
     local function getScreenCenter()
         local vp = Camera.ViewportSize
         return Vector2.new(vp.X * 0.5, vp.Y * 0.5)
     end
 
-    -- ═══════════════════════════════════════════════
-    -- STATE
-    -- ═══════════════════════════════════════════════
     local State = {
         silentAim = false, silentFov = 120,
         aimbot = false, aimbotFov = 100, aimbotSmooth = 30,
@@ -140,9 +110,6 @@ function BloxStrike.Init(ctx)
 
     local origFov = Camera.FieldOfView or 70
 
-    -- ═══════════════════════════════════════════════
-    -- TEAM CHECK
-    -- ═══════════════════════════════════════════════
     local function getTeam(p)
         local ok, t = pcall(function() return p:GetAttribute("Team") end)
         if ok then return t end
@@ -169,9 +136,6 @@ function BloxStrike.Init(ctx)
         return myTeam ~= theirTeam
     end
 
-    -- ═══════════════════════════════════════════════
-    -- HELPERS
-    -- ═══════════════════════════════════════════════
     local function getBasePart(parent, ...)
         if not parent then return nil end
         for _, name in ipairs({...}) do
@@ -203,9 +167,6 @@ function BloxStrike.Init(ctx)
         return getBasePart(p.Character, "Head")
     end
 
-    -- ═══════════════════════════════════════════════
-    -- FIRE
-    -- ═══════════════════════════════════════════════
     local function fireWeapon()
         if type(mouse1click) == "function" then
             local ok = pcall(mouse1click)
@@ -219,18 +180,15 @@ function BloxStrike.Init(ctx)
         return true
     end
 
-    -- ═══════════════════════════════════════════════
-    -- FOV CIRCLE
-    -- ═══════════════════════════════════════════════
     local fovCircle = nil
-    if DrawingAvailable then
+    if DrawingAvailable and not IS_MOBILE then
         fovCircle = safeDraw("Circle")
         if fovCircle then
             pcall(function()
                 fovCircle.Color = Color3.fromRGB(230, 40, 40)
                 fovCircle.Thickness = 1.5
                 fovCircle.Filled = false
-                fovCircle.NumSides = IS_MOBILE and 48 or 72
+                fovCircle.NumSides = 72
                 fovCircle.Transparency = 0
                 fovCircle.Radius = 100
                 fovCircle.Visible = false
@@ -242,28 +200,27 @@ function BloxStrike.Init(ctx)
         if UNLOADED or not fovCircle then return end
         pcall(function()
             fovCircle.Position = getScreenCenter()
-            if State.silentAim then
+            if State.aimbot then
+                fovCircle.Visible = true
+                fovCircle.Radius = State.aimbotFov
+            elseif State.silentAim then
                 fovCircle.Visible = true
                 fovCircle.Radius = State.silentFov
             elseif State.autoShoot then
                 fovCircle.Visible = true
                 fovCircle.Radius = State.autoShootFov
-            elseif State.aimbot then
-                fovCircle.Visible = true
-                fovCircle.Radius = State.aimbotFov
             else
                 fovCircle.Visible = false
             end
         end)
     end
 
-    pcall(function()
-        RunService.RenderStepped:Connect(updateFovCircle)
-    end)
+    if fovCircle then
+        pcall(function()
+            RunService.RenderStepped:Connect(updateFovCircle)
+        end)
+    end
 
-    -- ═══════════════════════════════════════════════
-    -- TARGETING
-    -- ═══════════════════════════════════════════════
     local losCache = {}
     local LOS_TIME = 0.12
 
@@ -299,9 +256,35 @@ function BloxStrike.Init(ctx)
         return closest
     end
 
-    -- ═══════════════════════════════════════════════
-    -- SILENT AIM
-    -- ═══════════════════════════════════════════════
+    local function getClosestVisibleEnemy()
+        local center = getScreenCenter()
+        local closest, minDist = nil, math.huge
+        for _, p in ipairs(Players:GetPlayers()) do
+            if isEnemy(p) then
+                local part = getTargetPart(p)
+                if part then
+                    local sp, onScreen, depth = Camera:WorldToViewportPoint(part.Position)
+                    if onScreen and depth and depth > 0 then
+                        local d = (Vector2.new(sp.X, sp.Y) - center).Magnitude
+                        if d < minDist then
+                            if not State.aimbotWallCheck or hasLOSCached(p, part) then
+                                minDist = d; closest = p
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        return closest
+    end
+
+    local function getAimbotTarget(fovRange)
+        if IS_MOBILE then
+            return getClosestVisibleEnemy()
+        end
+        return getClosestEnemyInFov(fovRange)
+    end
+
     local silentHolding, silentTarget = false, nil
 
     safeBind("IZ_BS_Silent", camPriority + 10, function()
@@ -329,7 +312,7 @@ function BloxStrike.Init(ctx)
     local inputBeganConn = UserInputService.InputBegan:Connect(function(input, gp)
         if UNLOADED or gp or not State.silentAim then return end
         if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
-        local target = getClosestEnemyInFov(State.silentFov)
+        local target = getAimbotTarget(State.silentFov)
         if not target then return end
         silentTarget = target
         silentHolding = true
@@ -342,9 +325,6 @@ function BloxStrike.Init(ctx)
         silentTarget = nil
     end)
 
-    -- ═══════════════════════════════════════════════
-    -- AIMBOT
-    -- ═══════════════════════════════════════════════
     local aimbotFrames = 0
     local AIMBOT_SKIP = IS_MOBILE and 2 or 1
 
@@ -352,18 +332,23 @@ function BloxStrike.Init(ctx)
         if UNLOADED or not State.aimbot then return end
         aimbotFrames = aimbotFrames + 1
         if aimbotFrames % AIMBOT_SKIP ~= 0 then return end
-        local target = getClosestEnemyInFov(State.aimbotFov)
+
+        local target = getAimbotTarget(State.aimbotFov)
         if not target then return end
+
         local part = getTargetPart(target)
         if not part then return end
+
         local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         if not myHRP then return end
         if (part.Position - myHRP.Position).Magnitude > State.aimbotMaxDist then return end
+
         local camPos = Camera.CFrame.Position
         local targetDir = (part.Position - camPos).Unit
         local currentDir = Camera.CFrame.LookVector
         local alpha = math.clamp(State.aimbotSmooth / 100, 0.02, 1)
-        if type(mousemoverel) == "function" then
+
+        if type(mousemoverel) == "function" and not IS_MOBILE then
             local sp = Camera:WorldToViewportPoint(part.Position)
             local c = getScreenCenter()
             pcall(function() mousemoverel((sp.X - c.X) * alpha, (sp.Y - c.Y) * alpha) end)
@@ -373,21 +358,19 @@ function BloxStrike.Init(ctx)
         end
     end)
 
-    -- ═══════════════════════════════════════════════
-    -- TRIGGERBOT
-    -- ═══════════════════════════════════════════════
     local triggerLast = 0
     pcall(function()
         RunService.RenderStepped:Connect(function()
             if UNLOADED or not State.triggerbot then return end
             if tick() - triggerLast < (State.triggerbotDelay / 1000) then return end
             local c = getScreenCenter()
+            local threshold = IS_MOBILE and 60 or 25
             for _, p in ipairs(Players:GetPlayers()) do
                 if isEnemy(p) then
                     local part = getTargetPart(p)
                     if part then
                         local sp, onScreen, depth = Camera:WorldToViewportPoint(part.Position)
-                        if onScreen and depth and depth > 0 and (Vector2.new(sp.X, sp.Y) - c).Magnitude < 25 then
+                        if onScreen and depth and depth > 0 and (Vector2.new(sp.X, sp.Y) - c).Magnitude < threshold then
                             triggerLast = tick()
                             fireWeapon()
                             break
@@ -398,15 +381,12 @@ function BloxStrike.Init(ctx)
         end)
     end)
 
-    -- ═══════════════════════════════════════════════
-    -- AUTO SHOOT
-    -- ═══════════════════════════════════════════════
     local lastAuto = 0
     pcall(function()
         RunService.Heartbeat:Connect(function()
             if UNLOADED or not State.autoShoot then return end
             if tick() - lastAuto < 0.05 then return end
-            local target = getClosestEnemyInFov(State.autoShootFov)
+            local target = getAimbotTarget(State.autoShootFov)
             if target then
                 lastAuto = tick()
                 fireWeapon()
@@ -414,9 +394,6 @@ function BloxStrike.Init(ctx)
         end)
     end)
 
-    -- ═══════════════════════════════════════════════
-    -- HEAD EXPANDER
-    -- ═══════════════════════════════════════════════
     local headSaved = {}
 
     local function expandHead(p, size)
@@ -464,15 +441,13 @@ function BloxStrike.Init(ctx)
         end)
     end)
 
-    -- ═══════════════════════════════════════════════
-    -- ESP
-    -- ═══════════════════════════════════════════════
     local ESP = {data = {}}
 
     local function createESP(p)
         if ESP.data[p] then return end
         if not p.Character then return end
-        if not DrawingAvailable then return end
+
+        local d = {character = p.Character}
 
         local ok, chams = pcall(function()
             local h = Instance.new("Highlight")
@@ -484,16 +459,49 @@ function BloxStrike.Init(ctx)
             h.Parent = p.Character
             return h
         end)
-        if not ok then chams = nil end
+        if ok then d.chams = chams end
 
-        local d = {chams = chams, character = p.Character}
-        d.box      = safeDraw("Square", {Thickness = 1.5, Color = Color3.fromRGB(255, 30, 40), Filled = false, Transparency = 0})
-        d.name     = safeDraw("Text",   {Size = 14, Center = true, Outline = true, Color = Color3.fromRGB(255, 255, 255)})
-        d.distance = safeDraw("Text",   {Size = 12, Center = true, Outline = true, Color = Color3.fromRGB(255, 80, 80)})
-        d.health   = safeDraw("Line",   {Thickness = 3, Color = Color3.fromRGB(0, 255, 0)})
-        d.tracer   = safeDraw("Line",   {Thickness = 1.2, Color = Color3.fromRGB(255, 30, 40)})
-        d.weapon   = safeDraw("Text",   {Size = 11, Center = true, Outline = true, Color = Color3.fromRGB(255, 200, 100)})
-        d.armor    = safeDraw("Text",   {Size = 11, Center = true, Outline = true, Color = Color3.fromRGB(100, 200, 255)})
+        local head = p.Character:FindFirstChild("Head")
+        if head and head:IsA("BasePart") then
+            local bb = Instance.new("BillboardGui")
+            bb.Name = "IZ_ESP_BB"
+            bb.Adornee = head
+            bb.Size = UDim2.new(0, 220, 0, 80)
+            bb.StudsOffset = Vector3.new(0, 2.5, 0)
+            bb.AlwaysOnTop = true
+            bb.LightInfluence = 0
+            bb.MaxDistance = 5000
+            bb.Parent = head
+
+            local function makeLabel(name, yPos, size, color, font, textSize)
+                local lbl = Instance.new("TextLabel", bb)
+                lbl.Name = name
+                lbl.Size = UDim2.new(1, 0, 0, size)
+                lbl.Position = UDim2.new(0, 0, 0, yPos)
+                lbl.BackgroundTransparency = 1
+                lbl.TextColor3 = color
+                lbl.Font = font
+                lbl.TextSize = textSize
+                lbl.TextStrokeTransparency = 0
+                lbl.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+                lbl.TextXAlignment = Enum.TextXAlignment.Center
+                return lbl
+            end
+
+            d.bbName     = makeLabel("Name",     0,  18, Color3.fromRGB(255, 255, 255), Enum.Font.GothamBold, 14)
+            d.bbDistance = makeLabel("Distance", 18, 16, Color3.fromRGB(255, 80, 80),   Enum.Font.Gotham,     12)
+            d.bbHealth   = makeLabel("Health",   34, 16, Color3.fromRGB(0, 255, 0),     Enum.Font.Gotham,     12)
+            d.bbWeapon   = makeLabel("Weapon",   50, 16, Color3.fromRGB(255, 200, 100), Enum.Font.Gotham,     11)
+            d.bbArmor    = makeLabel("Armor",    66, 16, Color3.fromRGB(100, 200, 255), Enum.Font.Gotham,     11)
+
+            d.billboard = bb
+        end
+
+        if DrawingAvailable then
+            d.box    = safeDraw("Square", {Thickness = 1.5, Color = Color3.fromRGB(255, 30, 40), Filled = false, Transparency = 0})
+            d.tracer = safeDraw("Line",   {Thickness = 1.2, Color = Color3.fromRGB(255, 30, 40)})
+        end
+
         ESP.data[p] = d
     end
 
@@ -501,9 +509,9 @@ function BloxStrike.Init(ctx)
         local d = ESP.data[p]
         if not d then return end
         if d.chams then pcall(function() d.chams:Destroy() end) end
-        for _, k in ipairs({"box","name","distance","health","tracer","weapon","armor"}) do
-            if d[k] and d[k].Remove then pcall(function() d[k]:Remove() end) end
-        end
+        if d.billboard then pcall(function() d.billboard:Destroy() end) end
+        if d.box and d.box.Remove then pcall(function() d.box:Remove() end) end
+        if d.tracer and d.tracer.Remove then pcall(function() d.tracer:Remove() end) end
         ESP.data[p] = nil
     end
 
@@ -531,126 +539,119 @@ function BloxStrike.Init(ctx)
     end
 
     local function hideESP(d)
-        for _, k in ipairs({"box","name","distance","health","tracer","weapon","armor"}) do
-            if d[k] then pcall(function() d[k].Visible = false end) end
-        end
+        if d.bbName then d.bbName.Visible = false end
+        if d.bbDistance then d.bbDistance.Visible = false end
+        if d.bbHealth then d.bbHealth.Visible = false end
+        if d.bbWeapon then d.bbWeapon.Visible = false end
+        if d.bbArmor then d.bbArmor.Visible = false end
         if d.chams then pcall(function() d.chams.Enabled = false end) end
+        if d.box then pcall(function() d.box.Visible = false end) end
+        if d.tracer then pcall(function() d.tracer.Visible = false end) end
+    end
+
+    local function showESP(d)
+        if d.bbName then d.bbName.Visible = true end
+        if d.bbDistance then d.bbDistance.Visible = true end
+        if d.bbHealth then d.bbHealth.Visible = true end
+        if d.bbWeapon then d.bbWeapon.Visible = State.espWeapon end
+        if d.bbArmor then d.bbArmor.Visible = State.espArmor end
+        if d.chams then pcall(function() d.chams.Enabled = true end) end
     end
 
     local function updateESP(p, char)
         local d = ESP.data[p]
         if not d then return end
+
         if not State.esp or not isEnemy(p) then hideESP(d); return end
+
         local hum = char:FindFirstChildOfClass("Humanoid")
         if not hum or hum.Health <= 0 then hideESP(d); return end
+
         local head = char:FindFirstChild("Head")
         local hrp = char:FindFirstChild("HumanoidRootPart")
         if not head or not hrp then hideESP(d); return end
-        if d.chams then pcall(function() d.chams.Enabled = true end) end
 
-        local headSp, headOn = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
-        local hrpSp, hrpOn = Camera:WorldToViewportPoint(hrp.Position)
-        local footSp, footOn = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3, 0))
         local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         if not myHRP then hideESP(d); return end
+
         local dist = math.floor((head.Position - myHRP.Position).Magnitude)
         if dist > State.espMaxDistance then hideESP(d); return end
 
-        if State.espBox and headOn and footOn and d.box then
-            local h = math.abs(footSp.Y - headSp.Y)
-            local w = h * 0.6
-            local cx = (headSp.X + footSp.X) / 2
-            local cy = (headSp.Y + footSp.Y) / 2
-            pcall(function()
-                d.box.Position = Vector2.new(cx - w / 2, cy - h / 2)
-                d.box.Size = Vector2.new(w, h)
-                d.box.Visible = true
-            end)
-        elseif d.box then
-            pcall(function() d.box.Visible = false end)
-        end
+        showESP(d)
 
-        if headOn then
-            if State.espName and d.name then
-                pcall(function()
-                    d.name.Position = Vector2.new(headSp.X, headSp.Y - 20)
-                    d.name.Text = p.Name
-                    d.name.Visible = true
-                end)
-            elseif d.name then
-                pcall(function() d.name.Visible = false end)
+        if d.bbName then
+            d.bbName.Text = State.espName and p.Name or ""
+        end
+        if d.bbDistance then
+            d.bbDistance.Text = State.espDistance and (dist .. "m") or ""
+        end
+        if d.bbHealth then
+            if State.espHealth then
+                local maxHP = hum.MaxHealth
+                d.bbHealth.Text = string.format("❤ %d/%d", math.floor(hum.Health), math.floor(maxHP))
+                if maxHP > 0 then
+                    local pct = hum.Health / maxHP
+                    if pct > 0.6 then
+                        d.bbHealth.TextColor3 = Color3.fromRGB(0, 255, 0)
+                    elseif pct > 0.3 then
+                        d.bbHealth.TextColor3 = Color3.fromRGB(255, 200, 0)
+                    else
+                        d.bbHealth.TextColor3 = Color3.fromRGB(255, 40, 40)
+                    end
+                end
+            else
+                d.bbHealth.Text = ""
             end
-            if State.espDistance and d.distance then
-                pcall(function()
-                    d.distance.Position = Vector2.new(headSp.X, headSp.Y - 6)
-                    d.distance.Text = dist .. "m"
-                    d.distance.Visible = true
-                end)
-            elseif d.distance then
-                pcall(function() d.distance.Visible = false end)
-            end
-            if State.espWeapon and d.weapon then
+        end
+        if d.bbWeapon then
+            if State.espWeapon then
                 local wn = getWeaponName(p)
-                if wn then
-                    pcall(function()
-                        d.weapon.Position = Vector2.new(headSp.X, headSp.Y - 34)
-                        d.weapon.Text = "[" .. wn .. "]"
-                        d.weapon.Visible = true
-                    end)
-                else
-                    pcall(function() d.weapon.Visible = false end)
-                end
-            elseif d.weapon then
-                pcall(function() d.weapon.Visible = false end)
+                d.bbWeapon.Text = wn and ("[" .. wn .. "]") or ""
+            else
+                d.bbWeapon.Text = ""
             end
-            if State.espArmor and d.armor then
+        end
+        if d.bbArmor then
+            if State.espArmor then
                 local av = getArmorText(p)
-                if av then
+                d.bbArmor.Text = av and ("🛡 " .. tostring(av)) or ""
+            else
+                d.bbArmor.Text = ""
+            end
+        end
+
+        if DrawingAvailable and (d.box or d.tracer) then
+            local headSp, headOn = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
+            local hrpSp, hrpOn = Camera:WorldToViewportPoint(hrp.Position)
+            local footSp, footOn = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3, 0))
+
+            if d.box then
+                if State.espBox and headOn and footOn then
+                    local h = math.abs(footSp.Y - headSp.Y)
+                    local w = h * 0.6
+                    local cx = (headSp.X + footSp.X) / 2
+                    local cy = (headSp.Y + footSp.Y) / 2
                     pcall(function()
-                        d.armor.Position = Vector2.new(headSp.X, headSp.Y + 8)
-                        d.armor.Text = "🛡 " .. tostring(av)
-                        d.armor.Visible = true
+                        d.box.Position = Vector2.new(cx - w / 2, cy - h / 2)
+                        d.box.Size = Vector2.new(w, h)
+                        d.box.Visible = true
                     end)
                 else
-                    pcall(function() d.armor.Visible = false end)
+                    pcall(function() d.box.Visible = false end)
                 end
-            elseif d.armor then
-                pcall(function() d.armor.Visible = false end)
             end
-        else
-            if d.name then pcall(function() d.name.Visible = false end) end
-            if d.distance then pcall(function() d.distance.Visible = false end) end
-            if d.weapon then pcall(function() d.weapon.Visible = false end) end
-            if d.armor then pcall(function() d.armor.Visible = false end) end
-        end
 
-        if State.espHealth and headOn and footOn and d.health then
-            local h = math.abs(footSp.Y - headSp.Y)
-            local maxHP = hum.MaxHealth
-            local hr = (maxHP > 0) and math.clamp(hum.Health / maxHP, 0, 1) or 1
-            local bx = headSp.X + (h * 0.6) / 2 + 5
-            local by = headSp.Y + h
-            local fy = by - (h * hr)
-            pcall(function()
-                d.health.From = Vector2.new(bx, fy)
-                d.health.To = Vector2.new(bx, by)
-                if hr > 0.6 then d.health.Color = Color3.fromRGB(0, 255, 0)
-                elseif hr > 0.3 then d.health.Color = Color3.fromRGB(255, 200, 0)
-                else d.health.Color = Color3.fromRGB(255, 40, 40) end
-                d.health.Visible = true
-            end)
-        elseif d.health then
-            pcall(function() d.health.Visible = false end)
-        end
-
-        if State.espTracer and hrpOn and d.tracer then
-            pcall(function()
-                d.tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
-                d.tracer.To = Vector2.new(hrpSp.X, hrpSp.Y)
-                d.tracer.Visible = true
-            end)
-        elseif d.tracer then
-            pcall(function() d.tracer.Visible = false end)
+            if d.tracer then
+                if State.espTracer and hrpOn then
+                    pcall(function()
+                        d.tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                        d.tracer.To = Vector2.new(hrpSp.X, hrpSp.Y)
+                        d.tracer.Visible = true
+                    end)
+                else
+                    pcall(function() d.tracer.Visible = false end)
+                end
+            end
         end
     end
 
@@ -693,9 +694,6 @@ function BloxStrike.Init(ctx)
         end)
     end)
 
-    -- ═══════════════════════════════════════════════
-    -- FULLBRIGHT / ENV
-    -- ═══════════════════════════════════════════════
     local origBrightness = Lighting.Brightness
     local origAmbient    = Lighting.Ambient
     local origOutdoor    = Lighting.OutdoorAmbient
@@ -730,9 +728,6 @@ function BloxStrike.Init(ctx)
         end)
     end
 
-    -- ═══════════════════════════════════════════════
-    -- CONFIG
-    -- ═══════════════════════════════════════════════
     local BASE_FOLDER   = "InfiniteZen_Configs"
     local CONFIG_FOLDER = BASE_FOLDER .. "/BloxStrike"
     local AUTOLOAD_FILE = "InfiniteZen_BloxStrike_Autoload.txt"
@@ -810,9 +805,22 @@ function BloxStrike.Init(ctx)
         return nil
     end
 
-    -- ═══════════════════════════════════════════════
-    -- BUILD UI
-    -- ═══════════════════════════════════════════════
+    local Elements = {}
+    local Window   = nil
+
+    local function setToggle(el, val)
+        if not el or type(el.SetState) ~= "function" then return false end
+        return pcall(function() el.SetState(val) end)
+    end
+    local function setSlider(el, val)
+        if not el or type(el.SetValue) ~= "function" then return false end
+        return pcall(function() el.SetValue(val) end)
+    end
+    local function reg(id, el)
+        if id and el then Elements[id] = el end
+        return el
+    end
+
     local function buildUI()
         Window = UI:CreateWindow({
             Title = "INFINITE ZEN",
@@ -821,103 +829,121 @@ function BloxStrike.Init(ctx)
         })
         Elements = {}
 
-        local CombatTab = Window:CreateTab(T("tab.combat"), "⚔️")
-        CombatTab:CreateSection(T("section.aim"))
+        local CombatTab = Window:CreateTab(T("tab.combat", "Combat"), "⚔️")
+        CombatTab:CreateSection(T("section.aim", "Aim"))
         reg("silentAim", CombatTab:CreateToggle({
-            Name = T("silent.name"), Description = T("silent.desc"),
+            Name = T("silent.name", "Silent Aim"),
+            Description = T("silent.desc", "Auto-lock when holding click"),
             Icon = "🎯", Default = false,
             Callback = function(v) State.silentAim = v end,
         }))
         reg("silentFov", CombatTab:CreateSlider({
-            Name = T("silentfov.name"), Description = T("silentfov.desc"),
+            Name = T("silentfov.name", "Silent FOV"),
+            Description = T("silentfov.desc", "Silent aim radius"),
             Icon = "📐", Min = 30, Max = 400, Default = 120,
             Callback = function(v) State.silentFov = v end,
         }))
         reg("aimbot", CombatTab:CreateToggle({
-            Name = T("aimbot.name"), Description = T("aimbot.desc"),
+            Name = T("aimbot.name", "Aimbot"),
+            Description = T("aimbot.desc", "Locks camera on closest enemy"),
             Icon = "🤖", Default = false,
             Callback = function(v) State.aimbot = v end,
         }))
         reg("aimbotFov", CombatTab:CreateSlider({
-            Name = T("aimbotfov.name"), Description = T("aimbotfov.desc"),
+            Name = T("aimbotfov.name", "Aimbot FOV"),
+            Description = T("aimbotfov.desc", "Aimbot radius"),
             Icon = "📐", Min = 30, Max = 400, Default = 100,
             Callback = function(v) State.aimbotFov = v end,
         }))
         reg("aimbotSmooth", CombatTab:CreateSlider({
-            Name = T("aimbotsmooth.name"), Description = T("aimbotsmooth.desc"),
+            Name = T("aimbotsmooth.name", "Smoothness"),
+            Description = T("aimbotsmooth.desc", "Aim speed"),
             Icon = "🎚️", Min = 5, Max = 100, Default = 30,
             Callback = function(v) State.aimbotSmooth = v end,
         }))
         reg("aimbotMaxDist", CombatTab:CreateSlider({
-            Name = T("aimbotdist.name"), Description = T("aimbotdist.desc"),
+            Name = T("aimbotdist.name", "Max Distance"),
+            Description = T("aimbotdist.desc", "Maximum target distance"),
             Icon = "📏", Min = 50, Max = 2000, Default = 500,
             Callback = function(v) State.aimbotMaxDist = v end,
         }))
         reg("aimbotWallCheck", CombatTab:CreateToggle({
-            Name = T("aimbotwall.name"), Description = T("aimbotwall.desc"),
+            Name = T("aimbotwall.name", "Wall Check"),
+            Description = T("aimbotwall.desc", "Only target visible enemies"),
             Icon = "🧱", Default = true,
             Callback = function(v) State.aimbotWallCheck = v end,
         }))
-        CombatTab:CreateSection(T("section.auto"))
+        CombatTab:CreateSection(T("section.auto", "Auto"))
         reg("triggerbot", CombatTab:CreateToggle({
-            Name = T("triggerbot.name"), Description = T("triggerbot.desc"),
+            Name = T("triggerbot.name", "Triggerbot"),
+            Description = T("triggerbot.desc", "Auto-fire when crosshair is on enemy"),
             Icon = "🎯", Default = false,
             Callback = function(v) State.triggerbot = v end,
         }))
         reg("triggerbotDelay", CombatTab:CreateSlider({
-            Name = T("triggerbotdelay.name"), Description = T("triggerbotdelay.desc"),
+            Name = T("triggerbotdelay.name", "Trigger Delay"),
+            Description = T("triggerbotdelay.desc", "Delay in milliseconds"),
             Icon = "⏱️", Min = 1, Max = 200, Default = 5,
             Callback = function(v) State.triggerbotDelay = v end,
         }))
         reg("autoShoot", CombatTab:CreateToggle({
-            Name = T("autoshot.name"), Description = T("autoshot.desc"),
+            Name = T("autoshot.name", "Auto Shoot"),
+            Description = T("autoshot.desc", "Auto-fire on visible enemies"),
             Icon = "🔥", Default = false,
             Callback = function(v) State.autoShoot = v end,
         }))
         reg("autoShootFov", CombatTab:CreateSlider({
-            Name = T("autoshotfov.name"), Description = T("autoshotfov.desc"),
+            Name = T("autoshotfov.name", "Auto Shoot FOV"),
+            Description = T("autoshotfov.desc", "Auto shoot radius"),
             Icon = "📐", Min = 30, Max = 400, Default = 100,
             Callback = function(v) State.autoShootFov = v end,
         }))
-        CombatTab:CreateSection(T("section.hitbox"))
+        CombatTab:CreateSection(T("section.hitbox", "Hitbox"))
         reg("headExpander", CombatTab:CreateToggle({
-            Name = T("headexp.name"), Description = T("headexp.desc"),
+            Name = T("headexp.name", "Head Expander"),
+            Description = T("headexp.desc", "Expand head hitbox"),
             Icon = "🔴", Default = false,
             Callback = function(v) State.headExpander = v; if not v then restoreAllHeads() end end,
         }))
         reg("headExpanderSize", CombatTab:CreateSlider({
-            Name = T("headsize.name"), Description = T("headsize.desc"),
+            Name = T("headsize.name", "Head Size"),
+            Description = T("headsize.desc", "Size multiplier"),
             Icon = "📏", Min = 1, Max = 5, Default = 2,
             Callback = function(v) State.headExpanderSize = v end,
         }))
 
-        local MoveTab = Window:CreateTab(T("tab.movement"), "🏃")
-        MoveTab:CreateSection(T("section.movement"))
+        local MoveTab = Window:CreateTab(T("tab.movement", "Movement"), "🏃")
+        MoveTab:CreateSection(T("section.movement", "Movement"))
         reg("speed", MoveTab:CreateToggle({
-            Name = T("speed.name"), Description = T("speed.desc"),
+            Name = T("speed.name", "Speed"),
+            Description = T("speed.desc", "Custom walkspeed"),
             Icon = "⚡", Default = false,
             Callback = function(v) State.speed = v end,
         }))
         reg("speedValue", MoveTab:CreateSlider({
-            Name = T("speedvalue.name"), Description = T("speedvalue.desc"),
+            Name = T("speedvalue.name", "Speed Value"),
+            Description = T("speedvalue.desc", "WalkSpeed value"),
             Icon = "📏", Min = 16, Max = 200, Default = 50,
             Callback = function(v) State.speedValue = v end,
         }))
         reg("jumpPower", MoveTab:CreateToggle({
-            Name = T("jumppower.name"), Description = T("jumppower.desc"),
+            Name = T("jumppower.name", "Jump Power"),
+            Description = T("jumppower.desc", "Custom jump velocity"),
             Icon = "🦘", Default = false,
             Callback = function(v) State.jumpPower = v end,
         }))
         reg("jumpPowerValue", MoveTab:CreateSlider({
-            Name = T("jumppower.value.name"), Description = T("jumppower.value.desc"),
+            Name = T("jumppower.value.name", "Jump Value"),
+            Description = T("jumppower.value.desc", "JumpPower value"),
             Icon = "📏", Min = 30, Max = 200, Default = 80,
             Callback = function(v) State.jumpPowerValue = v end,
         }))
 
-        local VisualsTab = Window:CreateTab(T("tab.visuals"), "👁️")
-        VisualsTab:CreateSection(T("section.esp"))
+        local VisualsTab = Window:CreateTab(T("tab.visuals", "Visuals"), "👁️")
+        VisualsTab:CreateSection(T("section.esp", "ESP"))
         reg("esp", VisualsTab:CreateToggle({
-            Name = T("esp.name"), Description = T("esp.desc"),
+            Name = T("esp.name", "Player ESP"),
+            Description = T("esp.desc", "Show enemies through walls"),
             Icon = "👤", Default = false,
             Callback = function(v)
                 State.esp = v
@@ -929,69 +955,73 @@ function BloxStrike.Init(ctx)
             end,
         }))
         reg("espMaxDistance", VisualsTab:CreateSlider({
-            Name = T("espdist.name"), Description = T("espdist.desc"),
+            Name = T("espdist.name", "Max Distance"),
+            Description = T("espdist.desc", "ESP range"),
             Icon = "📐", Min = 100, Max = 5000, Default = 1000,
             Callback = function(v) State.espMaxDistance = v end,
         }))
         reg("espBox", VisualsTab:CreateToggle({
-            Name = "ESP Box", Description = "",
+            Name = "ESP Box", Description = "Drawing box (PC only)",
             Icon = "⬜", Default = true,
             Callback = function(v) State.espBox = v end,
         }))
         reg("espName", VisualsTab:CreateToggle({
-            Name = "ESP Name", Description = "",
+            Name = "ESP Name", Description = "Show player name",
             Icon = "📛", Default = true,
             Callback = function(v) State.espName = v end,
         }))
         reg("espHealth", VisualsTab:CreateToggle({
-            Name = "ESP Health", Description = "",
+            Name = "ESP Health", Description = "Show health",
             Icon = "❤️", Default = true,
             Callback = function(v) State.espHealth = v end,
         }))
         reg("espDistance", VisualsTab:CreateToggle({
-            Name = "ESP Distance", Description = "",
+            Name = "ESP Distance", Description = "Show distance",
             Icon = "📏", Default = true,
             Callback = function(v) State.espDistance = v end,
         }))
         reg("espWeapon", VisualsTab:CreateToggle({
-            Name = "ESP Weapon", Description = "",
+            Name = "ESP Weapon", Description = "Show weapon",
             Icon = "🔫", Default = true,
             Callback = function(v) State.espWeapon = v end,
         }))
         reg("espArmor", VisualsTab:CreateToggle({
-            Name = "ESP Armor", Description = "",
+            Name = "ESP Armor", Description = "Show armor",
             Icon = "🛡️", Default = true,
             Callback = function(v) State.espArmor = v end,
         }))
         reg("espTracer", VisualsTab:CreateToggle({
-            Name = "ESP Tracer", Description = "",
+            Name = "ESP Tracer", Description = "Drawing tracer (PC only)",
             Icon = "📡", Default = false,
             Callback = function(v) State.espTracer = v end,
         }))
-        VisualsTab:CreateSection(T("section.environment"))
+        VisualsTab:CreateSection(T("section.environment", "Environment"))
         reg("cameraFov", VisualsTab:CreateToggle({
-            Name = "Camera FOV", Description = "Custom field of view",
+            Name = T("camerafov.name", "Camera FOV"),
+            Description = T("camerafov.desc", "Custom field of view"),
             Icon = "🎥", Default = false,
             Callback = function(v) State.cameraFov = v; applyCameraFov() end,
         }))
         reg("cameraFovValue", VisualsTab:CreateSlider({
-            Name = "FOV Value", Description = "",
+            Name = "FOV Value", Description = "Value",
             Icon = "📐", Min = 40, Max = 120, Default = 70,
             Callback = function(v) State.cameraFovValue = v; if State.cameraFov then applyCameraFov() end end,
         }))
         reg("fullbright", VisualsTab:CreateToggle({
-            Name = T("fullbright.name"), Description = T("fullbright.desc"),
+            Name = T("fullbright.name", "Fullbright"),
+            Description = T("fullbright.desc", "Map always bright"),
             Icon = "💡", Default = false,
             Callback = function(v) State.fullbright = v; if not v then restoreEnv() end end,
         }))
         reg("noFog", VisualsTab:CreateToggle({
-            Name = T("nofog.name"), Description = T("nofog.desc"),
+            Name = T("nofog.name", "No Fog"),
+            Description = T("nofog.desc", "Remove fog"),
             Icon = "🌫️", Default = false,
             Callback = function(v) State.noFog = v; if not v then restoreEnv() end end,
         }))
 
-        local SettingsTab = Window:CreateTab(T("tab.settings"), "⚙️")
-        SettingsTab:CreateSection(T("section.create_config"))
+        local SettingsTab = Window:CreateTab(T("tab.settings", "Settings"), "⚙️")
+        SettingsTab:CreateSection(T("section.create_config", "Create Config"))
 
         local cFrame = Instance.new("Frame", SettingsTab.container)
         cFrame.Size = UDim2.new(1, 0, 0, 40)
@@ -1007,13 +1037,13 @@ function BloxStrike.Init(ctx)
         cInput.Font = Enum.Font.GothamMedium
         cInput.TextSize = 12
         cInput.TextColor3 = Color3.fromRGB(240, 240, 245)
-        cInput.PlaceholderText = T("config.placeholder")
+        cInput.PlaceholderText = T("config.placeholder", "Config name + Enter")
         cInput.PlaceholderColor3 = Color3.fromRGB(90, 90, 105)
         cInput.Text = ""
         cInput.ClearTextOnFocus = false
         cInput.TextXAlignment = Enum.TextXAlignment.Left
 
-        SettingsTab:CreateSection(T("section.saved_configs"))
+        SettingsTab:CreateSection(T("section.saved_configs", "Saved Configs"))
 
         local listFrame = Instance.new("Frame", SettingsTab.container)
         listFrame.Size = UDim2.new(1, 0, 0, 160)
@@ -1045,7 +1075,7 @@ function BloxStrike.Init(ctx)
                 e.Font = Enum.Font.Gotham
                 e.TextSize = 11
                 e.TextColor3 = Color3.fromRGB(90, 90, 105)
-                e.Text = T("config.empty")
+                e.Text = T("config.empty", "No saved configs yet.")
                 return
             end
             for _, name in ipairs(configs) do
@@ -1118,12 +1148,12 @@ function BloxStrike.Init(ctx)
             end
         end)
 
-        SettingsTab:CreateButton({ Name = T("config.refresh"), Callback = function() refreshList() end })
+        SettingsTab:CreateButton({ Name = T("config.refresh", "Refresh List"), Callback = function() refreshList() end })
         refreshList()
 
-        SettingsTab:CreateSection(T("section.danger"))
+        SettingsTab:CreateSection(T("section.danger", "Danger Zone"))
         SettingsTab:CreateButton({
-            Name = T("config.unload"),
+            Name = T("config.unload", "Unload Script"),
             Danger = true,
             Callback = function()
                 UNLOADED = true
@@ -1136,14 +1166,14 @@ function BloxStrike.Init(ctx)
                 safeUnbind("IZ_BS_Aimbot")
                 if inputBeganConn then pcall(function() inputBeganConn:Disconnect() end) end
                 if inputEndedConn then pcall(function() inputEndedConn:Disconnect() end) end
-                if Window then pcall(function() Window:Notify("Unload", T("config.unload"), 2, "warning") end) end
+                if Window then pcall(function() Window:Notify("Unload", T("config.unload", "Unload Script"), 2, "warning") end) end
                 task.wait(0.3)
                 if Window then pcall(function() Window:Destroy() end) end
             end,
         })
 
-        local LanguageTab = Window:CreateTab(T("tab.language"), "🌍")
-        LanguageTab:CreateSection(T("section.language_select"))
+        local LanguageTab = Window:CreateTab(T("tab.language", "Language"), "🌍")
+        LanguageTab:CreateSection(T("section.language_select", "Select Language"))
         local available = Language.getAvailable()
         local cur = Language.getCurrent()
         local opts = {}
@@ -1153,7 +1183,8 @@ function BloxStrike.Init(ctx)
             if info.code == cur then defIdx = i end
         end
         LanguageTab:CreateDropdown({
-            Name = T("tab.language"), Description = T("lang.hint"),
+            Name = T("tab.language", "Language"),
+            Description = T("lang.hint", "Pick menu language"),
             Icon = "🌍", Options = opts, Default = defIdx,
             Callback = function(_, idx)
                 local info = available[idx]
@@ -1161,13 +1192,13 @@ function BloxStrike.Init(ctx)
             end,
         })
 
-        local CreditsTab = Window:CreateTab(T("tab.credits"), "➕")
-        CreditsTab:CreateSection(T("section.founder"))
-        CreditsTab:CreateLabel(T("credits.role"), Color3.fromRGB(255, 50, 50))
-        CreditsTab:CreateSection(T("section.community"))
+        local CreditsTab = Window:CreateTab(T("tab.credits", "Credits"), "➕")
+        CreditsTab:CreateSection(T("section.founder", "Founder"))
+        CreditsTab:CreateLabel(T("credits.role", "Sr Red"), Color3.fromRGB(255, 50, 50))
+        CreditsTab:CreateSection(T("section.community", "Community"))
         CreditsTab:CreateLabel("discord.gg/ScZfU2mAGm", Color3.fromRGB(88, 101, 242))
         CreditsTab:CreateButton({
-            Name = T("credits.copy_discord"),
+            Name = T("credits.copy_discord", "Copy Discord Link"),
             Callback = function()
                 if setclipboard then
                     pcall(setclipboard, "https://discord.gg/ScZfU2mAGm")
@@ -1175,14 +1206,11 @@ function BloxStrike.Init(ctx)
                 end
             end,
         })
-        CreditsTab:CreateSection(T("section.version"))
+        CreditsTab:CreateSection(T("section.version", "Version"))
         CreditsTab:CreateLabel(FULL_VERSION, Color3.fromRGB(140, 140, 155))
         CreditsTab:CreateLabel("© 2026 Sr Red", Color3.fromRGB(90, 90, 105))
     end
 
-    -- ═══════════════════════════════════════════════
-    -- REBUILD ON LANGUAGE CHANGE
-    -- ═══════════════════════════════════════════════
     local rebuilding = false
     _G.IZ_RefreshLanguage_BloxStrike = function()
         if UNLOADED or rebuilding then return end
