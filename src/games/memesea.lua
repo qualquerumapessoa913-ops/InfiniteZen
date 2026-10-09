@@ -45,7 +45,6 @@ function MemeSea.Init(ctx)
 
     local PlayerData = LocalPlayer:WaitForChild("PlayerData", 30)
     local QuestTracker = PlayerData and PlayerData:WaitForChild("Quest_Tracker", 15)
-    local IslandTracker = PlayerData and PlayerData:FindFirstChild("Island_Tracker")
 
     local ModuleFolder    = RS:FindFirstChild("ModuleScript")
     local QuestSettings   = nil
@@ -67,14 +66,23 @@ function MemeSea.Init(ctx)
         fastAttack = false,
         autoStats = false,
         statPriority = "Melee",
+        statPointsPerTick = 1,
         speed = false, speedValue = 50,
         jumpPower = false, jumpPowerValue = 80,
         antiAfk = false,
         fullbright = false,
         noFog = false,
         debugQuest = false,
+        debugStats = false,
         attackCD = 0.15,
         teleportDistance = 6,
+        questFarm = {
+            state = "idle",
+            currentQuest = nil,
+            currentTarget = nil,
+            lastMobSeen = 0,
+            lastNpcVisit = 0,
+        },
     }
 
     local origBrightness = Lighting.Brightness
@@ -86,6 +94,10 @@ function MemeSea.Init(ctx)
 
     local function log(...)
         if State.debugQuest then print("[MemeSea]", ...) end
+    end
+
+    local function logStats(...)
+        if State.debugStats then print("[MemeSea][STATS]", ...) end
     end
 
     local function getHRP()
@@ -104,6 +116,12 @@ function MemeSea.Init(ctx)
         if head and head:IsA("BasePart") then return head end
         if mob:IsA("Model") and mob.PrimaryPart then return mob.PrimaryPart end
         return nil
+    end
+
+    local function isMobAlive(mob)
+        if not mob or not mob.Parent then return false end
+        local hum = mob:FindFirstChildOfClass("Humanoid")
+        return hum and hum.Health > 0
     end
 
     local function equipCombat()
@@ -161,12 +179,54 @@ function MemeSea.Init(ctx)
     -- ============================================================
     -- FAST ATTACK
     -- ============================================================
-    local function applyFastAttack()
-        pcall(function()
-            LocalPlayer:SetAttribute("NoCooldown", true)
-            LocalPlayer:SetAttribute("No_CooldownBar", true)
+    local function zeroDebounce()
+        local char = LocalPlayer.Character
+        if not char then return end
+        local stun = char:FindFirstChild("Stun")
+        if stun and stun:IsA("NumberValue") and stun.Value > 0 then
+            pcall(function() stun.Value = 0 end)
+        end
+        local deb = char:FindFirstChild("Attacks_Debounce")
+        if deb then
+            for _, v in ipairs(deb:GetChildren()) do
+                pcall(function()
+                    if v:IsA("NumberValue") or v:IsA("IntValue") then
+                        if v.Value > 0 then v.Value = 0 end
+                    elseif v:IsA("BoolValue") then
+                        if v.Value then v.Value = false end
+                    end
+                end)
+            end
+        end
+    end
+
+    local fastAttackThread = nil
+    local function startFastAttack()
+        if fastAttackThread then return end
+        fastAttackThread = task.spawn(function()
+            while not UNLOADED do
+                task.wait(0.05)
+                if State.fastAttack then
+                    -- Layer 1: attributes visuais
+                    pcall(function()
+                        LocalPlayer:SetAttribute("NoCooldown", true)
+                        LocalPlayer:SetAttribute("No_CooldownBar", true)
+                    end)
+                    -- Layer 2: zerar debounce/stun
+                    zeroDebounce()
+                    -- Layer 3: spam do tool Combat
+                    local char = LocalPlayer.Character
+                    if char then
+                        local tool = char:FindFirstChild("Combat")
+                        if tool then
+                            pcall(function() tool:Activate() end)
+                        end
+                    end
+                end
+            end
         end)
     end
+    startFastAttack()
 
     local function restoreFastAttack()
         pcall(function()
@@ -175,16 +235,10 @@ function MemeSea.Init(ctx)
         end)
     end
 
-    task.spawn(function()
-        while not UNLOADED do
-            task.wait(1)
-            if State.fastAttack then applyFastAttack() end
-        end
-    end)
-
     -- ============================================================
     -- AUTO STATS
     -- ============================================================
+    local STAT_OPTIONS = {"Balanced", "Melee", "Defense", "Sword", "MemePower"}
     local STAT_TARGETS = {
         Melee     = "MeleeLevel",
         Defense   = "DefenseLevel",
@@ -197,15 +251,24 @@ function MemeSea.Init(ctx)
         return v and v.Value or 0
     end
 
-    local function upgradeStat(statName, amount)
+    local function tryUpgrade(targetKey, amount)
         local sf = MainEvents and MainEvents:FindFirstChild("StatsFunction")
-        if not sf then return false end
-        local target = STAT_TARGETS[statName]
-        if not target then return false end
-        local ok = pcall(function()
-            sf:InvokeServer({ Action = "UpgradeStats", Target = target, Amount = amount or 1 })
-        end)
-        return ok
+        if not sf then
+            logStats("StatsFunction not found")
+            return false
+        end
+
+        local formats = {
+            { Action = "UpgradeStats", Target = targetKey, Amount = amount },
+            { Action = "UpgradeStats", Target = targetKey, amount = amount },
+        }
+
+        for i, payload in ipairs(formats) do
+            local ok = pcall(function() sf:InvokeServer(payload) end)
+            logStats("Format " .. i .. " (" .. targetKey .. " x" .. amount .. ") → " .. tostring(ok))
+            if ok then return true end
+        end
+        return false
     end
 
     task.spawn(function()
@@ -213,15 +276,31 @@ function MemeSea.Init(ctx)
             task.wait(1.5)
             if State.autoStats then
                 local sp = getSkillPoints()
+                logStats("SkillPoint = " .. tostring(sp))
                 if sp and sp > 0 then
                     local chosen = State.statPriority
-                    if chosen == "Balanced" or chosen == "" then
-                        local opts = {"Melee", "Defense", "Sword", "MemePower"}
-                        chosen = opts[math.random(1, #opts)]
+                    local chosenKey
+
+                    if chosen == "Balanced" then
+                        local lowest = nil
+                        local lowestVal = math.huge
+                        for name, key in pairs(STAT_TARGETS) do
+                            local val = PlayerData:FindFirstChild(key)
+                            if val and val.Value < lowestVal then
+                                lowestVal = val.Value
+                                lowest = name
+                            end
+                        end
+                        chosenKey = STAT_TARGETS[lowest or "Melee"]
+                    else
+                        chosenKey = STAT_TARGETS[chosen]
                     end
-                    local amount = math.min(sp, 1)
-                    upgradeStat(chosen, amount)
-                    log("Upgraded " .. chosen .. " x" .. amount)
+
+                    if chosenKey then
+                        local amount = math.min(sp, State.statPointsPerTick)
+                        if amount < 1 then amount = 1 end
+                        tryUpgrade(chosenKey, amount)
+                    end
                 end
             end
         end
@@ -247,6 +326,16 @@ function MemeSea.Init(ctx)
         return info and info.Raid_Boss == true
     end
 
+    local function mobNameMatches(mobName, targetName)
+        if not mobName or not targetName then return false end
+        if mobName == targetName then return true end
+        local a = mobName:lower()
+        local b = targetName:lower()
+        if a == b then return true end
+        if a:find(b, 1, true) or b:find(a, 1, true) then return true end
+        return false
+    end
+
     local function findTargetMob(targetName)
         local folder = workspace:FindFirstChild("Monster")
         if not folder then return nil end
@@ -254,14 +343,31 @@ function MemeSea.Init(ctx)
         if not myHRP then return nil end
         local best, bestDist = nil, math.huge
         for _, mob in ipairs(folder:GetChildren()) do
-            if mob:IsA("Model") and mob.Name == targetName then
-                local hum = mob:FindFirstChildOfClass("Humanoid")
-                if hum and hum.Health > 0 then
+            if mob:IsA("Model") and isMobAlive(mob) then
+                if mobNameMatches(mob.Name, targetName) then
                     local hrp = getMobHRP(mob)
                     if hrp then
                         local d = (hrp.Position - myHRP.Position).Magnitude
                         if d < bestDist then bestDist = d; best = mob end
                     end
+                end
+            end
+        end
+        return best
+    end
+
+    local function findAnyMob()
+        local folder = workspace:FindFirstChild("Monster")
+        if not folder then return nil end
+        local myHRP = getHRP()
+        if not myHRP then return nil end
+        local best, bestDist = nil, math.huge
+        for _, mob in ipairs(folder:GetChildren()) do
+            if mob:IsA("Model") and isMobAlive(mob) then
+                local hrp = getMobHRP(mob)
+                if hrp then
+                    local d = (hrp.Position - myHRP.Position).Magnitude
+                    if d < bestDist then bestDist = d; best = mob end
                 end
             end
         end
@@ -289,7 +395,7 @@ function MemeSea.Init(ctx)
                 pcall(function()
                     myHRP.CFrame = CFrame.new(hrp.Position + Vector3.new(0, 0, 3), hrp.Position)
                 end)
-                task.wait(0.25)
+                task.wait(0.3)
                 for _, d in ipairs(npc:GetDescendants()) do
                     if d:IsA("ProximityPrompt") then
                         pcall(function() fireproximityprompt(d) end)
@@ -305,37 +411,101 @@ function MemeSea.Init(ctx)
         while not UNLOADED do
             task.wait(0.2)
             local active = State.autoQuestFarm or State.autoBoss
+
             if not active then
+                State.questFarm.state = "idle"
                 task.wait(0.5)
             else
+                local qf = State.questFarm
+                local now = tick()
                 local cur = getActiveQuest()
 
-                if not cur then
-                    log("No quest - going to NPC")
-                    teleportToQuestNpc()
-                    task.wait(1.5)
-                else
-                    local info = getQuestInfo(cur)
-
-                    if State.autoBoss and not isBossQuest(cur) then
-                        log("Not a boss quest - rolling")
-                        teleportToQuestNpc()
-                        task.wait(1.5)
-                    elseif info and info.Target then
-                        log("Farming " .. cur .. " | target: " .. info.Target)
-                        local mob = findTargetMob(info.Target)
-                        if mob then
-                            attackMob(mob)
+                if qf.state == "idle" then
+                    if cur then
+                        local info = getQuestInfo(cur)
+                        if State.autoBoss and not isBossQuest(cur) then
+                            qf.state = "getQuest"
+                            log("Not boss quest, rolling")
                         else
-                            log("No mobs - completing")
-                            teleportToQuestNpc()
-                            task.wait(2)
+                            qf.currentQuest = cur
+                            qf.currentTarget = info and info.Target or nil
+                            qf.state = "farming"
+                            qf.lastMobSeen = now
+                            log("Farming:", cur, "| target:", qf.currentTarget or "ANY")
                         end
                     else
-                        task.wait(1)
+                        qf.state = "getQuest"
+                        log("No quest - grabbing")
                     end
+
+                elseif qf.state == "getQuest" then
+                    if now - qf.lastNpcVisit > 4 then
+                        qf.lastNpcVisit = now
+                        log("Teleporting to NPC")
+                        teleportToQuestNpc()
+                        task.wait(2)
+                        local newCur = getActiveQuest()
+                        if newCur then
+                            local info = getQuestInfo(newCur)
+                            qf.currentQuest = newCur
+                            qf.currentTarget = info and info.Target or nil
+                            qf.state = "farming"
+                            qf.lastMobSeen = tick()
+                            log("Quest grabbed:", newCur, "| target:", qf.currentTarget or "ANY")
+                        end
+                    else
+                        task.wait(0.5)
+                    end
+
+                elseif qf.state == "farming" then
+                    if not cur then
+                        qf.state = "idle"
+                        task.wait(0.5)
+                    else
+                        if cur ~= qf.currentQuest then
+                            local info = getQuestInfo(cur)
+                            qf.currentQuest = cur
+                            qf.currentTarget = info and info.Target or nil
+                            log("Quest changed:", cur, "| target:", qf.currentTarget or "ANY")
+                        end
+
+                        local mob = nil
+                        if qf.currentTarget then
+                            mob = findTargetMob(qf.currentTarget)
+                        end
+
+                        if not mob and (now - qf.lastMobSeen > 5) then
+                            mob = findAnyMob()
+                        end
+
+                        if mob then
+                            qf.lastMobSeen = now
+                            attackMob(mob)
+                        else
+                            if now - qf.lastMobSeen > 15 then
+                                qf.state = "complete"
+                                log("No mobs - completing")
+                            end
+                        end
+                    end
+                    task.wait(State.attackCD)
+
+                elseif qf.state == "complete" then
+                    log("Completing quest")
+                    teleportToQuestNpc()
+                    task.wait(2)
+                    local afterCur = getActiveQuest()
+                    if not afterCur or afterCur ~= qf.currentQuest then
+                        qf.state = "idle"
+                        qf.currentQuest = nil
+                        qf.currentTarget = nil
+                        log("Quest completed")
+                    else
+                        qf.state = "farming"
+                        qf.lastMobSeen = tick()
+                    end
+                    task.wait(1)
                 end
-                task.wait(State.attackCD)
             end
         end
     end)
@@ -343,10 +513,8 @@ function MemeSea.Init(ctx)
     task.spawn(function()
         while not UNLOADED do
             task.wait(1)
-            if State.autoEquipCombat ~= false then
-                local char = LocalPlayer.Character
-                if char and not char:FindFirstChild("Combat") then equipCombat() end
-            end
+            local char = LocalPlayer.Character
+            if char and not char:FindFirstChild("Combat") then equipCombat() end
         end
     end)
 
@@ -423,12 +591,13 @@ function MemeSea.Init(ctx)
     local function syncUIFromState()
         for _, k in ipairs({
             "autoQuestFarm","autoBoss","fastAttack","autoStats",
-            "speed","jumpPower","antiAfk","fullbright","noFog","debugQuest",
+            "speed","jumpPower","antiAfk","fullbright","noFog",
+            "debugQuest","debugStats",
         }) do
             local el = Elements[k]
             if el and State[k] ~= nil then setToggle(el, State[k]) end
         end
-        for _, k in ipairs({"speedValue","jumpPowerValue","attackCD","teleportDistance"}) do
+        for _, k in ipairs({"speedValue","jumpPowerValue","attackCD","teleportDistance","statPointsPerTick"}) do
             local el = Elements[k]
             if el and State[k] ~= nil then setSlider(el, State[k]) end
         end
@@ -437,7 +606,9 @@ function MemeSea.Init(ctx)
     local function saveConfigNamed(name)
         ensureFolder()
         local data = {version = GAME_VERSION, state = {}}
-        for k, v in pairs(State) do data.state[k] = v end
+        for k, v in pairs(State) do
+            if k ~= "questFarm" then data.state[k] = v end
+        end
         local ok = pcall(function() writefile(CONFIG_FOLDER .. "/" .. name .. ".json", HttpService:JSONEncode(data)) end)
         if ok and Window then pcall(function() Window:Notify("💾", "Saved: " .. name, 3, "success") end) end
     end
@@ -448,7 +619,7 @@ function MemeSea.Init(ctx)
         local s, data = pcall(function() return HttpService:JSONDecode(c) end)
         if not s or not data or not data.state then return false end
         for k, v in pairs(data.state) do
-            if State[k] ~= nil then State[k] = v end
+            if State[k] ~= nil and k ~= "questFarm" then State[k] = v end
         end
         syncUIFromState()
         if Window then pcall(function() Window:Notify("📂", "Loaded: " .. name, 3, "info") end) end
@@ -488,13 +659,13 @@ function MemeSea.Init(ctx)
             Name = "Auto Quest Farm",
             Description = "Grab quest, kill mobs, complete, repeat",
             Icon = "🌟", Default = false,
-            Callback = function(v) State.autoQuestFarm = v end,
+            Callback = function(v) State.autoQuestFarm = v; State.questFarm.state = "idle" end,
         }))
         reg("autoBoss", FarmTab:CreateToggle({
             Name = "Auto Boss",
             Description = "Only farm boss quests",
             Icon = "👹", Default = false,
-            Callback = function(v) State.autoBoss = v end,
+            Callback = function(v) State.autoBoss = v; State.questFarm.state = "idle" end,
         }))
         reg("fastAttack", FarmTab:CreateToggle({
             Name = "Fast Attack",
@@ -536,12 +707,23 @@ function MemeSea.Init(ctx)
         ProgressTab:CreateDropdown({
             Name = "Stat Priority",
             Description = "Which stat to upgrade",
-            Icon = "🎯", Options = {"Balanced", "Melee", "Defense", "Sword", "MemePower"}, Default = 1,
+            Icon = "🎯", Options = STAT_OPTIONS, Default = 1,
             Callback = function(_, idx)
-                local opts = {"Balanced", "Melee", "Defense", "Sword", "MemePower"}
-                State.statPriority = opts[idx] or "Balanced"
+                State.statPriority = STAT_OPTIONS[idx] or "Balanced"
             end,
         })
+        reg("statPointsPerTick", ProgressTab:CreateSlider({
+            Name = "Points Per Cycle",
+            Description = "How many points to spend each cycle",
+            Icon = "🔢", Min = 1, Max = 50, Default = 1,
+            Callback = function(v) State.statPointsPerTick = v end,
+        }))
+        reg("debugStats", ProgressTab:CreateToggle({
+            Name = "Debug Stats",
+            Description = "Print stats logs",
+            Icon = "🐛", Default = false,
+            Callback = function(v) State.debugStats = v end,
+        }))
 
         local PlayerTab = Window:CreateTab("Player", "🏃")
         PlayerTab:CreateSection("Movement")
