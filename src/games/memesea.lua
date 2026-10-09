@@ -34,43 +34,56 @@ function MemeSea.Init(ctx)
     local HttpService      = game:GetService("HttpService")
     local Lighting         = game:GetService("Lighting")
     local VirtualUser      = game:GetService("VirtualUser")
+    local StarterGui       = game:GetService("StarterGui")
     local LocalPlayer      = Players.LocalPlayer
     local Camera           = workspace.CurrentCamera
 
     local UNLOADED  = false
-    local IS_MOBILE = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
-    local BASE_FOLDER   = "InfiniteZen_Configs"
-    local CONFIG_FOLDER = BASE_FOLDER .. "/MemeSea"
-    local AUTOLOAD_FILE = "InfiniteZen_MemeSea_Autoload.txt"
+    local RS         = game:GetService("ReplicatedStorage")
+    local OtherEvent = RS:WaitForChild("OtherEvent", 10)
+    local MainEvents = OtherEvent and OtherEvent:WaitForChild("MainEvents", 5)
+    local SkillEvents = OtherEvent and OtherEvent:WaitForChild("SkillEvents", 5)
+    local MiscEvents = OtherEvent and OtherEvent:WaitForChild("MiscEvents", 5)
+    local QuestEvents = OtherEvent and OtherEvent:WaitForChild("QuestEvents", 5)
 
     local State = {
-        autoFarmLevel = false,
-        autoFarmNearest = false,
-        autoFarmSelected = false,
-        selectedFarmTarget = "",
         autoAttack = false,
+        autoFarmNearest = false,
+        autoFarmLevel = false,
+        farmSelected = false,
+        selectedMob = "Any",
         autoSkill = false,
         collectDrops = false,
-        autoStoreFruits = false,
-        combatMode = "Both",
+        autoQuest = false,
         autoStats = false,
-        autoBoss = false,
-        autoLordSus = false,
-        autoGiantPumpkin = false,
-        autoEvilNoob = false,
-        autoMemeBeast = false,
-        autoRaidBoss = false,
-        autoFloppa = false,
+        statPriority = "Melee",
+        autoRedeem = false,
         autoPopcat = false,
-        redeemCodes = false,
-        rollColor = false,
-        farmFlashStep = false,
+        autoStartRaid = false,
+        autoGacha = false,
+        autoLuck = false,
+        autoFlashStep = false,
         speed = false, speedValue = 50,
         jumpPower = false, jumpPowerValue = 80,
         antiAfk = false,
         fullbright = false,
         noFog = false,
+        esp = false,
+        bringMob = false,
+        autoEquipCombat = true,
+    }
+
+    local MOB_LIST = {
+        "Any", "Floppa", "Big Floppa", "Golden Floppa", "Doge", "Cheems",
+        "Walter Dog", "Sogga", "Egg Dog", "Gigachad", "Sus Duck", "Banana Cat",
+        "Meme Beast", "Training Log", "Killerfish", "Smiling Cat", "Bingus",
+    }
+
+    local CODES = {
+        "100KFavorites", "100KLikes", "100MVisits", "100KActive",
+        "100KMembers", "Update4", "amogus", "rickastley", "SadNoob",
+        "Floppa", "Popcat", "MemeSea", "RELEASE",
     }
 
     local origBrightness = Lighting.Brightness
@@ -80,174 +93,248 @@ function MemeSea.Init(ctx)
     local origFogEnd     = Lighting.FogEnd
     local origFogStart   = Lighting.FogStart
 
-    local function getMonsterFolder()
-        return workspace:FindFirstChild("Monster") or workspace:FindFirstChild("Monsters")
-    end
-
-    local function getNpcFolder()
-        return workspace:FindFirstChild("Npc") or workspace:FindFirstChild("NPCs")
-    end
-
-    local function getPlayerData()
+    local function getPD()
         return LocalPlayer:FindFirstChild("PlayerData")
     end
 
-    local function getLevel()
-        local pd = getPlayerData()
-        if not pd then return 1 end
-        local lvl = pd:FindFirstChild("Level")
-        if lvl and lvl:IsA("NumberValue") then return lvl.Value end
-        return 1
+    local function pdValue(name, default)
+        local pd = getPD()
+        if not pd then return default end
+        local v = pd:FindFirstChild(name)
+        if v and v:IsA("ValueBase") then return v.Value end
+        return default
     end
 
     local function getHRP()
-        if not LocalPlayer.Character then return nil end
-        return LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        local c = LocalPlayer.Character
+        if not c then return nil end
+        return c:FindFirstChild("HumanoidRootPart")
     end
 
-    local function getCombatTool()
-        local char = LocalPlayer.Character
-        if not char then return nil end
-        local backpack = LocalPlayer:FindFirstChild("Backpack")
-        if State.combatMode == "Sword" then
-            for _, c in ipairs(char:GetChildren()) do
-                if c:IsA("Tool") then return c end
-            end
-            if backpack then
-                for _, c in ipairs(backpack:GetChildren()) do
-                    if c:IsA("Tool") and c:FindFirstChild("Sword") then return c end
+    local function getMonsterFolder()
+        return workspace:FindFirstChild("Monster")
+    end
+
+    local function mobMatches(mob)
+        if State.selectedMob == "Any" then return true end
+        return mob.Name:lower():find(State.selectedMob:lower(), 1, true) ~= nil
+    end
+
+    local function getMonsterHRP(mob)
+        if not mob then return nil end
+        return mob:FindFirstChild("HumanoidRootPart") or mob:FindFirstChild("Head")
+    end
+
+    local function isMobAlive(mob)
+        if not mob or not mob.Parent then return false end
+        local hum = mob:FindFirstChildOfClass("Humanoid")
+        return hum and hum.Health > 0
+    end
+
+    local function getNearestMob()
+        local folder = getMonsterFolder()
+        local myHRP = getHRP()
+        if not folder or not myHRP then return nil end
+        local closest, minDist = nil, math.huge
+        for _, mob in ipairs(folder:GetChildren()) do
+            if mobMatches(mob) and isMobAlive(mob) then
+                local hrp = getMonsterHRP(mob)
+                if hrp then
+                    local d = (hrp.Position - myHRP.Position).Magnitude
+                    if d < minDist then minDist = d; closest = mob end
                 end
             end
         end
-        return nil
+        return closest
     end
 
-    local function getNearestMonster()
-        local folder = getMonsterFolder()
-        if not folder then return nil end
-        local myHRP = getHRP()
-        if not myHRP then return nil end
-        local nearest, minDist = nil, math.huge
-        for _, mob in ipairs(folder:GetChildren()) do
-            local hrp = mob:FindFirstChild("HumanoidRootPart")
-            local hum = mob:FindFirstChildOfClass("Humanoid")
-            if hrp and hum and hum.Health > 0 then
-                local d = (hrp.Position - myHRP.Position).Magnitude
-                if d < minDist then minDist = d; nearest = mob end
-            end
-        end
-        return nearest
-    end
-
-    local function attackMonster(mob)
-        if not mob then return end
-        local hum = mob:FindFirstChildOfClass("Humanoid")
-        if not hum or hum.Health <= 0 then return end
-        local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
-        if tool and tool:FindFirstChildOfClass("RemoteEvent") then
-            pcall(function() tool.RemoteEvent:FireServer(mob) end)
-        elseif tool and tool:FindFirstChild("Remote") then
-            pcall(function() tool.Remote:FireServer(mob) end)
-        end
-    end
-
-    local function useSkills()
+    local function equipCombat()
+        if not State.autoEquipCombat then return end
         local char = LocalPlayer.Character
         if not char then return end
-        local skills = char:FindFirstChild("Skills") or char:FindFirstChild("Abilities")
-        if skills then
-            for _, skill in ipairs(skills:GetChildren()) do
-                if skill:IsA("RemoteEvent") or skill:IsA("RemoteFunction") then
-                    pcall(function() skill:FireServer() end)
-                end
+        if char:FindFirstChild("Combat") then return end
+        local bp = LocalPlayer:FindFirstChild("Backpack")
+        if not bp then return end
+        local tool = bp:FindFirstChild("Combat")
+        if tool and tool:IsA("Tool") then
+            pcall(function() char.Humanoid:EquipTool(tool) end)
+        end
+    end
+
+    local lastAttack = 0
+    local ATTACK_CD = 0.15
+
+    local function fireSword(mob)
+        if not MainEvents then return false end
+        local sword = MainEvents:FindFirstChild("Sword")
+        if not sword then return false end
+        local hrp = getMonsterHRP(mob)
+        if not hrp then return false end
+        pcall(function() sword:InvokeServer(hrp) end)
+        pcall(function() sword:InvokeServer(hrp.Position) end)
+        pcall(function() sword:InvokeServer(mob) end)
+        return true
+    end
+
+    local function fireHitbox(mob)
+        if not SkillEvents then return false end
+        local hb = SkillEvents:FindFirstChild("Server_Hitbox")
+        if not hb then return false end
+        local hrp = getMonsterHRP(mob)
+        if not hrp then return false end
+        pcall(function() hb:FireServer(hrp) end)
+        pcall(function() hb:FireServer(hrp.Position, mob) end)
+        return true
+    end
+
+    local function useToolActivate()
+        local char = LocalPlayer.Character
+        if not char then return end
+        local tool = char:FindFirstChildOfClass("Tool")
+        if tool then
+            pcall(function() tool:Activate() end)
+        end
+    end
+
+    local function attackMob(mob)
+        if not mob then return end
+        local hrp = getMonsterHRP(mob)
+        if not hrp then return end
+        local myHRP = getHRP()
+        if myHRP then
+            local dist = (hrp.Position - myHRP.Position).Magnitude
+            if dist > 15 then
+                pcall(function() myHRP.CFrame = hrp.CFrame * CFrame.new(0, 3, 2) end)
+            end
+        end
+        fireSword(mob)
+        fireHitbox(mob)
+        useToolActivate()
+        if type(mouse1click) == "function" then
+            pcall(mouse1click)
+        end
+    end
+
+    local function useAllSkills()
+        if not SkillEvents then return end
+        for _, remote in ipairs(SkillEvents:GetChildren()) do
+            if remote:IsA("RemoteEvent") and remote.Name ~= "Server_Hitbox" then
+                pcall(function() remote:FireServer() end)
             end
         end
     end
 
-    local function teleportTo(pos)
-        local hrp = getHRP()
-        if hrp then
-            pcall(function() hrp.CFrame = CFrame.new(pos) end)
-        end
-    end
-
-    local attackDebounce = 0
     task.spawn(function()
         while not UNLOADED do
-            task.wait(0.15)
-            if State.autoAttack or State.autoFarmLevel or State.autoFarmNearest or State.autoBoss then
-                local target = getNearestMonster()
-                if target then
-                    local hrp = target:FindFirstChild("HumanoidRootPart")
-                    if hrp then
-                        local myHRP = getHRP()
-                        if myHRP then
-                            local dist = (hrp.Position - myHRP.Position).Magnitude
-                            if dist > 20 then
-                                teleportTo(hrp.Position)
-                            end
-                        end
+            task.wait(0.1)
+            if State.autoAttack or State.autoFarmNearest or State.autoFarmLevel or State.farmSelected then
+                equipCombat()
+                local now = tick()
+                if now - lastAttack >= ATTACK_CD then
+                    local mob = getNearestMob()
+                    if mob then
+                        lastAttack = now
+                        attackMob(mob)
+                        if State.autoSkill then useAllSkills() end
                     end
-                    attackMonster(target)
-                    if State.autoSkill then useSkills() end
                 end
             end
         end
     end)
 
+    task.spawn(function()
+        while not UNLOADED do
+            task.wait(0.2)
+            if State.bringMob then
+                local folder = getMonsterFolder()
+                local myHRP = getHRP()
+                if folder and myHRP then
+                    for _, mob in ipairs(folder:GetChildren()) do
+                        local hrp = getMonsterHRP(mob)
+                        if hrp and isMobAlive(mob) then
+                            pcall(function() hrp.CFrame = myHRP.CFrame * CFrame.new(0, 0, -3) end)
+                        end
+                    end
+                end
+            end
+        end
+    end)
+
+    local statIndex = 0
     task.spawn(function()
         while not UNLOADED do
             task.wait(2)
             if State.autoStats then
-                local gui = LocalPlayer:FindFirstChild("PlayerGui")
-                if gui then
-                    local gameGui = gui:FindFirstChild("GameGui")
-                    if gameGui then
-                        local stats = gameGui:FindFirstChild("Stats")
-                        if stats then
-                            local statsInner = stats:FindFirstChild("Stats")
-                            if statsInner then
-                                local spend = statsInner:FindFirstChild("SpendPoints")
-                                if spend and spend:IsA("RemoteFunction") then
-                                    pcall(function() spend:InvokeServer("Melee", 1) end)
-                                    pcall(function() spend:InvokeServer("Defense", 1) end)
-                                    pcall(function() spend:InvokeServer("Sword", 1) end)
-                                end
-                            end
+                local sp = pdValue("SkillPoint", 0)
+                if sp and sp > 0 then
+                    local sf = MainEvents and MainEvents:FindFirstChild("StatsFunction")
+                    if sf then
+                        statIndex = (statIndex % 4) + 1
+                        local stats = {"Melee", "Defense", "Sword", "MemePower"}
+                        local chosen = stats[statIndex]
+                        if State.statPriority ~= "Balanced" and State.statPriority ~= "" then
+                            chosen = State.statPriority
                         end
+                        pcall(function() sf:InvokeServer(chosen, 1) end)
                     end
                 end
             end
         end
     end)
 
-    local CODES = {
-        "100KFavorites", "100KLikes", "100MVisits",
-        "100KActive", "100KMembers", "Update4",
-        "amogus", "rickastley", "SadNoob",
-    }
     local codeIndex = 0
     task.spawn(function()
         while not UNLOADED do
-            task.wait(1)
-            if State.redeemCodes then
+            task.wait(1.5)
+            if State.autoRedeem then
                 codeIndex = codeIndex + 1
                 if codeIndex > #CODES then
-                    State.redeemCodes = false
+                    State.autoRedeem = false
                     codeIndex = 0
                 else
-                    local code = CODES[codeIndex]
-                    local gui = LocalPlayer:FindFirstChild("PlayerGui")
-                    if gui then
-                        local gameGui = gui:FindFirstChild("GameGui")
-                        if gameGui then
-                            local settings = gameGui:FindFirstChild("Settings") or gameGui:FindFirstChild("Menu")
-                            if settings then
-                                for _, r in ipairs(settings:GetDescendants()) do
-                                    if r:IsA("RemoteEvent") or r:IsA("RemoteFunction") then
-                                        pcall(function() r:FireServer(code) end)
-                                    end
-                                end
+                    local cf = MainEvents and MainEvents:FindFirstChild("Code")
+                    if cf then
+                        local code = CODES[codeIndex]
+                        pcall(function() cf:InvokeServer(code) end)
+                        print("[MemeSea] Redeeming: " .. code)
+                    end
+                end
+            end
+        end
+    end)
+
+    task.spawn(function()
+        while not UNLOADED do
+            task.wait(1)
+            if State.autoQuest then
+                local nq = MiscEvents and MiscEvents:FindFirstChild("NewQuest")
+                if nq then
+                    pcall(function() nq:FireServer() end)
+                end
+                local q = QuestEvents and QuestEvents:FindFirstChild("Quest")
+                if q then
+                    pcall(function() q:FireServer("Accept") end)
+                    pcall(function() q:FireServer("Complete") end)
+                end
+            end
+        end
+    end)
+
+    task.spawn(function()
+        while not UNLOADED do
+            task.wait(3)
+            if State.autoPopcat then
+                local p = MiscEvents and MiscEvents:FindFirstChild("Popcat")
+                if p then
+                    pcall(function() p:FireServer() end)
+                end
+                local npcs = workspace:FindFirstChild("NPCs")
+                if npcs then
+                    local misc = npcs:FindFirstChild("Misc_Npc")
+                    if misc then
+                        for _, npc in ipairs(misc:GetDescendants()) do
+                            if npc:IsA("ProximityPrompt") then
+                                pcall(function() fireproximityprompt(npc) end)
                             end
                         end
                     end
@@ -259,17 +346,10 @@ function MemeSea.Init(ctx)
     task.spawn(function()
         while not UNLOADED do
             task.wait(5)
-            if State.autoStoreFruits then
-                local backpack = LocalPlayer:FindFirstChild("Backpack")
-                if backpack then
-                    for _, item in ipairs(backpack:GetChildren()) do
-                        if item:IsA("Tool") and item:FindFirstChild("Fruit") then
-                            local char = LocalPlayer.Character
-                            if char then
-                                pcall(function() item.Parent = char end)
-                            end
-                        end
-                    end
+            if State.autoStartRaid then
+                local sr = MiscEvents and MiscEvents:FindFirstChild("StartRaid")
+                if sr then
+                    pcall(function() sr:FireServer() end)
                 end
             end
         end
@@ -277,17 +357,23 @@ function MemeSea.Init(ctx)
 
     task.spawn(function()
         while not UNLOADED do
-            task.wait(0.2)
-            if State.autoPopcat then
-                local npcs = getNpcFolder()
-                if npcs then
-                    for _, npc in ipairs(npcs:GetChildren()) do
-                        if npc.Name:lower():find("popcat") then
-                            local pp = npc:FindFirstChildOfClass("ProximityPrompt")
-                            if pp then
-                                pcall(function() fireproximityprompt(pp) end)
-                            end
-                        end
+            task.wait(10)
+            if State.autoGacha then
+                local g = MainEvents and MainEvents:FindFirstChild("Gacha")
+                if g then
+                    pcall(function() g:FireServer() end)
+                end
+            end
+            if State.autoLuck then
+                local l = MainEvents and MainEvents:FindFirstChild("Luck")
+                if l then
+                    pcall(function() l:FireServer() end)
+                end
+            end
+            if State.autoFlashStep then
+                for _, remote in ipairs(SkillEvents and SkillEvents:GetChildren() or {}) do
+                    if remote:IsA("RemoteEvent") and remote.Name:lower():find("flash") then
+                        pcall(function() remote:FireServer() end)
                     end
                 end
             end
@@ -304,6 +390,27 @@ function MemeSea.Init(ctx)
         end
     end)
 
+    task.spawn(function()
+        while not UNLOADED do
+            task.wait(0.3)
+            if State.collectDrops then
+                local char = LocalPlayer.Character
+                local myHRP = getHRP()
+                if char and myHRP then
+                    for _, item in ipairs(workspace:GetChildren()) do
+                        if item:IsA("Tool") and item:FindFirstChild("Handle") then
+                            local handle = item.Handle
+                            if (handle.Position - myHRP.Position).Magnitude < 50 then
+                                pcall(function() firetouchinterest(myHRP, handle, 0) end)
+                                pcall(function() firetouchinterest(myHRP, handle, 1) end)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end)
+
     pcall(function()
         RunService.Heartbeat:Connect(function()
             if UNLOADED then return end
@@ -311,12 +418,8 @@ function MemeSea.Init(ctx)
             if not char then return end
             local hum = char:FindFirstChildOfClass("Humanoid")
             if not hum then return end
-            if State.speed and hum.WalkSpeed ~= State.speedValue then
-                hum.WalkSpeed = State.speedValue
-            end
-            if State.jumpPower and hum.UseJumpPower and hum.JumpPower ~= State.jumpPowerValue then
-                hum.JumpPower = State.jumpPowerValue
-            end
+            if State.speed and hum.WalkSpeed ~= State.speedValue then hum.WalkSpeed = State.speedValue end
+            if State.jumpPower and hum.UseJumpPower and hum.JumpPower ~= State.jumpPowerValue then hum.JumpPower = State.jumpPowerValue end
             if State.fullbright then
                 Lighting.Brightness = 3
                 Lighting.Ambient = Color3.fromRGB(200,200,200)
@@ -340,6 +443,10 @@ function MemeSea.Init(ctx)
             Lighting.FogStart = origFogStart
         end)
     end
+
+    local BASE_FOLDER   = "InfiniteZen_Configs"
+    local CONFIG_FOLDER = BASE_FOLDER .. "/MemeSea"
+    local AUTOLOAD_FILE = "InfiniteZen_MemeSea_Autoload.txt"
 
     local function ensureFolder()
         if makefolder then
@@ -366,11 +473,10 @@ function MemeSea.Init(ctx)
 
     local function syncUIFromState()
         for _, k in ipairs({
-            "autoFarmLevel","autoFarmNearest","autoAttack","autoSkill","collectDrops",
-            "autoStoreFruits","autoStats","autoBoss","autoLordSus","autoGiantPumpkin",
-            "autoEvilNoob","autoMemeBeast","autoRaidBoss","autoFloppa","autoPopcat",
-            "redeemCodes","rollColor","farmFlashStep","speed","jumpPower","antiAfk",
-            "fullbright","noFog",
+            "autoAttack","autoFarmNearest","autoFarmLevel","farmSelected",
+            "autoSkill","collectDrops","autoQuest","autoStats","autoRedeem",
+            "autoPopcat","autoStartRaid","autoGacha","autoLuck","autoFlashStep",
+            "speed","jumpPower","antiAfk","fullbright","noFog","bringMob","autoEquipCombat",
         }) do
             local el = Elements[k]
             if el and State[k] ~= nil then setToggle(el, State[k]) end
@@ -428,151 +534,144 @@ function MemeSea.Init(ctx)
         Elements = {}
 
         local FarmTab = Window:CreateTab("Auto Farm", "🌾")
-        FarmTab:CreateSection("Auto Farm")
-        reg("autoFarmLevel", FarmTab:CreateToggle({
-            Name = "Auto Farm Level",
-            Description = "Farm monsters near your level",
-            Icon = "📈", Default = false,
-            Callback = function(v) State.autoFarmLevel = v end,
-        }))
-        reg("autoFarmNearest", FarmTab:CreateToggle({
-            Name = "Auto Farm Nearest",
-            Description = "Farm closest monster",
-            Icon = "📍", Default = false,
-            Callback = function(v) State.autoFarmNearest = v end,
-        }))
+        FarmTab:CreateSection("Farm")
         reg("autoAttack", FarmTab:CreateToggle({
             Name = "Auto Attack",
-            Description = "Automatically attack monsters",
+            Description = "Automatically attack nearby monsters",
             Icon = "⚔️", Default = false,
             Callback = function(v) State.autoAttack = v end,
         }))
+        reg("autoFarmNearest", FarmTab:CreateToggle({
+            Name = "Auto Farm Nearest",
+            Description = "Farm the closest monster",
+            Icon = "📍", Default = false,
+            Callback = function(v) State.autoFarmNearest = v end,
+        }))
+        reg("farmSelected", FarmTab:CreateToggle({
+            Name = "Farm Selected Mob",
+            Description = "Farm a specific mob type",
+            Icon = "🎯", Default = false,
+            Callback = function(v) State.farmSelected = v end,
+        }))
+        FarmTab:CreateDropdown({
+            Name = "Select Mob",
+            Description = "Which monster to farm",
+            Icon = "🐾", Options = MOB_LIST, Default = 1,
+            Callback = function(_, idx)
+                State.selectedMob = MOB_LIST[idx] or "Any"
+            end,
+        })
+        reg("bringMob", FarmTab:CreateToggle({
+            Name = "Bring Mob",
+            Description = "Teleport monsters to you",
+            Icon = "🧲", Default = false,
+            Callback = function(v) State.bringMob = v end,
+        }))
         reg("autoSkill", FarmTab:CreateToggle({
-            Name = "Auto Use Skills",
-            Description = "Automatically use all skills",
+            Name = "Auto Skills",
+            Description = "Use all skills automatically",
             Icon = "✨", Default = false,
             Callback = function(v) State.autoSkill = v end,
         }))
         reg("collectDrops", FarmTab:CreateToggle({
             Name = "Collect Drops",
-            Description = "Auto collect items on ground",
+            Description = "Pick up items on the ground",
             Icon = "🎁", Default = false,
             Callback = function(v) State.collectDrops = v end,
         }))
-        reg("autoStoreFruits", FarmTab:CreateToggle({
-            Name = "Auto Store Fruits",
-            Description = "Automatically store fruits in inventory",
-            Icon = "🍎", Default = false,
-            Callback = function(v) State.autoStoreFruits = v end,
-        }))
-        FarmTab:CreateSection("Bosses")
-        reg("autoBoss", FarmTab:CreateToggle({
-            Name = "Auto Boss (Any)",
-            Description = "Farm any boss automatically",
-            Icon = "👑", Default = false,
-            Callback = function(v) State.autoBoss = v end,
-        }))
-        reg("autoLordSus", FarmTab:CreateToggle({
-            Name = "Auto Lord Sus",
-            Description = "Farm Lord Sus boss",
-            Icon = "🔴", Default = false,
-            Callback = function(v) State.autoLordSus = v end,
-        }))
-        reg("autoGiantPumpkin", FarmTab:CreateToggle({
-            Name = "Auto Giant Pumpkin",
-            Description = "Farm Giant Pumpkin boss",
-            Icon = "🎃", Default = false,
-            Callback = function(v) State.autoGiantPumpkin = v end,
-        }))
-        reg("autoEvilNoob", FarmTab:CreateToggle({
-            Name = "Auto Evil Noob",
-            Description = "Farm Evil Noob boss",
-            Icon = "👹", Default = false,
-            Callback = function(v) State.autoEvilNoob = v end,
-        }))
-        reg("autoMemeBeast", FarmTab:CreateToggle({
-            Name = "Auto Meme Beast",
-            Description = "Farm Meme Beast world boss",
-            Icon = "🐉", Default = false,
-            Callback = function(v) State.autoMemeBeast = v end,
-        }))
-        reg("autoRaidBoss", FarmTab:CreateToggle({
-            Name = "Auto Raid Boss",
-            Description = "Farm raid bosses",
-            Icon = "⚡", Default = false,
-            Callback = function(v) State.autoRaidBoss = v end,
+        reg("autoEquipCombat", FarmTab:CreateToggle({
+            Name = "Auto Equip Combat",
+            Description = "Auto equip the Combat tool",
+            Icon = "🗡️", Default = true,
+            Callback = function(v) State.autoEquipCombat = v end,
         }))
 
-        local StatsTab = Window:CreateTab("Stats & Misc", "📊")
-        StatsTab:CreateSection("Stats")
-        reg("autoStats", StatsTab:CreateToggle({
+        local ProgressTab = Window:CreateTab("Progress", "📈")
+        ProgressTab:CreateSection("Quests")
+        reg("autoQuest", ProgressTab:CreateToggle({
+            Name = "Auto Quest",
+            Description = "Accept and complete quests automatically",
+            Icon = "📜", Default = false,
+            Callback = function(v) State.autoQuest = v end,
+        }))
+        ProgressTab:CreateSection("Stats")
+        reg("autoStats", ProgressTab:CreateToggle({
             Name = "Auto Stats",
-            Description = "Automatically spend stat points",
+            Description = "Spend skill points automatically",
             Icon = "📊", Default = false,
             Callback = function(v) State.autoStats = v end,
         }))
-        StatsTab:CreateSection("Auto Quest")
-        reg("autoFloppa", StatsTab:CreateToggle({
-            Name = "Auto Floppa Quest",
-            Description = "Automatically complete Floppa quests",
-            Icon = "🐱", Default = false,
-            Callback = function(v) State.autoFloppa = v end,
+        ProgressTab:CreateDropdown({
+            Name = "Stat Priority",
+            Description = "Which stat to invest in",
+            Icon = "🎯", Options = {"Balanced", "Melee", "Defense", "Sword", "MemePower"}, Default = 1,
+            Callback = function(_, idx)
+                local opts = {"Balanced", "Melee", "Defense", "Sword", "MemePower"}
+                State.statPriority = opts[idx] or "Balanced"
+            end,
+        })
+        ProgressTab:CreateSection("Misc")
+        reg("autoRedeem", ProgressTab:CreateToggle({
+            Name = "Redeem All Codes",
+            Description = "Try to redeem every known code",
+            Icon = "🎟️", Default = false,
+            Callback = function(v) State.autoRedeem = v end,
         }))
-        reg("autoPopcat", StatsTab:CreateToggle({
+        reg("autoPopcat", ProgressTab:CreateToggle({
             Name = "Auto Popcat",
-            Description = "Auto click Popcat NPC",
+            Description = "Auto trigger Popcat NPC",
             Icon = "🐾", Default = false,
             Callback = function(v) State.autoPopcat = v end,
         }))
-        StatsTab:CreateSection("Codes & Misc")
-        reg("redeemCodes", StatsTab:CreateToggle({
-            Name = "Redeem All Codes",
-            Description = "Try to redeem all active codes",
-            Icon = "🎟️", Default = false,
-            Callback = function(v) State.redeemCodes = v end,
+        reg("autoStartRaid", ProgressTab:CreateToggle({
+            Name = "Auto Start Raid",
+            Description = "Automatically start raids",
+            Icon = "🌋", Default = false,
+            Callback = function(v) State.autoStartRaid = v end,
         }))
-        reg("rollColor", StatsTab:CreateToggle({
-            Name = "Roll Color",
-            Description = "Auto roll colors",
-            Icon = "🎨", Default = false,
-            Callback = function(v) State.rollColor = v end,
+        reg("autoGacha", ProgressTab:CreateToggle({
+            Name = "Auto Gacha",
+            Description = "Auto roll gacha",
+            Icon = "🎰", Default = false,
+            Callback = function(v) State.autoGacha = v end,
         }))
-        reg("farmFlashStep", StatsTab:CreateToggle({
-            Name = "Farm Flash Step EXP",
-            Description = "Auto farm Flash Step experience",
+        reg("autoLuck", ProgressTab:CreateToggle({
+            Name = "Auto Upgrade Luck",
+            Description = "Automatically upgrade luck",
+            Icon = "🍀", Default = false,
+            Callback = function(v) State.autoLuck = v end,
+        }))
+        reg("autoFlashStep", ProgressTab:CreateToggle({
+            Name = "Auto Flash Step",
+            Description = "Auto farm flash step",
             Icon = "💨", Default = false,
-            Callback = function(v) State.farmFlashStep = v end,
+            Callback = function(v) State.autoFlashStep = v end,
         }))
 
         local PlayerTab = Window:CreateTab("Player", "🏃")
         PlayerTab:CreateSection("Movement")
         reg("speed", PlayerTab:CreateToggle({
-            Name = T("speed.name", "Speed"),
-            Description = T("speed.desc", "Custom walkspeed"),
+            Name = "Speed", Description = "Custom walkspeed",
             Icon = "⚡", Default = false,
             Callback = function(v) State.speed = v end,
         }))
         reg("speedValue", PlayerTab:CreateSlider({
-            Name = T("speedvalue.name", "Speed Value"),
-            Description = T("speedvalue.desc", "WalkSpeed value"),
+            Name = "Speed Value", Description = "WalkSpeed value",
             Icon = "📏", Min = 16, Max = 200, Default = 50,
             Callback = function(v) State.speedValue = v end,
         }))
         reg("jumpPower", PlayerTab:CreateToggle({
-            Name = T("jumppower.name", "Jump Power"),
-            Description = T("jumppower.desc", "Custom jump velocity"),
+            Name = "Jump Power", Description = "Custom jump velocity",
             Icon = "🦘", Default = false,
             Callback = function(v) State.jumpPower = v end,
         }))
         reg("jumpPowerValue", PlayerTab:CreateSlider({
-            Name = T("jumppower.value.name", "Jump Value"),
-            Description = T("jumppower.value.desc", "JumpPower value"),
+            Name = "Jump Value", Description = "JumpPower value",
             Icon = "📏", Min = 30, Max = 200, Default = 80,
             Callback = function(v) State.jumpPowerValue = v end,
         }))
         reg("antiAfk", PlayerTab:CreateToggle({
-            Name = T("antiafk.name", "Anti-AFK"),
-            Description = T("antiafk.desc", "Prevent kick for inactivity"),
+            Name = "Anti-AFK", Description = "Prevent kick for inactivity",
             Icon = "🛡️", Default = false,
             Callback = function(v) State.antiAfk = v end,
         }))
@@ -580,14 +679,12 @@ function MemeSea.Init(ctx)
         local VisualTab = Window:CreateTab("Visuals", "👁️")
         VisualTab:CreateSection("Environment")
         reg("fullbright", VisualTab:CreateToggle({
-            Name = T("fullbright.name", "Fullbright"),
-            Description = T("fullbright.desc", "Map always bright"),
+            Name = "Fullbright", Description = "Map always bright",
             Icon = "💡", Default = false,
             Callback = function(v) State.fullbright = v; if not v then restoreEnv() end end,
         }))
         reg("noFog", VisualTab:CreateToggle({
-            Name = T("nofog.name", "No Fog"),
-            Description = T("nofog.desc", "Remove fog"),
+            Name = "No Fog", Description = "Remove fog",
             Icon = "🌫️", Default = false,
             Callback = function(v) State.noFog = v; if not v then restoreEnv() end end,
         }))
@@ -609,7 +706,7 @@ function MemeSea.Init(ctx)
         cInput.Font = Enum.Font.GothamMedium
         cInput.TextSize = 12
         cInput.TextColor3 = Color3.fromRGB(240, 240, 245)
-        cInput.PlaceholderText = T("config.placeholder", "Config name + Enter")
+        cInput.PlaceholderText = "Config name + Enter"
         cInput.PlaceholderColor3 = Color3.fromRGB(90, 90, 105)
         cInput.Text = ""
         cInput.ClearTextOnFocus = false
@@ -645,7 +742,7 @@ function MemeSea.Init(ctx)
                 e.Font = Enum.Font.Gotham
                 e.TextSize = 11
                 e.TextColor3 = Color3.fromRGB(90, 90, 105)
-                e.Text = T("config.empty", "No saved configs yet.")
+                e.Text = "No saved configs yet."
                 return
             end
             for _, name in ipairs(configs) do
@@ -718,12 +815,12 @@ function MemeSea.Init(ctx)
             end
         end)
 
-        SettingsTab:CreateButton({ Name = T("config.refresh", "Refresh List"), Callback = function() refreshList() end })
+        SettingsTab:CreateButton({ Name = "Refresh List", Callback = function() refreshList() end })
         refreshList()
 
         SettingsTab:CreateSection("Danger Zone")
         SettingsTab:CreateButton({
-            Name = T("config.unload", "Unload Script"),
+            Name = "Unload Script",
             Danger = true,
             Callback = function()
                 UNLOADED = true
@@ -745,8 +842,7 @@ function MemeSea.Init(ctx)
             if info.code == cur then defIdx = i end
         end
         LanguageTab:CreateDropdown({
-            Name = T("tab.language", "Language"),
-            Description = T("lang.hint", "Pick menu language"),
+            Name = "Language", Description = "Pick menu language",
             Icon = "🌍", Options = opts, Default = defIdx,
             Callback = function(_, idx)
                 local info = available[idx]
@@ -756,11 +852,11 @@ function MemeSea.Init(ctx)
 
         local CreditsTab = Window:CreateTab("Credits", "➕")
         CreditsTab:CreateSection("Founder")
-        CreditsTab:CreateLabel(T("credits.role", "Sr Red"), Color3.fromRGB(255, 50, 50))
+        CreditsTab:CreateLabel("Sr Red", Color3.fromRGB(255, 50, 50))
         CreditsTab:CreateSection("Community")
         CreditsTab:CreateLabel("discord.gg/ScZfU2mAGm", Color3.fromRGB(88, 101, 242))
         CreditsTab:CreateButton({
-            Name = T("credits.copy_discord", "Copy Discord Link"),
+            Name = "Copy Discord Link",
             Callback = function()
                 if setclipboard then
                     pcall(setclipboard, "https://discord.gg/ScZfU2mAGm")
