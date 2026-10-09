@@ -1,5 +1,5 @@
 -- ============================================================
--- Infinite Zen - MemeSea - v1.0
+-- Infinite Zen - MemeSea - V1.0
 -- ============================================================
 
 local MemeSea = {}
@@ -18,7 +18,7 @@ function MemeSea.Init(ctx)
         return fallback or key
     end
 
-    local GAME_VERSION = "1.0"
+    local GAME_VERSION  = "1.0"
     local FULL_VERSION  = "Infinite Zen V" .. GAME_VERSION .. " - " .. gameName
     local SHORT_VERSION = "V" .. GAME_VERSION .. " - " .. gameName
 
@@ -37,10 +37,10 @@ function MemeSea.Init(ctx)
     local LocalPlayer      = Players.LocalPlayer
     local Camera           = workspace.CurrentCamera
 
-    local UNLOADED  = false
+    local UNLOADED = false
 
-    local RS          = game:GetService("ReplicatedStorage")
-    local OtherEvent  = RS:WaitForChild("OtherEvent", 15)
+    local RS         = game:GetService("ReplicatedStorage")
+    local OtherEvent = RS:WaitForChild("OtherEvent", 15)
     if not OtherEvent then
         warn("[MemeSea] OtherEvent not found")
     end
@@ -48,6 +48,31 @@ function MemeSea.Init(ctx)
     local SkillEvents = OtherEvent and OtherEvent:FindFirstChild("SkillEvents")
     local MiscEvents  = OtherEvent and OtherEvent:FindFirstChild("MiscEvents")
     local QuestEvents = OtherEvent and OtherEvent:FindFirstChild("QuestEvents")
+
+    local ModuleFolder    = RS:FindFirstChild("ModuleScript")
+    local QuestSettings   = nil
+    local MonsterSettings = nil
+    local CooldownModule  = nil
+
+    task.spawn(function()
+        if ModuleFolder then
+            local ok, m
+            ok, m = pcall(function()
+                return require(ModuleFolder:WaitForChild("Quest_Settings", 10))
+            end)
+            if ok then QuestSettings = m end
+
+            ok, m = pcall(function()
+                return require(ModuleFolder:WaitForChild("MonsterSettings", 10))
+            end)
+            if ok then MonsterSettings = m end
+
+            ok, m = pcall(function()
+                return require(ModuleFolder:WaitForChild("Cooldown_Module", 10))
+            end)
+            if ok then CooldownModule = m end
+        end
+    end)
 
     local SKIP_MOBS = {
         ["Training Log"] = true,
@@ -97,6 +122,7 @@ function MemeSea.Init(ctx)
         questFarm = {
             currentQuest = "None",
             currentTarget = nil,
+            currentInfo = nil,
             state = "idle",
             lastQuestRequest = 0,
             lastCompleteAttempt = 0,
@@ -108,9 +134,20 @@ function MemeSea.Init(ctx)
     }
 
     local MOB_LIST = {
-        "Any", "Floppa", "Big Floppa", "Golden Floppa", "Doge", "Cheems",
+        "Any",
+        "Floppa", "Big Floppa", "Golden Floppa", "Doge", "Cheems",
         "Walter Dog", "Sogga", "Egg Dog", "Gigachad", "Sus Duck", "Banana Cat",
         "Meme Beast", "Training Log", "Killerfish", "Smiling Cat", "Bingus",
+        "Popcat", "Staring Fish", "Hamster", "The Rock", "Floppy",
+        "Scary Skull", "Troll Face", "Creepy Head", "Uncanny Cat", "Quandale Dingle",
+        "Red Sus", "Huh Cat", "Mystical Tree", "Baller", "Slicer", "Snow Tree",
+        "Sus Face", "Gorilla King", "Obamid", "Rick Roller", "MrBeast", "Moai",
+        "Pink Absorber", "Giant Pumpkin", "Evil Noob", "Lord Sus",
+        "Doge Summon", "Cheems Summon", "Walter Summon", "Handsome Man",
+        "Sigma Man", "Dancing Cat", "Toothless Dragon", "Manly Nugget",
+        "Old Man", "Nyan Cat", "Floppa Man", "Epic Doge", "Speedy Cheems",
+        "Tanky Moai", "Super Popcat", "Killer Nugget", "Capybara", "The Stone",
+        "Maxwell The Cat", "Reverse Master",
     }
 
     local CODES = {
@@ -191,12 +228,19 @@ function MemeSea.Init(ctx)
 
     local function getMobLevel(mob)
         if not mob then return 0 end
+
+        if MonsterSettings then
+            local info = MonsterSettings[mob.Name]
+            if info and info.Level then return info.Level end
+        end
+
         local now = tick()
         local cached = levelCache[mob]
         local cacheTime = levelCacheTimes[mob] or 0
         if cached and (now - cacheTime) < State.levelCacheTTL then
             return cached
         end
+
         local lv = mob:FindFirstChild("Level") or mob:FindFirstChild("LevelValue")
         if lv and lv:IsA("ValueBase") then
             local v = tonumber(lv.Value) or 0
@@ -204,6 +248,7 @@ function MemeSea.Init(ctx)
             levelCacheTimes[mob] = now
             return v
         end
+
         for _, d in ipairs(mob:GetDescendants()) do
             if d:IsA("BillboardGui") or d:IsA("SurfaceGui") then
                 for _, t in ipairs(d:GetDescendants()) do
@@ -218,6 +263,7 @@ function MemeSea.Init(ctx)
                 end
             end
         end
+
         levelCache[mob] = 0
         levelCacheTimes[mob] = now
         return 0
@@ -344,38 +390,58 @@ function MemeSea.Init(ctx)
         local dist = (hrp.Position - myHRP.Position).Magnitude
         if dist > State.teleportDistance then
             faceMob(mob)
-            task.wait(0.1)
+            task.wait(0.05)
         end
         doAttack()
         if State.autoSkill then useSkills() end
     end
 
+    local function applyFastAttack()
+        local char = LocalPlayer.Character
+        if not char then return end
+        local stun = char:FindFirstChild("Stun")
+        if stun and stun:IsA("NumberValue") and stun.Value > 0 then
+            pcall(function() stun.Value = 0 end)
+        end
+        local deb = char:FindFirstChild("Attacks_Debounce")
+        if deb then
+            for _, v in ipairs(deb:GetChildren()) do
+                pcall(function()
+                    if v:IsA("NumberValue") or v:IsA("IntValue") then
+                        if v.Value > 0 then v.Value = 0 end
+                    elseif v:IsA("BoolValue") then
+                        if v.Value then v.Value = false end
+                    end
+                end)
+            end
+        end
+    end
+
     task.spawn(function()
         while not UNLOADED do
-            task.wait(0.05)
+            task.wait(0.03)
             if State.fastAttack then
-                local char = LocalPlayer.Character
-                if char then
-                    local stun = char:FindFirstChild("Stun")
-                    if stun and stun:IsA("NumberValue") and stun.Value > 0 then
-                        pcall(function() stun.Value = 0 end)
-                    end
-                    local debounce = char:FindFirstChild("Attacks_Debounce")
-                    if debounce then
-                        for _, v in ipairs(debounce:GetChildren()) do
-                            pcall(function()
-                                if v:IsA("NumberValue") or v:IsA("IntValue") then
-                                    if v.Value > 0 then v.Value = 0 end
-                                elseif v:IsA("BoolValue") then
-                                    if v.Value then v.Value = false end
-                                end
-                            end)
-                        end
-                    end
-                end
+                applyFastAttack()
             end
         end
     end)
+
+    local fastAttackRemoteThread = nil
+    local function startFastAttackRemote()
+        if fastAttackRemoteThread then return end
+        fastAttackRemoteThread = task.spawn(function()
+            while not UNLOADED do
+                task.wait(State.fastAttack and 0.08 or 1)
+                if State.fastAttack and MainEvents then
+                    local sword = MainEvents:FindFirstChild("Sword")
+                    if sword then
+                        pcall(function() sword:InvokeServer() end)
+                    end
+                end
+            end
+        end)
+    end
+    startFastAttackRemote()
 
     local function closeExtraGuis()
         if not State.autoCloseGui then return end
@@ -412,47 +478,43 @@ function MemeSea.Init(ctx)
         qf.closedGuis = {}
     end
 
-    local QUEST_MOB_MAP = {
-        ["Floppa"] = "Floppa",
-        ["Big Floppa"] = "Big Floppa",
-        ["Golden Floppa"] = "Golden Floppa",
-        ["Doge"] = "Doge",
-        ["Cheems"] = "Cheems",
-        ["Walter"] = "Walter Dog",
-        ["Sogga"] = "Sogga",
-        ["Egg Dog"] = "Egg Dog",
-        ["Gigachad"] = "Gigachad",
-        ["Sus Duck"] = "Sus Duck",
-        ["Banana Cat"] = "Banana Cat",
-        ["Meme Beast"] = "Meme Beast",
-        ["Killerfish"] = "Killerfish",
-        ["Smiling Cat"] = "Smiling Cat",
-        ["Bingus"] = "Bingus",
-        ["Popcat"] = "Popcat",
-    }
-
-    local function parseQuestTarget(questText)
-        if not questText or questText == "" then return nil end
-        local lower = questText:lower()
-        if lower:find("island", 1, true) or lower:find("isla", 1, true) then
-            return nil
-        end
-        if lower == "none" then return nil end
-        local bestTarget = nil
-        local bestLen = 0
-        for keyword, target in pairs(QUEST_MOB_MAP) do
-            local kl = keyword:lower()
-            if lower:find(kl, 1, true) then
-                if #kl > bestLen then
-                    bestLen = #kl
-                    bestTarget = target
-                end
+    local function getQuestFromSettings(questName)
+        if not QuestSettings or not questName then return nil end
+        local clean = tostring(questName):gsub("^%s+", ""):gsub("%s+$", "")
+        if QuestSettings[clean] then return QuestSettings[clean] end
+        for k, v in pairs(QuestSettings) do
+            if type(k) == "string" and k:lower() == clean:lower() then
+                return v
             end
         end
-        return bestTarget
+        for k, v in pairs(QuestSettings) do
+            if type(k) == "string" and clean:lower():find(k:lower(), 1, true) then
+                return v
+            end
+        end
+        for k, v in pairs(QuestSettings) do
+            if type(k) == "string" and k:lower():find(clean:lower(), 1, true) then
+                return v
+            end
+        end
+        return nil
     end
 
-    local QUEST_KEYWORDS = {"defeat", "kill", "hunt", "slay", "eliminate"}
+    local function parseQuestTarget(questText)
+        if not questText or questText == "" then return nil, nil end
+        if questText:lower() == "none" then return nil, nil end
+
+        local info = getQuestFromSettings(questText)
+        if info and info.Target then
+            return info.Target, info
+        end
+
+        local lower = questText:lower()
+        if lower:find("island", 1, true) or lower:find("isla", 1, true) then
+            return nil, nil
+        end
+        return nil, nil
+    end
 
     local function findQuestGui()
         local pg = LocalPlayer:FindFirstChild("PlayerGui")
@@ -465,49 +527,7 @@ function MemeSea.Init(ctx)
                 end
             end
         end
-        for _, gui in ipairs(pg:GetChildren()) do
-            if gui:IsA("ScreenGui") and gui.Enabled then
-                local n = gui.Name:lower()
-                if n:find("chat") or n:find("core") or n:find("izm") then
-                else
-                    for _, d in ipairs(gui:GetDescendants()) do
-                        if d:IsA("TextLabel") and d.Text and d.Text ~= "" then
-                            local t = d.Text:lower()
-                            for _, kw in ipairs(QUEST_KEYWORDS) do
-                                if t:find(kw, 1, true) then
-                                    return gui
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end
         return nil
-    end
-
-    local function parseQuestFromGui()
-        local gui = findQuestGui()
-        if not gui then return nil, nil end
-        for _, d in ipairs(gui:GetDescendants()) do
-            if d:IsA("TextLabel") and d.Text and d.Text ~= "" then
-                local txt = d.Text
-                local low = txt:lower()
-                for _, kw in ipairs(QUEST_KEYWORDS) do
-                    if low:find(kw, 1, true) then
-                        local target = parseQuestTarget(txt)
-                        if target then return target, txt end
-                    end
-                end
-            end
-        end
-        for _, d in ipairs(gui:GetDescendants()) do
-            if d:IsA("TextLabel") and d.Text and d.Text ~= "" then
-                local target = parseQuestTarget(d.Text)
-                if target then return target, d.Text end
-            end
-        end
-        return nil, nil
     end
 
     local function getCurrentQuest()
@@ -516,8 +536,28 @@ function MemeSea.Init(ctx)
         if q ~= "None" and q ~= "" and not q:lower():find("island") then
             return q
         end
-        local target, guiText = parseQuestFromGui()
-        if target then return guiText or target end
+
+        local pg = LocalPlayer:FindFirstChild("PlayerGui")
+        local gg = pg and pg:FindFirstChild("GameGui")
+        local compass = gg and gg:FindFirstChild("Compass")
+        local main = compass and compass:FindFirstChild("Main")
+        local cont = main and main:FindFirstChild("Container")
+        local questFolder = cont and cont:FindFirstChild("Quest")
+        if questFolder then
+            for _, d in ipairs(questFolder:GetDescendants()) do
+                if d:IsA("TextLabel") and d.Text and d.Text ~= "" then
+                    local t = d.Text
+                    if QuestSettings then
+                        for k, _ in pairs(QuestSettings) do
+                            if type(k) == "string" and t:find(k, 1, true) then
+                                return k
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
         return "None"
     end
 
@@ -525,6 +565,14 @@ function MemeSea.Init(ctx)
         local npcs = workspace:FindFirstChild("NPCs")
         if not npcs then return nil end
         local questFolder = npcs:FindFirstChild("Quests_Npc") or npcs:FindFirstChild("Quest_Npc")
+        if not questFolder then
+            for _, sub in ipairs(npcs:GetChildren()) do
+                if sub:IsA("Folder") and sub.Name:lower():find("quest") then
+                    questFolder = sub
+                    break
+                end
+            end
+        end
         if not questFolder then return nil end
         for _, npc in ipairs(questFolder:GetChildren()) do
             local hrp = npc:FindFirstChild("HumanoidRootPart") or npc:FindFirstChild("Head")
@@ -561,7 +609,7 @@ function MemeSea.Init(ctx)
         pcall(function()
             myHRP.CFrame = CFrame.new(targetPos, hrp.Position)
         end)
-        task.wait(0.3)
+        task.wait(0.2)
         fireNpcPrompt(npc)
         return true
     end
@@ -627,7 +675,12 @@ function MemeSea.Init(ctx)
         LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
     end)
 
-    local statAttempt = 0
+    local STAT_NAMES = {
+        "Melee", "Sword", "Defense", "MemePower",
+        "Fighting", "Weapon", "Power", "Combat",
+    }
+
+    local statsAttempt = 0
     task.spawn(function()
         while not UNLOADED do
             task.wait(2)
@@ -636,16 +689,25 @@ function MemeSea.Init(ctx)
                 if sp and sp > 0 then
                     local sf = MainEvents and MainEvents:FindFirstChild("StatsFunction")
                     if sf then
+                        statsAttempt = statsAttempt + 1
                         local chosen = State.statPriority
                         if chosen == "Balanced" or chosen == "" then
-                            local opts = {"Melee", "Defense", "Sword", "MemePower"}
-                            statAttempt = (statAttempt % 4) + 1
-                            chosen = opts[statAttempt]
+                            chosen = STAT_NAMES[(statsAttempt % 4) + 1]
                         end
-                        pcall(function() sf:InvokeServer(chosen, 1) end)
-                        pcall(function() sf:InvokeServer(chosen) end)
-                        pcall(function() sf:InvokeServer({Stat = chosen, Amount = 1}) end)
-                        pcall(function() sf:InvokeServer(chosen, "1") end)
+                        local formats = {
+                            function() sf:InvokeServer(chosen, 1) end,
+                            function() sf:InvokeServer(chosen) end,
+                            function() sf:InvokeServer({chosen, 1}) end,
+                            function() sf:InvokeServer({Stat = chosen, Amount = 1}) end,
+                            function() sf:InvokeServer(chosen, "1") end,
+                            function() sf:InvokeServer(chosen, 1, true) end,
+                        }
+                        for i, fn in ipairs(formats) do
+                            local ok = pcall(fn)
+                            if ok then
+                                log("Stats try " .. i .. " with " .. chosen)
+                            end
+                        end
                     end
                 end
             end
@@ -657,84 +719,101 @@ function MemeSea.Init(ctx)
         if questFarmThread then return end
         questFarmThread = task.spawn(function()
             while not UNLOADED do
-                task.wait(0.2)
+                task.wait(0.1)
                 if not State.autoQuestFarm then
                     State.questFarm.state = "idle"
-                    task.wait(0.5)
+                    task.wait(0.3)
                 else
                     local qf = State.questFarm
                     local now = tick()
 
+                    local cur = getCurrentQuest()
+                    local curTarget, curInfo = nil, nil
+                    if cur and cur ~= "None" then
+                        curTarget, curInfo = parseQuestTarget(cur)
+                    end
+
                     if qf.state == "idle" then
-                        local cur = getCurrentQuest()
                         if cur and cur ~= "None" then
                             qf.currentQuest = cur
-                            qf.currentTarget = parseQuestTarget(cur)
+                            qf.currentTarget = curTarget
+                            qf.currentInfo = curInfo
                             qf.state = "farming"
                             qf.lastMobSeen = now
-                            log("Quest:", cur, "| target:", qf.currentTarget or "ANY")
+                            log("Farming:", cur, "| target:", curTarget or "ANY")
                         else
-                            qf.currentQuest = "None"
-                            qf.currentTarget = nil
                             qf.state = "getQuest"
-                            qf.lastNpcAttempt = now
-                            log("No quest — grabbing")
+                            qf.lastNpcAttempt = 0
+                            log("No quest - grabbing")
                         end
+
                     elseif qf.state == "getQuest" then
-                        if now - qf.lastNpcAttempt > 5 then
+                        if now - qf.lastNpcAttempt > 2 then
                             qf.lastNpcAttempt = now
                             teleportAndGrabQuest()
                             requestNewQuest()
-                        else
-                            task.wait(0.5)
-                        end
-                        local cur = getCurrentQuest()
-                        if cur and cur ~= "None" then
-                            qf.currentQuest = cur
-                            qf.currentTarget = parseQuestTarget(cur)
-                            qf.state = "farming"
-                            qf.lastMobSeen = now
-                            log("Quest grabbed:", cur)
-                        elseif now - qf.lastNpcAttempt > 30 then
-                            qf.state = "idle"
-                        end
-                    elseif qf.state == "farming" then
-                        local cur = getCurrentQuest()
-                        if cur and cur ~= "None" and cur ~= qf.currentQuest then
-                            qf.currentQuest = cur
-                            qf.currentTarget = parseQuestTarget(cur)
-                            log("Quest changed:", cur, "| target:", qf.currentTarget or "ANY")
+                            task.wait(0.4)
+                            cur = getCurrentQuest()
+                            if cur and cur ~= "None" then
+                                curTarget, curInfo = parseQuestTarget(cur)
+                            end
                         end
 
-                        local mob = getNearestMob(qf.currentTarget, true)
+                        if cur and cur ~= "None" then
+                            qf.currentQuest = cur
+                            qf.currentTarget = curTarget
+                            qf.currentInfo = curInfo
+                            qf.state = "farming"
+                            qf.lastMobSeen = now
+                            log("Quest grabbed:", cur, "| target:", curTarget or "ANY")
+                        elseif now - qf.lastNpcAttempt > 10 then
+                            qf.state = "idle"
+                        end
+
+                    elseif qf.state == "farming" then
+                        if cur and cur ~= "None" and cur ~= qf.currentQuest then
+                            qf.currentQuest = cur
+                            qf.currentTarget = curTarget
+                            qf.currentInfo = curInfo
+                            log("Quest changed:", cur, "| target:", curTarget or "ANY")
+                        end
+
+                        local mob = getNearestMob(qf.currentTarget, false)
+                        if not mob and qf.currentTarget then
+                            if now - qf.lastMobSeen > 4 then
+                                mob = getNearestMob(nil, false)
+                            end
+                        end
+
                         if mob then
                             qf.lastMobSeen = now
                             attackMob(mob)
                         else
-                            if qf.currentTarget and now - qf.lastMobSeen > 20 then
-                                log("No mobs matching", qf.currentTarget, "— going to complete")
+                            local timeout = qf.currentTarget and 8 or 12
+                            if now - qf.lastMobSeen > timeout then
                                 qf.state = "complete"
                                 qf.lastCompleteAttempt = now
-                            elseif not qf.currentTarget and now - qf.lastMobSeen > 30 then
-                                qf.state = "idle"
-                                qf.lastQuestRequest = now
+                                log("No mobs - completing")
                             end
                         end
                         task.wait(State.attackCD)
+
                     elseif qf.state == "complete" then
-                        if now - qf.lastCompleteAttempt > 3 then
+                        if now - qf.lastCompleteAttempt > 2 then
                             qf.lastCompleteAttempt = now
                             teleportAndGrabQuest()
                             completeQuest()
                         end
-                        local cur = getCurrentQuest()
-                        if not cur or cur == "None" or cur ~= qf.currentQuest then
+                        if not cur or cur == "None" then
                             qf.state = "idle"
                             qf.currentQuest = "None"
                             qf.currentTarget = nil
-                        elseif now - qf.lastCompleteAttempt > 30 then
+                            qf.currentInfo = nil
+                            log("Quest completed")
+                        elseif now - qf.lastCompleteAttempt > 12 then
                             qf.state = "idle"
                         end
+                        task.wait(0.2)
                     end
                 end
             end
@@ -1004,7 +1083,7 @@ function MemeSea.Init(ctx)
             if k ~= "questFarm" then data.state[k] = v end
         end
         local ok = pcall(function() writefile(CONFIG_FOLDER .. "/" .. name .. ".json", HttpService:JSONEncode(data)) end)
-        if ok and Window then pcall(function() Window:Notify("💾", "Saved: " .. name, 3, "success") end) end
+        if ok and Window then pcall(function() Window:Notify("Saved: " .. name, 3, "success") end) end
     end
 
     local function loadConfigNamed(name)
@@ -1018,7 +1097,7 @@ function MemeSea.Init(ctx)
             end
         end
         syncUIFromState()
-        if Window then pcall(function() Window:Notify("📂", "Loaded: " .. name, 3, "info") end) end
+        if Window then pcall(function() Window:Notify("Loaded: " .. name, 3, "info") end) end
         return true
     end
 
@@ -1049,12 +1128,12 @@ function MemeSea.Init(ctx)
         })
         Elements = {}
 
-        local FarmTab = Window:CreateTab("Auto Farm", "🌾")
+        local FarmTab = Window:CreateTab("Auto Farm", "F")
         FarmTab:CreateSection("Auto Quest Farm")
         reg("autoQuestFarm", FarmTab:CreateToggle({
             Name = "Auto Quest Farm",
-            Description = "Grab quest → kill mobs → complete → repeat",
-            Icon = "🌟", Default = false,
+            Description = "Grab quest, kill mobs, complete, repeat",
+            Default = false,
             Callback = function(v)
                 State.autoQuestFarm = v
                 State.questFarm.state = "idle"
@@ -1063,20 +1142,20 @@ function MemeSea.Init(ctx)
         }))
         reg("fastAttack", FarmTab:CreateToggle({
             Name = "Fast Attack",
-            Description = "Remove melee cooldown (Stun + Debounce = 0)",
-            Icon = "⚡", Default = false,
+            Description = "Remove melee cooldown",
+            Default = false,
             Callback = function(v) State.fastAttack = v end,
         }))
         reg("debugQuest", FarmTab:CreateToggle({
             Name = "Debug Quest",
             Description = "Print quest logs",
-            Icon = "🐛", Default = false,
+            Default = false,
             Callback = function(v) State.debugQuest = v end,
         }))
         reg("autoCloseGui", FarmTab:CreateToggle({
             Name = "Auto Close NPC GUIs",
             Description = "Close shop GUIs",
-            Icon = "🚪", Default = true,
+            Default = true,
             Callback = function(v)
                 State.autoCloseGui = v
                 if not v then restoreClosedGuis() end
@@ -1086,19 +1165,19 @@ function MemeSea.Init(ctx)
         reg("autoFarmNearest", FarmTab:CreateToggle({
             Name = "Auto Farm Nearest",
             Description = "Farm closest monster",
-            Icon = "📍", Default = false,
+            Default = false,
             Callback = function(v) State.autoFarmNearest = v end,
         }))
         reg("farmSelected", FarmTab:CreateToggle({
             Name = "Farm Selected Mob",
             Description = "Farm specific mob",
-            Icon = "🎯", Default = false,
+            Default = false,
             Callback = function(v) State.farmSelected = v end,
         }))
         FarmTab:CreateDropdown({
             Name = "Select Mob",
             Description = "Which monster",
-            Icon = "🐾", Options = MOB_LIST, Default = 1,
+            Options = MOB_LIST, Default = 1,
             Callback = function(_, idx)
                 State.selectedMob = MOB_LIST[idx] or "Any"
             end,
@@ -1106,94 +1185,94 @@ function MemeSea.Init(ctx)
         reg("attackCD", FarmTab:CreateSlider({
             Name = "Attack Delay",
             Description = "Seconds between attacks",
-            Icon = "⏱️", Min = 0.05, Max = 1, Default = 0.15,
+            Min = 0.05, Max = 1, Default = 0.15,
             Callback = function(v) State.attackCD = v end,
         }))
         reg("teleportDistance", FarmTab:CreateSlider({
             Name = "Teleport Distance",
             Description = "How close to teleport",
-            Icon = "📏", Min = 2, Max = 20, Default = 6,
+            Min = 2, Max = 20, Default = 6,
             Callback = function(v) State.teleportDistance = v end,
         }))
         reg("maxLevelDiff", FarmTab:CreateSlider({
             Name = "Max Level Difference",
-            Description = "Skip mobs above your level + this",
-            Icon = "⚖️", Min = 0, Max = 100, Default = 10,
+            Description = "Skip mobs above your level plus this",
+            Min = 0, Max = 100, Default = 10,
             Callback = function(v) State.maxLevelDiff = v end,
         }))
         reg("includeTrainingLog", FarmTab:CreateToggle({
             Name = "Include Training Log",
             Description = "Also farm the dummy",
-            Icon = "🥊", Default = false,
+            Default = false,
             Callback = function(v) State.includeTrainingLog = v end,
         }))
         reg("bringMob", FarmTab:CreateToggle({
             Name = "Bring Mob",
             Description = "Teleport mobs to you",
-            Icon = "🧲", Default = false,
+            Default = false,
             Callback = function(v) State.bringMob = v end,
         }))
         reg("autoSkill", FarmTab:CreateToggle({
             Name = "Auto Skills",
-            Description = "Press Z/X/C/V",
-            Icon = "✨", Default = false,
+            Description = "Press Z X C V",
+            Default = false,
             Callback = function(v) State.autoSkill = v end,
         }))
         reg("collectDrops", FarmTab:CreateToggle({
             Name = "Collect Drops",
             Description = "Pick items",
-            Icon = "🎁", Default = false,
+            Default = false,
             Callback = function(v) State.collectDrops = v end,
         }))
         reg("autoEquipCombat", FarmTab:CreateToggle({
             Name = "Auto Equip Combat",
             Description = "Equip Combat tool",
-            Icon = "🗡️", Default = true,
+            Default = true,
             Callback = function(v) State.autoEquipCombat = v end,
         }))
 
-        local SkillTab = Window:CreateTab("Skill Cooldowns", "⏱️")
+        local SkillTab = Window:CreateTab("Skill Cooldowns", "S")
         SkillTab:CreateSection("Cooldowns (seconds)")
         reg("skillZ_CD", SkillTab:CreateSlider({
             Name = "Skill Z", Description = "Z cooldown",
-            Icon = "⚡", Min = 0.5, Max = 30, Default = 2,
+            Min = 0.5, Max = 30, Default = 2,
             Callback = function(v) State.skillZ_CD = v end,
         }))
         reg("skillX_CD", SkillTab:CreateSlider({
             Name = "Skill X", Description = "X cooldown",
-            Icon = "⚡", Min = 0.5, Max = 60, Default = 5,
+            Min = 0.5, Max = 60, Default = 5,
             Callback = function(v) State.skillX_CD = v end,
         }))
         reg("skillC_CD", SkillTab:CreateSlider({
             Name = "Skill C", Description = "C cooldown",
-            Icon = "⚡", Min = 0.5, Max = 90, Default = 8,
+            Min = 0.5, Max = 90, Default = 8,
             Callback = function(v) State.skillC_CD = v end,
         }))
         reg("skillV_CD", SkillTab:CreateSlider({
             Name = "Skill V", Description = "V cooldown",
-            Icon = "⚡", Min = 0.5, Max = 120, Default = 12,
+            Min = 0.5, Max = 120, Default = 12,
             Callback = function(v) State.skillV_CD = v end,
         }))
 
-        local ProgressTab = Window:CreateTab("Progress", "📈")
+        local ProgressTab = Window:CreateTab("Progress", "P")
         ProgressTab:CreateSection("Quests")
         reg("autoQuest", ProgressTab:CreateToggle({
             Name = "Auto Quest (only accept)",
             Description = "Only request quest",
-            Icon = "📜", Default = false,
+            Default = false,
             Callback = function(v) State.autoQuest = v end,
         }))
         ProgressTab:CreateSection("Stats")
         reg("autoStats", ProgressTab:CreateToggle({
             Name = "Auto Stats",
             Description = "Spend points",
-            Icon = "📊", Default = false,
+            Default = false,
             Callback = function(v) State.autoStats = v end,
         }))
         ProgressTab:CreateDropdown({
             Name = "Stat Priority",
             Description = "Which stat",
-            Icon = "🎯", Options = {"Balanced", "Melee", "Defense", "Sword", "MemePower"}, Default = 1,
+            Options = {"Balanced", "Melee", "Defense", "Sword", "MemePower"}, Default = 1,
             Callback = function(_, idx)
                 local opts = {"Balanced", "Melee", "Defense", "Sword", "MemePower"}
                 State.statPriority = opts[idx] or "Balanced"
@@ -1203,76 +1282,76 @@ function MemeSea.Init(ctx)
         reg("autoRedeem", ProgressTab:CreateToggle({
             Name = "Redeem All Codes",
             Description = "Try every code",
-            Icon = "🎟️", Default = false,
+            Default = false,
             Callback = function(v) State.autoRedeem = v end,
         }))
         reg("autoPopcat", ProgressTab:CreateToggle({
             Name = "Auto Popcat",
             Description = "Fire Popcat event",
-            Icon = "🐾", Default = false,
+            Default = false,
             Callback = function(v) State.autoPopcat = v end,
         }))
         reg("autoStartRaid", ProgressTab:CreateToggle({
             Name = "Auto Start Raid",
             Description = "Start raids",
-            Icon = "🌋", Default = false,
+            Default = false,
             Callback = function(v) State.autoStartRaid = v end,
         }))
         reg("autoGacha", ProgressTab:CreateToggle({
             Name = "Auto Gacha",
             Description = "Roll gacha",
-            Icon = "🎰", Default = false,
+            Default = false,
             Callback = function(v) State.autoGacha = v end,
         }))
         reg("autoLuck", ProgressTab:CreateToggle({
             Name = "Auto Upgrade Luck",
             Description = "Upgrade luck",
-            Icon = "🍀", Default = false,
+            Default = false,
             Callback = function(v) State.autoLuck = v end,
         }))
 
-        local PlayerTab = Window:CreateTab("Player", "🏃")
+        local PlayerTab = Window:CreateTab("Player", "P")
         PlayerTab:CreateSection("Movement")
         reg("speed", PlayerTab:CreateToggle({
             Name = "Speed", Description = "Custom walkspeed",
-            Icon = "⚡", Default = false,
+            Default = false,
             Callback = function(v) State.speed = v end,
         }))
         reg("speedValue", PlayerTab:CreateSlider({
             Name = "Speed Value", Description = "WalkSpeed",
-            Icon = "📏", Min = 16, Max = 200, Default = 50,
+            Min = 16, Max = 200, Default = 50,
             Callback = function(v) State.speedValue = v end,
         }))
         reg("jumpPower", PlayerTab:CreateToggle({
             Name = "Jump Power", Description = "Custom jump",
-            Icon = "🦘", Default = false,
+            Default = false,
             Callback = function(v) State.jumpPower = v end,
         }))
         reg("jumpPowerValue", PlayerTab:CreateSlider({
             Name = "Jump Value", Description = "JumpPower",
-            Icon = "📏", Min = 30, Max = 200, Default = 80,
+            Min = 30, Max = 200, Default = 80,
             Callback = function(v) State.jumpPowerValue = v end,
         }))
         reg("antiAfk", PlayerTab:CreateToggle({
             Name = "Anti-AFK", Description = "Prevent kick",
-            Icon = "🛡️", Default = false,
+            Default = false,
             Callback = function(v) State.antiAfk = v end,
         }))
 
-        local VisualTab = Window:CreateTab("Visuals", "👁️")
+        local VisualTab = Window:CreateTab("Visuals", "V")
         VisualTab:CreateSection("Environment")
         reg("fullbright", VisualTab:CreateToggle({
             Name = "Fullbright", Description = "Bright map",
-            Icon = "💡", Default = false,
+            Default = false,
             Callback = function(v) State.fullbright = v; if not v then restoreEnv() end end,
         }))
         reg("noFog", VisualTab:CreateToggle({
             Name = "No Fog", Description = "Remove fog",
-            Icon = "🌫️", Default = false,
+            Default = false,
             Callback = function(v) State.noFog = v; if not v then restoreEnv() end end,
         }))
 
-        local SettingsTab = Window:CreateTab("Settings", "⚙️")
+        local SettingsTab = Window:CreateTab("Settings", "S")
         SettingsTab:CreateSection("Config")
 
         local cFrame = Instance.new("Frame", SettingsTab.container)
@@ -1361,7 +1440,7 @@ function MemeSea.Init(ctx)
                 ab.Size = UDim2.new(0, 22, 0, 22)
                 ab.Position = UDim2.new(1, -55, 0.5, -11)
                 ab.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
-                ab.Text = "⚡"
+                ab.Text = "*"
                 ab.Font = Enum.Font.GothamBold
                 ab.TextSize = 11
                 ab.TextColor3 = Color3.fromRGB(240, 240, 245)
@@ -1376,7 +1455,7 @@ function MemeSea.Init(ctx)
                 db.Size = UDim2.new(0, 22, 0, 22)
                 db.Position = UDim2.new(1, -28, 0.5, -11)
                 db.BackgroundColor3 = Color3.fromRGB(60, 15, 20)
-                db.Text = "×"
+                db.Text = "x"
                 db.Font = Enum.Font.GothamBold
                 db.TextSize = 14
                 db.TextColor3 = Color3.fromRGB(255, 40, 40)
@@ -1409,13 +1488,13 @@ function MemeSea.Init(ctx)
                 UNLOADED = true
                 restoreEnv()
                 restoreClosedGuis()
-                if Window then pcall(function() Window:Notify("Unload", "Unloaded", 2, "warning") end) end
+                if Window then pcall(function() Window:Notify("Unloaded", 2, "warning") end) end
                 task.wait(0.3)
                 if Window then Window:Destroy() end
             end,
         })
 
-        local CreditsTab = Window:CreateTab("Credits", "➕")
+        local CreditsTab = Window:CreateTab("Credits", "C")
         CreditsTab:CreateSection("Founder")
         CreditsTab:CreateLabel("Sr Red", Color3.fromRGB(255, 50, 50))
         CreditsTab:CreateSection("Community")
@@ -1425,13 +1504,13 @@ function MemeSea.Init(ctx)
             Callback = function()
                 if setclipboard then
                     pcall(setclipboard, "https://discord.gg/ScZfU2mAGm")
-                    pcall(function() Window:Notify("📋", "Copied!", 2, "success") end)
+                    pcall(function() Window:Notify("Copied!", 2, "success") end)
                 end
             end,
         })
         CreditsTab:CreateSection("Version")
         CreditsTab:CreateLabel(FULL_VERSION, Color3.fromRGB(140, 140, 155))
-        CreditsTab:CreateLabel("© 2026 Sr Red", Color3.fromRGB(90, 90, 105))
+        CreditsTab:CreateLabel("2026 Sr Red", Color3.fromRGB(90, 90, 105))
     end
 
     buildUI()
@@ -1443,7 +1522,7 @@ function MemeSea.Init(ctx)
     end)
 
     if Window then
-        pcall(function() Window:Notify("✅ " .. SHORT_VERSION, "MemeSea loaded", 4, "success") end)
+        pcall(function() Window:Notify(SHORT_VERSION .. " loaded", 4, "success") end)
     end
 
     print("============================================")
