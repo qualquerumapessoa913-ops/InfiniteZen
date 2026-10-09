@@ -84,12 +84,12 @@ function MemeSea.Init(ctx)
         includeTrainingLog = false,
         autoCloseGui = true,
         debugQuest = true,
-        maxLevelDiff = 5,
+        maxLevelDiff = 100,
         skillZ_CD = 2.0,
         skillX_CD = 5.0,
         skillC_CD = 8.0,
         skillV_CD = 12.0,
-        levelCacheTTL = 3,
+        levelCacheTTL = 5,
         questFarm = {
             currentQuest = "None",
             currentTarget = nil,
@@ -97,6 +97,7 @@ function MemeSea.Init(ctx)
             lastQuestRequest = 0,
             lastCompleteAttempt = 0,
             lastMobSeen = 0,
+            lastIdleReturn = 0,
             attempts = 0,
             closedGuis = {},
         },
@@ -166,7 +167,7 @@ function MemeSea.Init(ctx)
         if not mob or not mob.Parent then return false end
         local hum = mob:FindFirstChildOfClass("Humanoid")
         if hum then return hum.Health > 0 end
-        return true
+        return false
     end
 
     local function parseLevelFromText(text)
@@ -223,18 +224,18 @@ function MemeSea.Init(ctx)
         local name = mob.Name
         if SKIP_MOBS[name] and not State.includeTrainingLog then return false end
         local target = forceTarget or State.selectedMob
-        if target == "Any" or target == nil then return true end
+        if target == "Any" or target == nil or target == "" then return true end
         local nl = name:lower()
         local tl = target:lower()
         if nl == tl then return true end
-        if nl:find(tl, 1, true) and #tl >= 4 then return true end
+        if nl:find(tl, 1, true) and #tl >= 3 then return true end
         return false
     end
 
     local function isMobSafe(mob)
         local myLevel = pdValue("Level", 1)
         local mobLevel = getMobLevel(mob)
-        if mobLevel == 0 then return false end
+        if mobLevel == 0 then return true end
         return mobLevel <= (myLevel + State.maxLevelDiff)
     end
 
@@ -278,10 +279,7 @@ function MemeSea.Init(ctx)
         if not sword then return false end
         local hrp = getMonsterHRP(mob)
         if not hrp then return false end
-        local ok = pcall(function() sword:InvokeServer(hrp) end)
-        if not ok then
-            pcall(function() sword:InvokeServer(hrp.Position) end)
-        end
+        pcall(function() sword:InvokeServer(hrp) end)
         return true
     end
 
@@ -386,7 +384,6 @@ function MemeSea.Init(ctx)
         ["Doge"] = "Doge",
         ["Cheems"] = "Cheems",
         ["Walter"] = "Walter Dog",
-        ["Walter Dog"] = "Walter Dog",
         ["Sogga"] = "Sogga",
         ["Egg Dog"] = "Egg Dog",
         ["Gigachad"] = "Gigachad",
@@ -400,8 +397,12 @@ function MemeSea.Init(ctx)
     }
 
     local function parseQuestTarget(questText)
-        if not questText or questText == "" or questText == "None" then return nil end
+        if not questText or questText == "" then return nil end
         local lower = questText:lower()
+        if lower:find("island", 1, true) or lower:find("isla", 1, true) then
+            return nil
+        end
+        if lower == "none" then return nil end
         local bestTarget = nil
         local bestLen = 0
         for keyword, target in pairs(QUEST_MOB_MAP) do
@@ -416,20 +417,34 @@ function MemeSea.Init(ctx)
         return bestTarget
     end
 
-    local function scanPDForQuest()
-        local pd = getPD()
-        if not pd then return nil end
-        local keywords = {"floppa", "doge", "cheems", "walter", "sogga", "gigachad",
-                          "duck", "banana", "meme", "killerfish", "smiling", "bingus",
-                          "popcat", "egg", "golden", "big "}
-        for _, v in ipairs(pd:GetDescendants()) do
-            if v:IsA("StringValue") then
-                local val = tostring(v.Value or "")
-                local low = val:lower()
-                if low ~= "none" and low ~= "" and #val > 3 then
-                    for _, kw in ipairs(keywords) do
-                        if low:find(kw, 1, true) then
-                            return val
+    local QUEST_KEYWORDS = {"defeat", "kill", "hunt", "slay", "eliminate"}
+
+    local function findQuestGui()
+        local pg = LocalPlayer:FindFirstChild("PlayerGui")
+        if not pg then return nil end
+
+        for _, gui in ipairs(pg:GetChildren()) do
+            if gui:IsA("ScreenGui") and gui.Enabled then
+                local n = gui.Name:lower()
+                if n:find("quest") or n:find("task") or n:find("objective") then
+                    return gui
+                end
+            end
+        end
+
+        for _, gui in ipairs(pg:GetChildren()) do
+            if gui:IsA("ScreenGui") and gui.Enabled then
+                local n = gui.Name:lower()
+                if n:find("chat") or n:find("core") or n:find("izm") then
+                else
+                    for _, d in ipairs(gui:GetDescendants()) do
+                        if d:IsA("TextLabel") and d.Text and d.Text ~= "" then
+                            local t = d.Text:lower()
+                            for _, kw in ipairs(QUEST_KEYWORDS) do
+                                if t:find(kw, 1, true) then
+                                    return gui
+                                end
+                            end
                         end
                     end
                 end
@@ -438,13 +453,30 @@ function MemeSea.Init(ctx)
         return nil
     end
 
-    local function getCurrentQuest()
-        local q = pdValue("Quest_Tracker", "None")
-        q = tostring(q or "None")
-        if q ~= "None" and q ~= "" then return q end
-        local scanned = scanPDForQuest()
-        if scanned then return scanned end
-        return "None"
+    local function parseQuestFromGui()
+        local gui = findQuestGui()
+        if not gui then return nil, nil end
+        for _, d in ipairs(gui:GetDescendants()) do
+            if d:IsA("TextLabel") and d.Text and d.Text ~= "" then
+                local txt = d.Text
+                local low = txt:lower()
+                for _, kw in ipairs(QUEST_KEYWORDS) do
+                    if low:find(kw, 1, true) then
+                        local target = parseQuestTarget(txt)
+                        if target then
+                            return target, txt
+                        end
+                    end
+                end
+            end
+        end
+        for _, d in ipairs(gui:GetDescendants()) do
+            if d:IsA("TextLabel") and d.Text and d.Text ~= "" then
+                local target = parseQuestTarget(d.Text)
+                if target then return target, d.Text end
+            end
+        end
+        return nil, nil
     end
 
     local function requestNewQuest()
@@ -452,11 +484,7 @@ function MemeSea.Init(ctx)
         local q = QuestEvents:FindFirstChild("Quest")
         if q then
             pcall(function() q:FireServer("New") end)
-            pcall(function() q:FireServer("Accept") end)
-            pcall(function() q:FireServer() end)
         end
-        local nq = MiscEvents and MiscEvents:FindFirstChild("NewQuest")
-        if nq then pcall(function() nq:FireServer() end) end
         log("Requested new quest")
     end
 
@@ -466,7 +494,6 @@ function MemeSea.Init(ctx)
         if q then
             pcall(function() q:FireServer("Complete") end)
         end
-        log("Attempted quest completion")
     end
 
     local questFarmThread = nil
@@ -474,7 +501,7 @@ function MemeSea.Init(ctx)
         if questFarmThread then return end
         questFarmThread = task.spawn(function()
             while not UNLOADED do
-                task.wait(0.15)
+                task.wait(0.2)
                 if not State.autoQuestFarm then
                     State.questFarm.state = "idle"
                     task.wait(0.5)
@@ -483,44 +510,51 @@ function MemeSea.Init(ctx)
                     local now = tick()
 
                     if qf.state == "idle" then
-                        local cur = getCurrentQuest()
-                        if cur and cur ~= "None" then
-                            qf.currentQuest = cur
-                            qf.currentTarget = parseQuestTarget(cur)
+                        local target, guiText = parseQuestFromGui()
+                        if target then
+                            qf.currentQuest = guiText or target
+                            qf.currentTarget = target
                             qf.state = "farming"
                             qf.lastMobSeen = now
-                            log("Quest:", cur, "| target:", qf.currentTarget or "ANY")
+                            log("Quest detected:", guiText, "| target:", target)
                         else
-                            qf.state = "farming"
-                            qf.currentTarget = nil
-                            qf.currentQuest = "None"
-                            qf.lastMobSeen = now
-                            log("No quest detected — farming any mob")
+                            if now - qf.lastIdleReturn < 30 then
+                                qf.state = "farming"
+                                qf.currentQuest = "Any"
+                                qf.currentTarget = nil
+                                qf.lastMobSeen = now
+                                log("No quest GUI — farming any mob")
+                            else
+                                log("No quest GUI for 30s — requesting new quest")
+                                requestNewQuest()
+                                qf.lastQuestRequest = now
+                                qf.lastIdleReturn = now
+                                task.wait(2)
+                            end
                         end
                     elseif qf.state == "farming" then
-                        local cur = getCurrentQuest()
-                        if cur and cur ~= "None" and cur ~= qf.currentQuest then
-                            qf.currentQuest = cur
-                            qf.currentTarget = parseQuestTarget(cur)
-                            log("Quest changed:", cur, "| target:", qf.currentTarget or "ANY")
+                        local target, guiText = parseQuestFromGui()
+                        if target and target ~= qf.currentTarget then
+                            qf.currentTarget = target
+                            qf.currentQuest = guiText or target
+                            log("Quest changed:", guiText, "| target:", target)
                         end
 
-                        local target = qf.currentTarget
-                        local mob = getNearestMob(target)
+                        local mob = getNearestMob(qf.currentTarget)
                         if mob then
                             qf.lastMobSeen = now
                             equipCombat()
                             attackMob(mob)
                             if State.autoSkill then useSkills() end
                         else
-                            if qf.currentTarget and now - qf.lastMobSeen > 12 then
+                            if qf.currentTarget and now - qf.lastMobSeen > 15 then
                                 log("No mobs matching", qf.currentTarget, "— trying complete")
                                 qf.state = "complete"
                                 qf.lastCompleteAttempt = now
                             elseif not qf.currentTarget and now - qf.lastMobSeen > 20 then
-                                log("No mobs at all — re-requesting quest")
+                                log("No mobs at all — back to idle")
                                 qf.state = "idle"
-                                qf.lastQuestRequest = now
+                                qf.lastIdleReturn = now
                             end
                         end
                     elseif qf.state == "complete" then
@@ -528,14 +562,16 @@ function MemeSea.Init(ctx)
                             qf.lastCompleteAttempt = now
                             completeQuest()
                         end
-                        local cur = getCurrentQuest()
-                        if not cur or cur == "None" or cur ~= qf.currentQuest then
+                        local newTarget = parseQuestFromGui()
+                        if not newTarget or newTarget ~= qf.currentTarget then
                             qf.state = "idle"
                             qf.currentQuest = "None"
                             qf.currentTarget = nil
-                        elseif now - qf.lastCompleteAttempt > 20 then
+                            qf.lastIdleReturn = now
+                        elseif now - qf.lastCompleteAttempt > 30 then
                             log("Stuck trying to complete — resetting")
                             qf.state = "idle"
+                            qf.lastIdleReturn = now
                         end
                     end
                 end
@@ -879,12 +915,13 @@ function MemeSea.Init(ctx)
         FarmTab:CreateSection("Auto Quest Farm")
         reg("autoQuestFarm", FarmTab:CreateToggle({
             Name = "Auto Quest Farm",
-            Description = "Get quest, kill target mobs, complete, repeat",
+            Description = "Parse quest from GUI, kill mobs, complete",
             Icon = "🌟", Default = false,
             Callback = function(v)
                 State.autoQuestFarm = v
                 State.questFarm.state = "idle"
                 State.questFarm.attempts = 0
+                State.questFarm.lastIdleReturn = 0
             end,
         }))
         reg("debugQuest", FarmTab:CreateToggle({
@@ -926,7 +963,7 @@ function MemeSea.Init(ctx)
         reg("maxLevelDiff", FarmTab:CreateSlider({
             Name = "Max Level Difference",
             Description = "Skip mobs this many levels above you",
-            Icon = "⚖️", Min = 0, Max = 30, Default = 5,
+            Icon = "⚖️", Min = 0, Max = 200, Default = 100,
             Callback = function(v) State.maxLevelDiff = v end,
         }))
         reg("includeTrainingLog", FarmTab:CreateToggle({
@@ -1213,45 +1250,38 @@ function MemeSea.Init(ctx)
         SettingsTab:CreateButton({
             Name = "Show Quest Status",
             Callback = function()
-                local cur = getCurrentQuest()
-                local target = parseQuestTarget(cur)
-                print("[MemeSea] Quest_Tracker:", tostring(pdValue("Quest_Tracker", "nil")))
-                print("[MemeSea] Detected quest:", cur)
-                print("[MemeSea] Parsed target:", target or "none")
-                print("[MemeSea] Farm state:", State.questFarm.state)
-                if Window then Window:Notify("🔍", "Quest: " .. cur, 5, "info") end
+                local target, guiText = parseQuestFromGui()
+                local gui = findQuestGui()
+                print("[MemeSea] --- Quest Status ---")
+                print("  GUI found:", gui and gui:GetFullName() or "NO GUI")
+                print("  GUI text:", guiText or "none")
+                print("  Parsed target:", target or "none")
+                print("  Farm state:", State.questFarm.state)
+                print("  Current target:", State.questFarm.currentTarget or "none")
+                if Window then Window:Notify("🔍", "Target: " .. (target or "none"), 5, "info") end
             end,
         })
         SettingsTab:CreateButton({
-            Name = "Dump PlayerData",
+            Name = "List Monsters",
             Callback = function()
-                local pd = getPD()
-                if not pd then
-                    print("[MemeSea] No PlayerData found")
+                local folder = getMonsterFolder()
+                if not folder then
+                    print("[MemeSea] No Monster folder")
                     return
                 end
-                print("========== PLAYERDATA DUMP ==========")
-                for _, v in ipairs(pd:GetDescendants()) do
-                    if v:IsA("ValueBase") then
-                        print("  [" .. v.ClassName .. "] " .. v:GetFullName() .. " = " .. tostring(v.Value))
+                print("[MemeSea] ========== MONSTERS ==========")
+                local myHRP = getHRP()
+                for _, mob in ipairs(folder:GetChildren()) do
+                    if mob:IsA("Model") then
+                        local lvl = getMobLevel(mob)
+                        local alive = isMobAlive(mob)
+                        local hrp = getMonsterHRP(mob)
+                        local dist = (hrp and myHRP) and math.floor((hrp.Position - myHRP.Position).Magnitude) or -1
+                        print("  " .. mob.Name .. " | Lv:" .. lvl .. " | alive:" .. tostring(alive) .. " | HRP:" .. tostring(hrp ~= nil) .. " | dist:" .. dist)
                     end
                 end
-                print("=====================================")
-                if Window then Window:Notify("📋", "PlayerData dumped to console", 3, "info") end
-            end,
-        })
-        SettingsTab:CreateButton({
-            Name = "Force Request Quest",
-            Callback = function()
-                requestNewQuest()
-                if Window then Window:Notify("📜", "Quest requested", 2, "info") end
-            end,
-        })
-        SettingsTab:CreateButton({
-            Name = "Force Complete Quest",
-            Callback = function()
-                completeQuest()
-                if Window then Window:Notify("✅", "Complete attempted", 2, "info") end
+                print("[MemeSea] ================================")
+                if Window then Window:Notify("👾", "Monsters dumped", 3, "info") end
             end,
         })
 
