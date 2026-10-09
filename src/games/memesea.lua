@@ -53,6 +53,8 @@ function MemeSea.Init(ctx)
         ["Raid_Area"] = true,
     }
 
+    local CLOSE_GUI_KEYWORDS = {"shop", "purchase", "buy", "dialog"}
+
     local State = {
         autoAttack = false,
         autoFarmNearest = false,
@@ -77,6 +79,7 @@ function MemeSea.Init(ctx)
         bringMob = false,
         autoEquipCombat = true,
         includeTrainingLog = false,
+        autoCloseGui = true,
         maxLevelDiff = 5,
         skillZ_CD = 2.0,
         skillX_CD = 5.0,
@@ -88,6 +91,7 @@ function MemeSea.Init(ctx)
             state = "idle",
             lastQuestRequest = 0,
             lastCompleteAttempt = 0,
+            lastPromptFire = 0,
             questStartedAt = 0,
         },
     }
@@ -308,6 +312,23 @@ function MemeSea.Init(ctx)
         useToolActivate()
     end
 
+    local function closeExtraGuis()
+        if not State.autoCloseGui then return end
+        local pg = LocalPlayer:FindFirstChild("PlayerGui")
+        if not pg then return end
+        for _, gui in ipairs(pg:GetChildren()) do
+            if gui:IsA("ScreenGui") and gui.Enabled and gui.Name ~= "IZM_UI" and gui.Name ~= "InfiniteZenUI" then
+                local name = gui.Name:lower()
+                for _, kw in ipairs(CLOSE_GUI_KEYWORDS) do
+                    if name:find(kw, 1, true) then
+                        gui.Enabled = false
+                        break
+                    end
+                end
+            end
+        end
+    end
+
     local QUEST_MOB_MAP = {
         ["Floppa"] = "Floppa",
         ["Big Floppa"] = "Big Floppa",
@@ -347,27 +368,41 @@ function MemeSea.Init(ctx)
         return bestTarget
     end
 
-    local function findQuestNPCs()
-        local npcs = workspace:FindFirstChild("NPCs")
-        if not npcs then return {}, {} end
-        local newQuestNpc = npcs:FindFirstChild("Quests_Npc") or npcs:FindFirstChild("Quest_Npc")
-        local miscNpc = npcs:FindFirstChild("Misc_Npc")
-        return newQuestNpc, miscNpc
-    end
-
     local function fireQuestPrompts()
-        local newQuestNpc, miscNpc = findQuestNPCs()
+        local qf = State.questFarm
+        local now = tick()
+        if now - qf.lastPromptFire < 5 then return false end
+        qf.lastPromptFire = now
+
+        local npcs = workspace:FindFirstChild("NPCs")
+        if not npcs then return false end
+        local questNpc = npcs:FindFirstChild("Quests_Npc") or npcs:FindFirstChild("Quest_Npc")
+        if not questNpc then return false end
+
         local fired = false
-        for _, folder in ipairs({newQuestNpc, miscNpc}) do
-            if folder then
-                for _, d in ipairs(folder:GetDescendants()) do
-                    if d:IsA("ProximityPrompt") then
-                        pcall(function() fireproximityprompt(d) end)
-                        fired = true
+        for _, d in ipairs(questNpc:GetDescendants()) do
+            if d:IsA("ProximityPrompt") then
+                local action = (d.ActionText or ""):lower()
+                local parentName = ""
+                if d.Parent then
+                    parentName = d.Parent.Name:lower()
+                    if d.Parent.Parent then
+                        parentName = parentName .. " " .. d.Parent.Parent.Name:lower()
                     end
+                end
+                local combined = action .. " " .. parentName
+                if combined:find("quest") or combined:find("talk") or action == "" then
+                    pcall(function() fireproximityprompt(d) end)
+                    fired = true
                 end
             end
         end
+
+        if fired then
+            task.wait(0.3)
+            closeExtraGuis()
+        end
+
         return fired
     end
 
@@ -421,7 +456,7 @@ function MemeSea.Init(ctx)
                             qf.state = "farming"
                             qf.questStartedAt = now
                         else
-                            if now - qf.lastQuestRequest > 3 then
+                            if now - qf.lastQuestRequest > 5 then
                                 qf.lastQuestRequest = now
                                 requestNewQuest()
                             end
@@ -448,7 +483,7 @@ function MemeSea.Init(ctx)
                             end
                         end
                     elseif qf.state == "complete" then
-                        if now - qf.lastCompleteAttempt > 1.5 then
+                        if now - qf.lastCompleteAttempt > 3 then
                             qf.lastCompleteAttempt = now
                             completeQuest()
                         end
@@ -585,8 +620,11 @@ function MemeSea.Init(ctx)
                     local misc = npcs:FindFirstChild("Misc_Npc")
                     if misc then
                         for _, npc in ipairs(misc:GetDescendants()) do
-                            if npc:IsA("ProximityPrompt") then
-                                pcall(function() fireproximityprompt(npc) end)
+                            if npc:IsA("ProximityPrompt") and npc.Parent then
+                                local parentName = npc.Parent.Name:lower()
+                                if parentName:find("popcat") then
+                                    pcall(function() fireproximityprompt(npc) end)
+                                end
                             end
                         end
                     end
@@ -739,7 +777,7 @@ function MemeSea.Init(ctx)
             "autoSkill","collectDrops","autoQuest","autoStats","autoRedeem",
             "autoPopcat","autoStartRaid","autoGacha","autoLuck",
             "speed","jumpPower","antiAfk","fullbright","noFog","bringMob",
-            "autoEquipCombat","includeTrainingLog",
+            "autoEquipCombat","includeTrainingLog","autoCloseGui",
         }) do
             local el = Elements[k]
             if el and State[k] ~= nil then setToggle(el, State[k]) end
@@ -809,9 +847,15 @@ function MemeSea.Init(ctx)
         FarmTab:CreateSection("Auto Quest Farm")
         reg("autoQuestFarm", FarmTab:CreateToggle({
             Name = "Auto Quest Farm",
-            Description = "Pega quest → mata só os mobs da quest → completa → repete",
+            Description = "Get quest, kill target mobs, complete, repeat",
             Icon = "🌟", Default = false,
             Callback = function(v) State.autoQuestFarm = v end,
+        }))
+        reg("autoCloseGui", FarmTab:CreateToggle({
+            Name = "Auto Close NPC GUIs",
+            Description = "Close shop/dialog GUIs automatically",
+            Icon = "🚪", Default = true,
+            Callback = function(v) State.autoCloseGui = v end,
         }))
         FarmTab:CreateSection("Manual Farm")
         reg("autoFarmNearest", FarmTab:CreateToggle({
@@ -898,7 +942,7 @@ function MemeSea.Init(ctx)
         ProgressTab:CreateSection("Quests")
         reg("autoQuest", ProgressTab:CreateToggle({
             Name = "Auto Quest (only accept)",
-            Description = "Só aceita quest, sem matar mobs",
+            Description = "Only accept quest, no combat",
             Icon = "📜", Default = false,
             Callback = function(v) State.autoQuest = v end,
         }))
