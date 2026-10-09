@@ -38,6 +38,11 @@ function BloxStrike.Init(ctx)
 
     local UNLOADED  = false
     local IS_MOBILE = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+    local DEBUG = true
+
+    local function log(...)
+        if DEBUG then print("[BS]", ...) end
+    end
 
     local DrawingAvailable = false
     do
@@ -47,16 +52,23 @@ function BloxStrike.Init(ctx)
             if ok2 and test then
                 DrawingAvailable = true
                 pcall(function() test:Remove() end)
-                print("[IZ BS] Drawing OK")
-            else
-                print("[IZ BS] 🇧🇷 Drawing.new falhou - usando fallback Instance")
-                print("[IZ BS] 🇺🇸 Drawing.new failed - using Instance fallback")
             end
-        else
-            print("[IZ BS] 🇧🇷 Drawing nao disponivel - usando fallback Instance")
-            print("[IZ BS] 🇺🇸 Drawing not available - using Instance fallback")
         end
     end
+
+    local HighlightAvailable = pcall(function()
+        local h = Instance.new("Highlight")
+        h:Destroy()
+        return true
+    end)
+
+    local SelectionBoxAvailable = pcall(function()
+        local b = Instance.new("SelectionBox")
+        b:Destroy()
+        return true
+    end)
+
+    log("Drawing:", DrawingAvailable, "| Highlight:", HighlightAvailable, "| SelectionBox:", SelectionBoxAvailable)
 
     local function safeDraw(class, props)
         if not DrawingAvailable then return nil end
@@ -71,19 +83,6 @@ function BloxStrike.Init(ctx)
         return obj
     end
 
-    local function safeBind(name, priority, fn)
-        local ok = pcall(function()
-            RunService:BindToRenderStep(name, priority, fn)
-        end)
-        if not ok then
-            pcall(function() RunService.RenderStepped:Connect(fn) end)
-        end
-    end
-
-    local function safeUnbind(name)
-        pcall(function() RunService:UnbindFromRenderStep(name) end)
-    end
-
     local camPriority = 1
     pcall(function() camPriority = Enum.RenderPriority.Camera.Value end)
 
@@ -95,7 +94,7 @@ function BloxStrike.Init(ctx)
     local State = {
         silentAim = false, silentFov = 120,
         aimbot = false, aimbotFov = 100, aimbotSmooth = 30,
-        aimbotMaxDist = 500, aimbotWallCheck = true,
+        aimbotMaxDist = 500, aimbotWallCheck = false,
         triggerbot = false, triggerbotDelay = 5,
         autoShoot = false, autoShootFov = 100,
         headExpander = false, headExpanderSize = 2,
@@ -111,12 +110,18 @@ function BloxStrike.Init(ctx)
     local origFov = Camera.FieldOfView or 70
 
     local function getTeam(p)
-        local ok, t = pcall(function() return p:GetAttribute("Team") end)
-        if ok then return t end
+        if not p then return nil end
+        local ok1, t1 = pcall(function() return p.Team end)
+        if ok1 and t1 then return t1 end
+        local ok2, t2 = pcall(function() return p:GetAttribute("Team") end)
+        if ok2 and t2 then return t2 end
+        local ok3, t3 = pcall(function() return p.TeamColor end)
+        if ok3 and t3 then return t3 end
         return nil
     end
 
     local function isDead(p)
+        if not p then return true end
         local ok, d = pcall(function() return p:GetAttribute("Dead") end)
         if ok and d == true then return true end
         if p.Character then
@@ -127,7 +132,7 @@ function BloxStrike.Init(ctx)
     end
 
     local function isEnemy(p)
-        if p == LocalPlayer then return false end
+        if not p or p == LocalPlayer then return false end
         if not p.Character then return false end
         if isDead(p) then return false end
         local myTeam = getTeam(LocalPlayer)
@@ -138,12 +143,44 @@ function BloxStrike.Init(ctx)
 
     local function getBasePart(parent, ...)
         if not parent then return nil end
-        for _, name in ipairs({...}) do
-            for _, child in ipairs(parent:GetChildren()) do
-                if child.Name == name and child:IsA("BasePart") then return child end
-            end
+        local names = {...}
+        for _, name in ipairs(names) do
+            local ok, child = pcall(function() return parent:FindFirstChild(name) end)
+            if ok and child and child:IsA("BasePart") then return child end
+        end
+        for _, name in ipairs(names) do
+            local ok, child = pcall(function() return parent:FindFirstChild(name, true) end)
+            if ok and child and child:IsA("BasePart") then return child end
         end
         return nil
+    end
+
+    local function getHead(char)
+        return getBasePart(char,
+            "Head", "head", "HeadHitbox", "HeadHB", "Head_HB", "headHitbox"
+        )
+    end
+
+    local function getHRP(char)
+        return getBasePart(char,
+            "HumanoidRootPart", "RootPart", "HRP", "Torso", "UpperTorso", "TorsoHB", "Pelvis"
+        )
+    end
+
+    local function getHumanoid(char)
+        if not char then return nil end
+        local ok, hum = pcall(function() return char:FindFirstChildOfClass("Humanoid") end)
+        if ok and hum then return hum end
+        local ok2, hum2 = pcall(function() return char:FindFirstChild("Humanoid") end)
+        if ok2 and hum2 then return hum2 end
+        return nil
+    end
+
+    local function getTargetPart(p)
+        if not p or not p.Character then return nil end
+        local head = getHead(p.Character)
+        if head then return head end
+        return getHRP(p.Character)
     end
 
     local function hasLineOfSight(fromPos, targetPart)
@@ -160,11 +197,6 @@ function BloxStrike.Init(ctx)
         if dist < 0.1 then return true end
         local unitDir = dir.Unit
         return workspace:Raycast(fromPos + unitDir * 2, unitDir * (dist - 2), params) == nil
-    end
-
-    local function getTargetPart(p)
-        if not p.Character then return nil end
-        return getBasePart(p.Character, "Head")
     end
 
     local function fireWeapon()
@@ -196,33 +228,8 @@ function BloxStrike.Init(ctx)
         end
     end
 
-    local function updateFovCircle()
-        if UNLOADED or not fovCircle then return end
-        pcall(function()
-            fovCircle.Position = getScreenCenter()
-            if State.aimbot then
-                fovCircle.Visible = true
-                fovCircle.Radius = State.aimbotFov
-            elseif State.silentAim then
-                fovCircle.Visible = true
-                fovCircle.Radius = State.silentFov
-            elseif State.autoShoot then
-                fovCircle.Visible = true
-                fovCircle.Radius = State.autoShootFov
-            else
-                fovCircle.Visible = false
-            end
-        end)
-    end
-
-    if fovCircle then
-        pcall(function()
-            RunService.RenderStepped:Connect(updateFovCircle)
-        end)
-    end
-
     local losCache = {}
-    local LOS_TIME = 0.12
+    local LOS_TIME = 0.15
 
     local function hasLOSCached(p, part)
         local e = losCache[p]
@@ -232,6 +239,34 @@ function BloxStrike.Init(ctx)
         pcall(function() v = hasLineOfSight(Camera.CFrame.Position, part) end)
         losCache[p] = {visible = v, time = now}
         return v
+    end
+
+    local function getClosestEnemyAnywhere(maxDist)
+        local center = getScreenCenter()
+        local closest, closestScore = nil, math.huge
+        for _, p in ipairs(Players:GetPlayers()) do
+            if isEnemy(p) then
+                local part = getTargetPart(p)
+                if part then
+                    local sp, onScreen, depth = Camera:WorldToViewportPoint(part.Position)
+                    if onScreen and depth and depth > 0 then
+                        local myHRP = LocalPlayer.Character and getHRP(LocalPlayer.Character)
+                        local realDist = myHRP and (part.Position - myHRP.Position).Magnitude or depth
+                        if realDist <= (maxDist or State.aimbotMaxDist) then
+                            if not State.aimbotWallCheck or hasLOSCached(p, part) then
+                                local screenDist = (Vector2.new(sp.X, sp.Y) - center).Magnitude
+                                local score = screenDist * 0.6 + realDist * 0.4
+                                if score < closestScore then
+                                    closestScore = score
+                                    closest = p
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        return closest
     end
 
     local function getClosestEnemyInFov(fovRange)
@@ -256,56 +291,71 @@ function BloxStrike.Init(ctx)
         return closest
     end
 
-    local function getClosestVisibleEnemy()
-        local center = getScreenCenter()
-        local closest, minDist = nil, math.huge
-        for _, p in ipairs(Players:GetPlayers()) do
-            if isEnemy(p) then
-                local part = getTargetPart(p)
-                if part then
-                    local sp, onScreen, depth = Camera:WorldToViewportPoint(part.Position)
-                    if onScreen and depth and depth > 0 then
-                        local d = (Vector2.new(sp.X, sp.Y) - center).Magnitude
-                        if d < minDist then
-                            if not State.aimbotWallCheck or hasLOSCached(p, part) then
-                                minDist = d; closest = p
-                            end
-                        end
-                    end
-                end
-            end
-        end
-        return closest
-    end
-
     local function getAimbotTarget(fovRange)
         if IS_MOBILE then
-            return getClosestVisibleEnemy()
+            return getClosestEnemyAnywhere(State.aimbotMaxDist)
         end
         return getClosestEnemyInFov(fovRange)
     end
 
     local silentHolding, silentTarget = false, nil
+    local aimbotFrames = 0
+    local AIMBOT_SKIP = IS_MOBILE and 2 or 1
+    local aimDebugTick = 0
 
-    safeBind("IZ_BS_Silent", camPriority + 10, function()
-        if UNLOADED then return end
-        if not State.silentAim then
-            silentHolding = false
-            silentTarget = nil
-            return
-        end
-        if not silentHolding then return end
-        if not silentTarget or not silentTarget.Character then
-            silentHolding = false
-            return
-        end
-        local head = getTargetPart(silentTarget)
-        if not head then
-            silentHolding = false
-            return
-        end
-        pcall(function()
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position)
+    pcall(function()
+        RunService:BindToRenderStep("IZ_BS_Aim", camPriority + 20, function()
+            if UNLOADED then return end
+
+            if silentHolding and State.silentAim then
+                if silentTarget and silentTarget.Character then
+                    local head = getTargetPart(silentTarget)
+                    if head then
+                        pcall(function()
+                            Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position)
+                        end)
+                    end
+                end
+            end
+
+            if State.aimbot then
+                aimbotFrames = aimbotFrames + 1
+                if aimbotFrames % AIMBOT_SKIP ~= 0 then return end
+
+                local target = getAimbotTarget(State.aimbotFov)
+                if not target then
+                    aimDebugTick = aimDebugTick + 1
+                    if aimDebugTick % 120 == 0 and DEBUG then
+                        local count = 0
+                        for _, p in ipairs(Players:GetPlayers()) do
+                            if isEnemy(p) and getTargetPart(p) then count = count + 1 end
+                        end
+                        log("Aimbot ON — enemies detectados:", count)
+                    end
+                    return
+                end
+
+                local part = getTargetPart(target)
+                if not part then return end
+
+                local myHRP = LocalPlayer.Character and getHRP(LocalPlayer.Character)
+                if not myHRP then return end
+                if (part.Position - myHRP.Position).Magnitude > State.aimbotMaxDist then return end
+
+                local camPos = Camera.CFrame.Position
+                local targetDir = (part.Position - camPos).Unit
+                local currentDir = Camera.CFrame.LookVector
+                local alpha = math.clamp(State.aimbotSmooth / 100, 0.05, 1)
+
+                if type(mousemoverel) == "function" and not IS_MOBILE then
+                    local sp = Camera:WorldToViewportPoint(part.Position)
+                    local c = getScreenCenter()
+                    pcall(function() mousemoverel((sp.X - c.X) * alpha, (sp.Y - c.Y) * alpha) end)
+                else
+                    local newDir = currentDir:Lerp(targetDir, alpha)
+                    pcall(function() Camera.CFrame = CFrame.lookAt(camPos, camPos + newDir) end)
+                end
+            end
         end)
     end)
 
@@ -325,46 +375,13 @@ function BloxStrike.Init(ctx)
         silentTarget = nil
     end)
 
-    local aimbotFrames = 0
-    local AIMBOT_SKIP = IS_MOBILE and 2 or 1
-
-    safeBind("IZ_BS_Aimbot", camPriority + 1, function()
-        if UNLOADED or not State.aimbot then return end
-        aimbotFrames = aimbotFrames + 1
-        if aimbotFrames % AIMBOT_SKIP ~= 0 then return end
-
-        local target = getAimbotTarget(State.aimbotFov)
-        if not target then return end
-
-        local part = getTargetPart(target)
-        if not part then return end
-
-        local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if not myHRP then return end
-        if (part.Position - myHRP.Position).Magnitude > State.aimbotMaxDist then return end
-
-        local camPos = Camera.CFrame.Position
-        local targetDir = (part.Position - camPos).Unit
-        local currentDir = Camera.CFrame.LookVector
-        local alpha = math.clamp(State.aimbotSmooth / 100, 0.02, 1)
-
-        if type(mousemoverel) == "function" and not IS_MOBILE then
-            local sp = Camera:WorldToViewportPoint(part.Position)
-            local c = getScreenCenter()
-            pcall(function() mousemoverel((sp.X - c.X) * alpha, (sp.Y - c.Y) * alpha) end)
-        else
-            local newDir = currentDir:Lerp(targetDir, alpha)
-            pcall(function() Camera.CFrame = CFrame.lookAt(camPos, camPos + newDir) end)
-        end
-    end)
-
     local triggerLast = 0
     pcall(function()
         RunService.RenderStepped:Connect(function()
             if UNLOADED or not State.triggerbot then return end
             if tick() - triggerLast < (State.triggerbotDelay / 1000) then return end
             local c = getScreenCenter()
-            local threshold = IS_MOBILE and 60 or 25
+            local threshold = IS_MOBILE and 80 or 25
             for _, p in ipairs(Players:GetPlayers()) do
                 if isEnemy(p) then
                     local part = getTargetPart(p)
@@ -397,8 +414,8 @@ function BloxStrike.Init(ctx)
     local headSaved = {}
 
     local function expandHead(p, size)
-        if not p.Character then return end
-        local head = getBasePart(p.Character, "Head")
+        if not p or not p.Character then return end
+        local head = getHead(p.Character)
         if not head then return end
         if not headSaved[p] then headSaved[p] = head.Size end
         local base = headSaved[p]
@@ -410,8 +427,8 @@ function BloxStrike.Init(ctx)
     end
 
     local function restoreHead(p)
-        if not p.Character or not headSaved[p] then return end
-        local head = getBasePart(p.Character, "Head")
+        if not p or not p.Character or not headSaved[p] then return end
+        local head = getHead(p.Character)
         if head then pcall(function() head.Size = headSaved[p] end) end
         headSaved[p] = nil
     end
@@ -445,32 +462,50 @@ function BloxStrike.Init(ctx)
 
     local function createESP(p)
         if ESP.data[p] then return end
-        if not p.Character then return end
+        if not p or not p.Character then return end
 
         local d = {character = p.Character}
 
-        local ok, chams = pcall(function()
-            local h = Instance.new("Highlight")
-            h.Adornee = p.Character
-            h.FillColor = Color3.fromRGB(255, 30, 40)
-            h.FillTransparency = 0.6
-            h.OutlineColor = Color3.fromRGB(255, 255, 255)
-            h.OutlineTransparency = 0.3
-            h.Parent = p.Character
-            return h
-        end)
-        if ok then d.chams = chams end
+        if HighlightAvailable then
+            local ok, chams = pcall(function()
+                local h = Instance.new("Highlight")
+                h.Adornee = p.Character
+                h.FillColor = Color3.fromRGB(255, 30, 40)
+                h.FillTransparency = 0.5
+                h.OutlineColor = Color3.fromRGB(255, 255, 255)
+                h.OutlineTransparency = 0
+                h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                h.Parent = p.Character
+                return h
+            end)
+            if ok then d.chams = chams end
+        end
 
-        local head = p.Character:FindFirstChild("Head")
-        if head and head:IsA("BasePart") then
+        if not d.chams and SelectionBoxAvailable then
+            local ok, box = pcall(function()
+                local sb = Instance.new("SelectionBox")
+                sb.Adornee = p.Character
+                sb.Color3 = Color3.fromRGB(255, 30, 40)
+                sb.LineThickness = 0.05
+                sb.SurfaceColor3 = Color3.fromRGB(255, 30, 40)
+                sb.SurfaceTransparency = 1
+                sb.Parent = p.Character
+                return sb
+            end)
+            if ok then d.selection = box end
+        end
+
+        local head = getHead(p.Character) or getHRP(p.Character)
+        if head then
             local bb = Instance.new("BillboardGui")
             bb.Name = "IZ_ESP_BB"
             bb.Adornee = head
-            bb.Size = UDim2.new(0, 220, 0, 80)
-            bb.StudsOffset = Vector3.new(0, 2.5, 0)
+            bb.Size = UDim2.new(0, 220, 0, 90)
+            bb.StudsOffsetWorldSpace = Vector3.new(0, 2.5, 0)
             bb.AlwaysOnTop = true
             bb.LightInfluence = 0
             bb.MaxDistance = 5000
+            bb.ResetOnSpawn = false
             bb.Parent = head
 
             local function makeLabel(name, yPos, size, color, font, textSize)
@@ -488,11 +523,11 @@ function BloxStrike.Init(ctx)
                 return lbl
             end
 
-            d.bbName     = makeLabel("Name",     0,  18, Color3.fromRGB(255, 255, 255), Enum.Font.GothamBold, 14)
-            d.bbDistance = makeLabel("Distance", 18, 16, Color3.fromRGB(255, 80, 80),   Enum.Font.Gotham,     12)
-            d.bbHealth   = makeLabel("Health",   34, 16, Color3.fromRGB(0, 255, 0),     Enum.Font.Gotham,     12)
-            d.bbWeapon   = makeLabel("Weapon",   50, 16, Color3.fromRGB(255, 200, 100), Enum.Font.Gotham,     11)
-            d.bbArmor    = makeLabel("Armor",    66, 16, Color3.fromRGB(100, 200, 255), Enum.Font.Gotham,     11)
+            d.bbName     = makeLabel("Name",     0,  20, Color3.fromRGB(255, 255, 255), Enum.Font.GothamBold, 14)
+            d.bbDistance = makeLabel("Distance", 20, 16, Color3.fromRGB(255, 80, 80),   Enum.Font.Gotham,     12)
+            d.bbHealth   = makeLabel("Health",   36, 16, Color3.fromRGB(0, 255, 0),     Enum.Font.Gotham,     12)
+            d.bbWeapon   = makeLabel("Weapon",   52, 16, Color3.fromRGB(255, 200, 100), Enum.Font.Gotham,     11)
+            d.bbArmor    = makeLabel("Armor",    68, 16, Color3.fromRGB(100, 200, 255), Enum.Font.Gotham,     11)
 
             d.billboard = bb
         end
@@ -503,12 +538,14 @@ function BloxStrike.Init(ctx)
         end
 
         ESP.data[p] = d
+        log("ESP criado para", p.Name, "| Chams:", d.chams ~= nil, "| Billboard:", d.billboard ~= nil)
     end
 
     local function destroyESP(p)
         local d = ESP.data[p]
         if not d then return end
         if d.chams then pcall(function() d.chams:Destroy() end) end
+        if d.selection then pcall(function() d.selection:Destroy() end) end
         if d.billboard then pcall(function() d.billboard:Destroy() end) end
         if d.box and d.box.Remove then pcall(function() d.box:Remove() end) end
         if d.tracer and d.tracer.Remove then pcall(function() d.tracer:Remove() end) end
@@ -545,6 +582,7 @@ function BloxStrike.Init(ctx)
         if d.bbWeapon then d.bbWeapon.Visible = false end
         if d.bbArmor then d.bbArmor.Visible = false end
         if d.chams then pcall(function() d.chams.Enabled = false end) end
+        if d.selection then pcall(function() d.selection.Visible = false end) end
         if d.box then pcall(function() d.box.Visible = false end) end
         if d.tracer then pcall(function() d.tracer.Visible = false end) end
     end
@@ -556,7 +594,10 @@ function BloxStrike.Init(ctx)
         if d.bbWeapon then d.bbWeapon.Visible = State.espWeapon end
         if d.bbArmor then d.bbArmor.Visible = State.espArmor end
         if d.chams then pcall(function() d.chams.Enabled = true end) end
+        if d.selection then pcall(function() d.selection.Visible = true end) end
     end
+
+    local espDebugTick = 0
 
     local function updateESP(p, char)
         local d = ESP.data[p]
@@ -564,14 +605,14 @@ function BloxStrike.Init(ctx)
 
         if not State.esp or not isEnemy(p) then hideESP(d); return end
 
-        local hum = char:FindFirstChildOfClass("Humanoid")
+        local hum = getHumanoid(char)
         if not hum or hum.Health <= 0 then hideESP(d); return end
 
-        local head = char:FindFirstChild("Head")
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        if not head or not hrp then hideESP(d); return end
+        local head = getHead(char) or getHRP(char)
+        local hrp = getHRP(char)
+        if not head then hideESP(d); return end
 
-        local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        local myHRP = LocalPlayer.Character and getHRP(LocalPlayer.Character)
         if not myHRP then hideESP(d); return end
 
         local dist = math.floor((head.Position - myHRP.Position).Magnitude)
@@ -622,8 +663,8 @@ function BloxStrike.Init(ctx)
 
         if DrawingAvailable and (d.box or d.tracer) then
             local headSp, headOn = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
-            local hrpSp, hrpOn = Camera:WorldToViewportPoint(hrp.Position)
-            local footSp, footOn = Camera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3, 0))
+            local hrpSp, hrpOn = Camera:WorldToViewportPoint(hrp and hrp.Position or head.Position)
+            local footSp, footOn = Camera:WorldToViewportPoint((hrp and hrp.Position or head.Position) - Vector3.new(0, 3, 0))
 
             if d.box then
                 if State.espBox and headOn and footOn then
@@ -658,6 +699,14 @@ function BloxStrike.Init(ctx)
     pcall(function()
         RunService.RenderStepped:Connect(function()
             if UNLOADED or not State.esp then return end
+
+            espDebugTick = espDebugTick + 1
+            if espDebugTick % 240 == 0 and DEBUG then
+                local count = 0
+                for _ in pairs(ESP.data) do count = count + 1 end
+                log("ESP ON — trackeados:", count)
+            end
+
             for _, p in ipairs(Players:GetPlayers()) do
                 if p ~= LocalPlayer and p.Character then
                     local existing = ESP.data[p]
@@ -728,6 +777,22 @@ function BloxStrike.Init(ctx)
         end)
     end
 
+    pcall(function()
+        RunService.Heartbeat:Connect(function()
+            if UNLOADED then return end
+            local char = LocalPlayer.Character
+            if not char then return end
+            local hum = getHumanoid(char)
+            if not hum then return end
+            if State.speed and hum.WalkSpeed ~= State.speedValue then
+                hum.WalkSpeed = State.speedValue
+            end
+            if State.jumpPower and hum.UseJumpPower and hum.JumpPower ~= State.jumpPowerValue then
+                hum.JumpPower = State.jumpPowerValue
+            end
+        end)
+    end)
+
     local BASE_FOLDER   = "InfiniteZen_Configs"
     local CONFIG_FOLDER = BASE_FOLDER .. "/BloxStrike"
     local AUTOLOAD_FILE = "InfiniteZen_BloxStrike_Autoload.txt"
@@ -737,6 +802,22 @@ function BloxStrike.Init(ctx)
             pcall(function() if not isfolder(BASE_FOLDER) then makefolder(BASE_FOLDER) end end)
             pcall(function() if not isfolder(CONFIG_FOLDER) then makefolder(CONFIG_FOLDER) end end)
         end
+    end
+
+    local Elements = {}
+    local Window   = nil
+
+    local function setToggle(el, val)
+        if not el or type(el.SetState) ~= "function" then return false end
+        return pcall(function() el.SetState(val) end)
+    end
+    local function setSlider(el, val)
+        if not el or type(el.SetValue) ~= "function" then return false end
+        return pcall(function() el.SetValue(val) end)
+    end
+    local function reg(id, el)
+        if id and el then Elements[id] = el end
+        return el
     end
 
     local function syncUIFromState()
@@ -805,22 +886,6 @@ function BloxStrike.Init(ctx)
         return nil
     end
 
-    local Elements = {}
-    local Window   = nil
-
-    local function setToggle(el, val)
-        if not el or type(el.SetState) ~= "function" then return false end
-        return pcall(function() el.SetState(val) end)
-    end
-    local function setSlider(el, val)
-        if not el or type(el.SetValue) ~= "function" then return false end
-        return pcall(function() el.SetValue(val) end)
-    end
-    local function reg(id, el)
-        if id and el then Elements[id] = el end
-        return el
-    end
-
     local function buildUI()
         Window = UI:CreateWindow({
             Title = "INFINITE ZEN",
@@ -847,7 +912,10 @@ function BloxStrike.Init(ctx)
             Name = T("aimbot.name", "Aimbot"),
             Description = T("aimbot.desc", "Locks camera on closest enemy"),
             Icon = "🤖", Default = false,
-            Callback = function(v) State.aimbot = v end,
+            Callback = function(v)
+                State.aimbot = v
+                log("Aimbot toggled:", v)
+            end,
         }))
         reg("aimbotFov", CombatTab:CreateSlider({
             Name = T("aimbotfov.name", "Aimbot FOV"),
@@ -870,7 +938,7 @@ function BloxStrike.Init(ctx)
         reg("aimbotWallCheck", CombatTab:CreateToggle({
             Name = T("aimbotwall.name", "Wall Check"),
             Description = T("aimbotwall.desc", "Only target visible enemies"),
-            Icon = "🧱", Default = true,
+            Icon = "🧱", Default = false,
             Callback = function(v) State.aimbotWallCheck = v end,
         }))
         CombatTab:CreateSection(T("section.auto", "Auto"))
@@ -947,6 +1015,7 @@ function BloxStrike.Init(ctx)
             Icon = "👤", Default = false,
             Callback = function(v)
                 State.esp = v
+                log("ESP toggled:", v)
                 if v then
                     for _, p in ipairs(Players:GetPlayers()) do
                         if p ~= LocalPlayer and p.Character then createESP(p) end
@@ -1162,8 +1231,7 @@ function BloxStrike.Init(ctx)
                 restoreEnv()
                 pcall(function() Camera.FieldOfView = origFov end)
                 if fovCircle and fovCircle.Remove then pcall(function() fovCircle:Remove() end) end
-                safeUnbind("IZ_BS_Silent")
-                safeUnbind("IZ_BS_Aimbot")
+                pcall(function() RunService:UnbindFromRenderStep("IZ_BS_Aim") end)
                 if inputBeganConn then pcall(function() inputBeganConn:Disconnect() end) end
                 if inputEndedConn then pcall(function() inputEndedConn:Disconnect() end) end
                 if Window then pcall(function() Window:Notify("Unload", T("config.unload", "Unload Script"), 2, "warning") end) end
