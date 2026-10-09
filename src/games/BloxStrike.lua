@@ -1,5 +1,5 @@
 -- ============================================================
--- INFINITE ZEN - BLOXSTRIKE v1.0 (Bulletproof)
+-- INFINITE ZEN - BLOXSTRIKE v1.1 (Bulletproof)
 -- ============================================================
 
 local BloxStrike = {}
@@ -18,11 +18,14 @@ function BloxStrike.Init(ctx)
         return key
     end
 
-    local GAME_VERSION = "1.0"
+    local GAME_VERSION = "1.1"
     local FULL_VERSION  = "Infinite Zen V" .. GAME_VERSION .. " - " .. gameName
     local SHORT_VERSION = "V" .. GAME_VERSION .. " - " .. gameName
 
-    print("[Infinite Zen] Inicializando " .. FULL_VERSION .. "...")
+    print("============================================")
+    print("[Infinite Zen] 🇧🇷 Inicializando " .. FULL_VERSION .. "...")
+    print("[Infinite Zen] 🇺🇸 Initializing " .. FULL_VERSION .. "...")
+    print("============================================")
 
     local Players           = game:GetService("Players")
     local RunService        = game:GetService("RunService")
@@ -39,7 +42,7 @@ function BloxStrike.Init(ctx)
     local IS_MOBILE = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
     -- ═══════════════════════════════════════════════
-    -- SAFE DRAWING WRAPPER (fix pro Delta Mobile)
+    -- SAFE DRAWING WRAPPER
     -- ═══════════════════════════════════════════════
     local DrawingAvailable = false
     do
@@ -51,10 +54,12 @@ function BloxStrike.Init(ctx)
                 pcall(function() test:Remove() end)
                 print("[IZ BS] Drawing OK")
             else
-                print("[IZ BS] Drawing.new falhou — features visuais desativadas")
+                print("[IZ BS] 🇧🇷 Drawing.new falhou - features visuais desativadas")
+                print("[IZ BS] 🇺🇸 Drawing.new failed - visual features disabled")
             end
         else
-            print("[IZ BS] Drawing não existe neste executor")
+            print("[IZ BS] 🇧🇷 Drawing nao existe neste executor")
+            print("[IZ BS] 🇺🇸 Drawing not available in this executor")
         end
     end
 
@@ -72,7 +77,7 @@ function BloxStrike.Init(ctx)
     end
 
     -- ═══════════════════════════════════════════════
-    -- BIND SAFE WRAPPER
+    -- SAFE BIND
     -- ═══════════════════════════════════════════════
     local function safeBind(name, priority, fn)
         local ok = pcall(function()
@@ -129,10 +134,11 @@ function BloxStrike.Init(ctx)
         espWeapon = true, espArmor = true, espTracer = false,
         speed = false, speedValue = 50,
         jumpPower = false, jumpPowerValue = 80,
-        fullbright = false,
-        noShadows = false, noFog = false, noParticles = false,
-        lowGraphics = false,
+        cameraFov = false, cameraFovValue = 70,
+        fullbright = false, noFog = false,
     }
+
+    local origFov = Camera.FieldOfView or 70
 
     -- ═══════════════════════════════════════════════
     -- TEAM CHECK
@@ -159,7 +165,7 @@ function BloxStrike.Init(ctx)
         if isDead(p) then return false end
         local myTeam = getTeam(LocalPlayer)
         local theirTeam = getTeam(p)
-        if not myTeam or not theirTeam then return false end
+        if not myTeam or not theirTeam then return true end
         return myTeam ~= theirTeam
     end
 
@@ -214,7 +220,7 @@ function BloxStrike.Init(ctx)
     end
 
     -- ═══════════════════════════════════════════════
-    -- FOV CIRCLE (safe — só cria se Drawing ok)
+    -- FOV CIRCLE
     -- ═══════════════════════════════════════════════
     local fovCircle = nil
     if DrawingAvailable then
@@ -225,32 +231,34 @@ function BloxStrike.Init(ctx)
                 fovCircle.Thickness = 1.5
                 fovCircle.Filled = false
                 fovCircle.NumSides = IS_MOBILE and 48 or 72
-                fovCircle.Transparency = 1
+                fovCircle.Transparency = 0
                 fovCircle.Radius = 100
                 fovCircle.Visible = false
             end)
         end
     end
 
-    pcall(function()
-        RunService.RenderStepped:Connect(function()
-            if UNLOADED or not fovCircle then return end
-            pcall(function()
-                fovCircle.Position = getScreenCenter()
-                if State.silentAim then
-                    fovCircle.Visible = true
-                    fovCircle.Radius = State.silentFov
-                elseif State.autoShoot then
-                    fovCircle.Visible = true
-                    fovCircle.Radius = State.autoShootFov
-                elseif State.aimbot then
-                    fovCircle.Visible = true
-                    fovCircle.Radius = State.aimbotFov
-                else
-                    fovCircle.Visible = false
-                end
-            end)
+    local function updateFovCircle()
+        if UNLOADED or not fovCircle then return end
+        pcall(function()
+            fovCircle.Position = getScreenCenter()
+            if State.silentAim then
+                fovCircle.Visible = true
+                fovCircle.Radius = State.silentFov
+            elseif State.autoShoot then
+                fovCircle.Visible = true
+                fovCircle.Radius = State.autoShootFov
+            elseif State.aimbot then
+                fovCircle.Visible = true
+                fovCircle.Radius = State.aimbotFov
+            else
+                fovCircle.Visible = false
+            end
         end)
+    end
+
+    pcall(function()
+        RunService.RenderStepped:Connect(updateFovCircle)
     end)
 
     -- ═══════════════════════════════════════════════
@@ -268,8 +276,6 @@ function BloxStrike.Init(ctx)
         losCache[p] = {visible = v, time = now}
         return v
     end
-
-    pcall(function() Players.PlayerRemoving:Connect(function(p) losCache[p] = nil end) end)
 
     local function getClosestEnemyInFov(fovRange)
         local center = getScreenCenter()
@@ -299,33 +305,41 @@ function BloxStrike.Init(ctx)
     local silentHolding, silentTarget = false, nil
 
     safeBind("IZ_BS_Silent", camPriority + 10, function()
-        if UNLOADED or not silentHolding then return end
-        if not silentTarget or not silentTarget.Character then silentHolding = false; return end
+        if UNLOADED then return end
+        if not State.silentAim then
+            silentHolding = false
+            silentTarget = nil
+            return
+        end
+        if not silentHolding then return end
+        if not silentTarget or not silentTarget.Character then
+            silentHolding = false
+            return
+        end
         local head = getTargetPart(silentTarget)
-        if not head then silentHolding = false; return end
+        if not head then
+            silentHolding = false
+            return
+        end
         pcall(function()
             Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position)
         end)
     end)
 
-    pcall(function()
-        UserInputService.InputBegan:Connect(function(input, gp)
-            if UNLOADED or gp or not State.silentAim then return end
-            if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
-            local target = getClosestEnemyInFov(State.silentFov)
-            if not target then return end
-            silentTarget = target
-            silentHolding = true
-        end)
+    local inputBeganConn = UserInputService.InputBegan:Connect(function(input, gp)
+        if UNLOADED or gp or not State.silentAim then return end
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+        local target = getClosestEnemyInFov(State.silentFov)
+        if not target then return end
+        silentTarget = target
+        silentHolding = true
     end)
 
-    pcall(function()
-        UserInputService.InputEnded:Connect(function(input, gp)
-            if UNLOADED or gp then return end
-            if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
-            silentHolding = false
-            silentTarget = nil
-        end)
+    local inputEndedConn = UserInputService.InputEnded:Connect(function(input, gp)
+        if UNLOADED or gp then return end
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then return end
+        silentHolding = false
+        silentTarget = nil
     end)
 
     -- ═══════════════════════════════════════════════
@@ -473,7 +487,7 @@ function BloxStrike.Init(ctx)
         if not ok then chams = nil end
 
         local d = {chams = chams, character = p.Character}
-        d.box      = safeDraw("Square", {Thickness = 1.5, Color = Color3.fromRGB(255, 30, 40), Filled = false, Transparency = 1})
+        d.box      = safeDraw("Square", {Thickness = 1.5, Color = Color3.fromRGB(255, 30, 40), Filled = false, Transparency = 0})
         d.name     = safeDraw("Text",   {Size = 14, Center = true, Outline = true, Color = Color3.fromRGB(255, 255, 255)})
         d.distance = safeDraw("Text",   {Size = 12, Center = true, Outline = true, Color = Color3.fromRGB(255, 80, 80)})
         d.health   = safeDraw("Line",   {Thickness = 3, Color = Color3.fromRGB(0, 255, 0)})
@@ -645,6 +659,10 @@ function BloxStrike.Init(ctx)
             if UNLOADED or not State.esp then return end
             for _, p in ipairs(Players:GetPlayers()) do
                 if p ~= LocalPlayer and p.Character then
+                    local existing = ESP.data[p]
+                    if existing and existing.character ~= p.Character then
+                        destroyESP(p)
+                    end
                     createESP(p)
                     updateESP(p, p.Character)
                 end
@@ -652,11 +670,25 @@ function BloxStrike.Init(ctx)
         end)
     end)
 
-    pcall(function() Players.PlayerRemoving:Connect(function(p) destroyESP(p) end) end)
     pcall(function()
+        Players.PlayerRemoving:Connect(function(p)
+            losCache[p] = nil
+            headSaved[p] = nil
+            destroyESP(p)
+        end)
+    end)
+
+    pcall(function()
+        for _, p in ipairs(Players:GetPlayers()) do
+            p.CharacterAdded:Connect(function()
+                if ESP.data[p] then destroyESP(p) end
+                if headSaved[p] then headSaved[p] = nil end
+            end)
+        end
         Players.PlayerAdded:Connect(function(p)
             p.CharacterAdded:Connect(function()
                 if ESP.data[p] then destroyESP(p) end
+                if headSaved[p] then headSaved[p] = nil end
             end)
         end)
     end)
@@ -668,7 +700,6 @@ function BloxStrike.Init(ctx)
     local origAmbient    = Lighting.Ambient
     local origOutdoor    = Lighting.OutdoorAmbient
     local origClock      = Lighting.ClockTime
-    local origShadows    = Lighting.GlobalShadows
     local origFogEnd     = Lighting.FogEnd
     local origFogStart   = Lighting.FogStart
 
@@ -680,7 +711,6 @@ function BloxStrike.Init(ctx)
                 Lighting.Ambient = Color3.fromRGB(200,200,200)
                 Lighting.OutdoorAmbient = Color3.fromRGB(200,200,200)
                 Lighting.ClockTime = 14
-                Lighting.GlobalShadows = false
             end
             if State.noFog then
                 Lighting.FogEnd = 1e6
@@ -690,13 +720,14 @@ function BloxStrike.Init(ctx)
     end)
 
     local function restoreEnv()
-        Lighting.Brightness = origBrightness
-        Lighting.Ambient = origAmbient
-        Lighting.OutdoorAmbient = origOutdoor
-        Lighting.ClockTime = origClock
-        Lighting.GlobalShadows = origShadows
-        Lighting.FogEnd = origFogEnd
-        Lighting.FogStart = origFogStart
+        pcall(function()
+            Lighting.Brightness = origBrightness
+            Lighting.Ambient = origAmbient
+            Lighting.OutdoorAmbient = origOutdoor
+            Lighting.ClockTime = origClock
+            Lighting.FogEnd = origFogEnd
+            Lighting.FogStart = origFogStart
+        end)
     end
 
     -- ═══════════════════════════════════════════════
@@ -715,9 +746,9 @@ function BloxStrike.Init(ctx)
 
     local function syncUIFromState()
         for _, k in ipairs({
-            "silentAim","aimbot","triggerbot","autoShoot","headExpander",
+            "silentAim","aimbot","aimbotWallCheck","triggerbot","autoShoot","headExpander",
             "esp","espBox","espName","espHealth","espDistance","espWeapon","espArmor","espTracer",
-            "speed","jumpPower","fullbright","noShadows","noFog","noParticles","lowGraphics",
+            "speed","jumpPower","cameraFov","fullbright","noFog",
         }) do
             local el = Elements[k]
             if el and State[k] ~= nil then setToggle(el, State[k]) end
@@ -725,10 +756,18 @@ function BloxStrike.Init(ctx)
         for _, k in ipairs({
             "silentFov","aimbotFov","aimbotSmooth","aimbotMaxDist",
             "triggerbotDelay","autoShootFov","headExpanderSize","espMaxDistance",
-            "speedValue","jumpPowerValue",
+            "speedValue","jumpPowerValue","cameraFovValue",
         }) do
             local el = Elements[k]
             if el and State[k] ~= nil then setSlider(el, State[k]) end
+        end
+    end
+
+    local function applyCameraFov()
+        if State.cameraFov then
+            pcall(function() Camera.FieldOfView = State.cameraFovValue end)
+        else
+            pcall(function() Camera.FieldOfView = origFov end)
         end
     end
 
@@ -747,6 +786,7 @@ function BloxStrike.Init(ctx)
         if not s or not data then return false end
         if data.state then for k, v in pairs(data.state) do State[k] = v end end
         syncUIFromState()
+        applyCameraFov()
         if Window then pcall(function() Window:Notify("📂", "Loaded: " .. name, 3, "info") end) end
         return true
     end
@@ -929,6 +969,16 @@ function BloxStrike.Init(ctx)
             Callback = function(v) State.espTracer = v end,
         }))
         VisualsTab:CreateSection(T("section.environment"))
+        reg("cameraFov", VisualsTab:CreateToggle({
+            Name = "Camera FOV", Description = "Custom field of view",
+            Icon = "🎥", Default = false,
+            Callback = function(v) State.cameraFov = v; applyCameraFov() end,
+        }))
+        reg("cameraFovValue", VisualsTab:CreateSlider({
+            Name = "FOV Value", Description = "",
+            Icon = "📐", Min = 40, Max = 120, Default = 70,
+            Callback = function(v) State.cameraFovValue = v; if State.cameraFov then applyCameraFov() end end,
+        }))
         reg("fullbright", VisualsTab:CreateToggle({
             Name = T("fullbright.name"), Description = T("fullbright.desc"),
             Icon = "💡", Default = false,
@@ -1080,9 +1130,12 @@ function BloxStrike.Init(ctx)
                 clearESP()
                 restoreAllHeads()
                 restoreEnv()
+                pcall(function() Camera.FieldOfView = origFov end)
                 if fovCircle and fovCircle.Remove then pcall(function() fovCircle:Remove() end) end
                 safeUnbind("IZ_BS_Silent")
                 safeUnbind("IZ_BS_Aimbot")
+                if inputBeganConn then pcall(function() inputBeganConn:Disconnect() end) end
+                if inputEndedConn then pcall(function() inputEndedConn:Disconnect() end) end
                 if Window then pcall(function() Window:Notify("Unload", T("config.unload"), 2, "warning") end) end
                 task.wait(0.3)
                 if Window then pcall(function() Window:Destroy() end) end
@@ -1131,7 +1184,7 @@ function BloxStrike.Init(ctx)
     -- REBUILD ON LANGUAGE CHANGE
     -- ═══════════════════════════════════════════════
     local rebuilding = false
-    _G.IZ_RefreshLanguage = function()
+    _G.IZ_RefreshLanguage_BloxStrike = function()
         if UNLOADED or rebuilding then return end
         rebuilding = true
         task.defer(function()
@@ -1144,11 +1197,12 @@ function BloxStrike.Init(ctx)
         end)
     end
     if Language and type(Language.onChange) == "function" then
-        pcall(function() Language.onChange(_G.IZ_RefreshLanguage) end)
+        pcall(function() Language.onChange(_G.IZ_RefreshLanguage_BloxStrike) end)
     end
 
     buildUI()
     syncUIFromState()
+    applyCameraFov()
 
     task.defer(function()
         local a = getAutoload()
@@ -1158,7 +1212,11 @@ function BloxStrike.Init(ctx)
     if Window then
         pcall(function() Window:Notify("✅ " .. SHORT_VERSION, "BloxStrike loaded", 4, "success") end)
     end
-    print("[Infinite Zen] ✅ " .. FULL_VERSION .. " carregado!")
+
+    print("============================================")
+    print("[Infinite Zen] 🇧🇷 " .. FULL_VERSION .. " carregado com sucesso!")
+    print("[Infinite Zen] 🇺🇸 " .. FULL_VERSION .. " loaded successfully!")
+    print("============================================")
 end
 
 return BloxStrike
