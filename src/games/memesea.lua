@@ -1,5 +1,5 @@
 -- ============================================================
--- Infinite Zen - MemeSea - V1.0
+-- Infinite Zen - MemeSea - V1.0.1
 -- ============================================================
 
 local MemeSea = {}
@@ -16,7 +16,7 @@ function MemeSea.Init(ctx)
         return v
     end
 
-    local GAME_VERSION  = "1.0"
+    local GAME_VERSION  = "1.0.1"
     local FULL_VERSION  = "Infinite Zen V" .. GAME_VERSION .. " - " .. gameName
     local SHORT_VERSION = "V" .. GAME_VERSION .. " - " .. gameName
 
@@ -36,11 +36,15 @@ function MemeSea.Init(ctx)
     local LocalPlayer       = Players.LocalPlayer
     local PlayerGui         = LocalPlayer:WaitForChild("PlayerGui")
 
-    -- ═══ VirtualUser SAFE (pode ser nil no executor) ═══
     local VirtualUser = nil
     pcall(function() VirtualUser = game:GetService("VirtualUser") end)
+    if Compat and Compat.getVirtualUser then
+        pcall(function() VirtualUser = Compat.getVirtualUser() end)
+    end
     if VirtualUser == nil then
-        print("[MemeSea] ⚠️ VirtualUser nil — usando mouse1click/VirtualInput")
+        print("[MemeSea] ⚠️ VirtualUser nil — usando mouse1click/firesignal")
+    else
+        print("[MemeSea] ✅ VirtualUser OK")
     end
 
     local UNLOADED = false
@@ -84,28 +88,21 @@ function MemeSea.Init(ctx)
     task.spawn(function()
         if ModuleFolder then
             local ok, m = pcall(function() return require(ModuleFolder:WaitForChild("Quest_Settings", 10)) end)
-            if ok then QuestSettings = m end
+            if ok then QuestSettings = m; print("[MemeSea] Quest_Settings OK") end
             local ok2, c = pcall(function() return require(ModuleFolder:WaitForChild("CodeList", 10)) end)
             if ok2 and type(c) == "table" then CodeList = c end
         end
     end)
 
     local State = {
-        autoQuestFarm = false,
-        farmWeapon = "Fight",
-        bringMobs = true,
-        autoHaki = true,
-        autoClick = true,
-        attackCD = 0.15,
-        teleportDistance = 6,
-        autoStats = false, statPriority = "Melee", statPointsPerTick = 1,
-        autoRedeem = false, autoGacha = false,
-        gachaType = "Floppa Gacha", gachaRolls = 1,
-        sideRaceAwakening = false, sideFloppaWeapon = false, sidePopcatWeapon = false,
-        forcePopcatRedeem = false, forceFloppaClaim = false,
+        autoQuestFarm = false, autoStats = false, autoRedeem = false,
+        statPriority = "Melee", statPointsPerTick = 1, farmWeapon = "Fight",
+        bringMobs = true, autoHaki = true, autoClick = true, antiDamage = true,
+        adaptiveHitbox = true, hitboxMargin = 4, farmDistance = 10.5,
         speed = false, speedValue = 50,
         jumpPower = false, jumpPowerValue = 80,
         antiAfk = false, fullbright = false, noFog = false,
+        respawnWait = 0,
     }
 
     local origBrightness = Lighting.Brightness
@@ -115,22 +112,13 @@ function MemeSea.Init(ctx)
     local origFogEnd     = Lighting.FogEnd
     local origFogStart   = Lighting.FogStart
 
-    local humHealthTrack = setmetatable({}, {__mode = "k"})
+    local currentTarget  = nil
+    local goingToNpc     = false
+    local hoverActive    = false
+    local redeemIndex    = 0
+    local currentMobName = nil
 
-    local mobAdaptHeights  = {}
-    local mobAdaptSide     = {}
-    local MIN_HEIGHT       = 10.5
-    local MARGIN           = 4
-    local HEIGHT_INCREMENT = 3
-    local MAX_HEIGHT       = 60
-    local GACHA_COST       = 25000
-
-    local currentTarget    = nil
-    local currentMobName   = nil
-    local goingToNpc       = false
-    local forcedQuestName  = nil
-    local redeemIndex      = 0
-    local attackLoopActive = false
+    local function isFarmActive() return State.autoQuestFarm end
 
     local function getHRP()
         local c = LocalPlayer.Character
@@ -163,6 +151,13 @@ function MemeSea.Init(ctx)
         return nil
     end
 
+    local function getQuestGiverName(q)
+        if not q then return nil end
+        local g = q:FindFirstChild("QuestGiver")
+        if g and g.Value and g.Value ~= "None" then return g.Value end
+        return nil
+    end
+
     local function getQuestTargetName(q)
         if not q then return nil end
         local t = q:FindFirstChild("Target")
@@ -181,26 +176,18 @@ function MemeSea.Init(ctx)
         local list = {}
         if not QuestSettings or not QuestLocation or not EnemyLocation then return list end
         for Npc, Q in pairs(QuestSettings) do
-            local loc = QuestLocation:FindFirstChild(Npc)
-            if not loc then
-                local n = Npc:lower()
-                for _, c in ipairs(QuestLocation:GetChildren()) do
-                    if c.Name:lower():find(n, 1, true) or n:find(c.Name:lower(), 1, true) then loc = c; break end
-                end
-                if not loc and n:find("dancing") then
-                    loc = QuestLocation:FindFirstChild("Floppa Quest [Race]")
-                end
-            end
-            if loc then
+            if QuestLocation:FindFirstChild(Npc) then
                 local enemyPos = EnemyLocation:FindFirstChild(Q.Target)
                 table.insert(list, {
                     RaidBoss = Q.Raid_Boss, SpecialQuest = Q.Special_Quest,
-                    QuestPos = loc.CFrame, EnemyPos = enemyPos and enemyPos.CFrame or nil,
+                    QuestPos = QuestLocation[Npc].CFrame,
+                    EnemyPos = enemyPos and enemyPos.CFrame or nil,
                     Level = Q.LevelNeed, Need = Q.Need, Enemy = Q.Target, NpcName = Npc,
                 })
             end
         end
         table.sort(list, function(a, b) return a.Level > b.Level end)
+        print("[MemeSea] Quests built:", #list)
         return list
     end
 
@@ -213,15 +200,6 @@ function MemeSea.Init(ctx)
     end)
 
     local function getBestQuestForLevel()
-        if forcedQuestName then
-            for _, q in ipairs(Quests) do
-                if q.NpcName == forcedQuestName then return q end
-            end
-            local fLower = forcedQuestName:lower()
-            for _, q in ipairs(Quests) do
-                if q.NpcName:lower():find(fLower, 1, true) or fLower:find(q.NpcName:lower(), 1, true) then return q end
-            end
-        end
         local lvl = getPlayerLevel()
         if not lvl then return nil end
         for _, q in ipairs(Quests) do
@@ -266,28 +244,23 @@ function MemeSea.Init(ctx)
         return nil
     end
 
-    -- ═══════════════════════════════════════════════════════
-    -- CLICK — usa mouse1click / VirtualInput (VirtualUser é nil aqui)
-    -- ═══════════════════════════════════════════════════════
     local function playerClick()
         if not State.autoClick then return end
         local char = LocalPlayer.Character
         if not char then return end
 
-        -- 1. mouse1click (melhor)
-        if type(mouse1click) == "function" then
-            pcall(mouse1click)
-        -- 2. VirtualInput
-        elseif VirtualInput then
-            pcall(function()
-                VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-                task.wait(0.01)
-                VirtualInput:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-            end)
-        -- 3. VirtualUser (fallback extremo)
-        elseif VirtualUser and VirtualUser.Button1Down then
+        if VirtualUser then
             pcall(function() VirtualUser:CaptureController() end)
             pcall(function() VirtualUser:Button1Down(Vector2.new(1e4, 1e4)) end)
+        end
+
+        if not VirtualUser then
+            local tool = char:FindFirstChildOfClass("Tool")
+            if tool and firesignal and tool.Activated then
+                pcall(function() firesignal(tool.Activated) end)
+            elseif type(mouse1click) == "function" then
+                pcall(mouse1click)
+            end
         end
 
         if State.autoHaki then
@@ -298,21 +271,6 @@ function MemeSea.Init(ctx)
             end
         end
     end
-
-    task.spawn(function()
-        while not UNLOADED do
-            if attackLoopActive and State.autoClick and currentTarget and currentTarget.Parent then
-                if isAlive(currentTarget) then
-                    playerClick()
-                    task.wait(State.attackCD or 0.15)
-                else
-                    task.wait(0.1)
-                end
-            else
-                task.wait(0.1)
-            end
-        end
-    end)
 
     local function findEnemy(name)
         if not Monsters then return nil end
@@ -334,42 +292,27 @@ function MemeSea.Init(ctx)
         return maxSize / 2
     end
 
-    local function getAdaptHeight(mob)
-        if not mob then return MIN_HEIGHT end
-        local name = mob.Name
-        if not mobAdaptHeights[name] then
-            local radius = getMobHitboxRadius(mob)
-            mobAdaptHeights[name] = math.max(radius + MARGIN, MIN_HEIGHT)
-        end
-        return mobAdaptHeights[name]
-    end
-
-    local function getAdaptSide(mob)
-        if not mob then return 2, 2 end
-        local name = mob.Name
-        if not mobAdaptSide[name] then mobAdaptSide[name] = { side = 2, back = 2 } end
-        return mobAdaptSide[name].side, mobAdaptSide[name].back
-    end
-
     local function calcDynamicCFrame(mob)
-        if not mob then return CFrame.new(2, MIN_HEIGHT, 2) * CFrame.Angles(math.rad(-90), 0, 0) end
-        local up = getAdaptHeight(mob)
-        local side, back = getAdaptSide(mob)
+        local radius = getMobHitboxRadius(mob)
+        local margin = State.hitboxMargin or 4
+        if not State.adaptiveHitbox then
+            return CFrame.new(3, State.farmDistance, 2) * CFrame.Angles(math.rad(-90), 0, 0)
+        end
+        local dist = math.max(radius + margin, State.farmDistance)
+        local up = dist * 0.6
+        local back = dist * 0.4
+        local side = dist * 0.3
         return CFrame.new(side, up, back) * CFrame.Angles(math.rad(-90), 0, 0)
     end
 
-    local function onTookDamage(mobName, damage)
-        if not mobName then return end
-        local old = mobAdaptHeights[mobName] or MIN_HEIGHT
-        local new = math.min(old + HEIGHT_INCREMENT, MAX_HEIGHT)
-        if new > old then mobAdaptHeights[mobName] = new end
-    end
-
     local function applyAntiDamage()
+        if not State.antiDamage then return end
         local char = LocalPlayer.Character
         if not char then return end
         for _, part in ipairs(char:GetDescendants()) do
-            if part:IsA("BasePart") then pcall(function() part.CanQuery = false; part.CanTouch = false end) end
+            if part:IsA("BasePart") then
+                pcall(function() part.CanQuery = false; part.CanTouch = false end)
+            end
         end
     end
 
@@ -377,7 +320,9 @@ function MemeSea.Init(ctx)
         local char = LocalPlayer.Character
         if not char then return end
         for _, part in ipairs(char:GetDescendants()) do
-            if part:IsA("BasePart") then pcall(function() part.CanQuery = true; part.CanTouch = true end) end
+            if part:IsA("BasePart") then
+                pcall(function() part.CanQuery = true; part.CanTouch = true end)
+            end
         end
     end
 
@@ -406,9 +351,8 @@ function MemeSea.Init(ctx)
         if not enemy then return false end
         local pp = enemy.PrimaryPart or enemy:FindFirstChild("HumanoidRootPart")
         if not pp then return false end
-        currentMobName = enemy.Name
         currentTarget = enemy
-        attackLoopActive = true
+        currentMobName = enemy.Name
         teleportToCFrame(pp.CFrame * calcDynamicCFrame(enemy))
         applyAntiDamage()
         equipFarmTool()
@@ -420,29 +364,17 @@ function MemeSea.Init(ctx)
     local function takeQuest(npcName)
         if not QuestLocation then return false end
         local loc = QuestLocation:FindFirstChild(npcName)
-        if not loc then
-            local n = npcName:lower()
-            for _, c in ipairs(QuestLocation:GetChildren()) do
-                if c.Name:lower():find(n, 1, true) or n:find(c.Name:lower(), 1, true) then loc = c; break end
-            end
-        end
         if loc then
             teleportToCFrame(loc.CFrame + Vector3.new(0, 3, 0))
             task.wait(0.8)
         end
         local npc = nil
-        for _ = 1, 15 do
+        for i = 1, 15 do
             npc = Quests_Npc and Quests_Npc:FindFirstChild(npcName)
-            if not npc and Quests_Npc then
-                local n = npcName:lower()
-                for _, c in ipairs(Quests_Npc:GetChildren()) do
-                    if c.Name:lower():find(n, 1, true) or n:find(c.Name:lower(), 1, true) then npc = c; break end
-                end
-            end
             if npc then break end
             task.wait(0.3)
         end
-        if not npc then return false end
+        if not npc then print("[MemeSea] NPC '"..npcName.."' nao spawnou"); return false end
         local block = npc:FindFirstChild("Block")
         local prompt = block and block:FindFirstChild("QuestPrompt")
         if not prompt then return false end
@@ -460,306 +392,25 @@ function MemeSea.Init(ctx)
         return true
     end
 
-    local function goToNpcAndPrompt(npc)
-        if not npc then return false end
-        local npcPos
-        if npc:IsA("Model") then npcPos = npc:GetPivot().Position
-        elseif npc:IsA("BasePart") then npcPos = npc.Position end
-        if not npcPos then return false end
-        local myHRP = getHRP()
-        if myHRP and (npcPos - myHRP.Position).Magnitude > 6 then
-            teleportToCFrame(CFrame.new(npcPos + Vector3.new(0, 3, 3), npcPos))
-            task.wait(0.4)
-        end
-        local prompt
-        for _, d in ipairs(npc:GetDescendants()) do
-            if d:IsA("ProximityPrompt") then prompt = d; break end
-        end
-        if prompt then
-            pcall(function() prompt.MaxActivationDistance = 100; prompt.HoldDuration = 0; prompt.RequiresLineOfSight = false end)
-            pcall(function() fireproximityprompt(prompt) end)
-            task.wait(0.5)
-            pcall(function() fireproximityprompt(prompt) end)
-            return true
-        end
-        return false
-    end
-
-    local function findNpcByKeyword(keyword)
-        local k = keyword:lower()
-        if Quests_Npc then
-            for _, c in ipairs(Quests_Npc:GetChildren()) do
-                if c.Name:lower() == k then return c end
-            end
-            for _, c in ipairs(Quests_Npc:GetChildren()) do
-                if c.Name:lower():find(k, 1, true) then return c end
-            end
-        end
-        if Shop_Npc then
-            for _, c in ipairs(Shop_Npc:GetChildren()) do
-                if c.Name:lower() == k then return c end
-            end
-            for _, c in ipairs(Shop_Npc:GetChildren()) do
-                if c.Name:lower():find(k, 1, true) then return c end
-            end
-        end
-        for _, obj in ipairs(workspace:GetDescendants()) do
-            if obj:IsA("Model") and obj.Name:lower():find(k, 1, true) then
-                for _, d in ipairs(obj:GetDescendants()) do
-                    if d:IsA("ProximityPrompt") then return obj end
-                end
-            end
-        end
-        return nil
-    end
-
-    local function clickGuiYes()
-        local pg = LocalPlayer:FindFirstChild("PlayerGui")
-        if not pg then return false end
-        for _, obj in ipairs(pg:GetDescendants()) do
-            if obj:IsA("TextButton") and obj.Visible then
-                local t = (obj.Text or ""):lower()
-                if t:find("yes", 1, true) or t:find("buy", 1, true) or t:find("confirm", 1, true)
-                    or t:find("comprar", 1, true) or t:find("sim", 1, true) or t:find("accept", 1, true) then
-                    local inset = GuiService:GetGuiInset()
-                    local pos = obj.AbsolutePosition + (obj.AbsoluteSize / 2) + Vector2.new(0, inset.Y)
-                    pcall(function() VirtualInput:SendMouseButtonEvent(pos.X, pos.Y, 0, true, game, 1) end)
-                    task.wait(0.05)
-                    pcall(function() VirtualInput:SendMouseButtonEvent(pos.X, pos.Y, 0, false, game, 1) end)
-                    return true
-                end
-            end
-        end
-        return false
-    end
-
-    local function tryBuyItem(npcKeyword, itemName)
-        local npc = findNpcByKeyword(npcKeyword)
-        if not npc then return false end
-        local npcPos = npc:GetPivot().Position
-        local myHRP = getHRP()
-        if myHRP and (npcPos - myHRP.Position).Magnitude > 6 then
-            teleportToCFrame(CFrame.new(npcPos + Vector3.new(0, 3, 3), npcPos))
-            task.wait(0.5)
-        end
-        local prompt
-        for _, d in ipairs(npc:GetDescendants()) do
-            if d:IsA("ProximityPrompt") then prompt = d; break end
-        end
-        if not prompt then return false end
-        pcall(function() prompt.MaxActivationDistance = 100; prompt.HoldDuration = 0; prompt.RequiresLineOfSight = false end)
-        pcall(function() fireproximityprompt(prompt) end)
-        task.wait(1.2)
-        pcall(function() fireproximityprompt(prompt) end)
-        task.wait(1.0)
-        clickGuiYes()
-        return true
-    end
-
-    local function findPopcatClickCount()
-        if not PlayerData then return 0 end
-        local pop = PlayerData:FindFirstChild("Pop")
-        if pop and pop:IsA("ValueBase") then return pop.Value end
-        return 0
-    end
-
-    local function findOhioPopcat()
-        if Shop_Npc then
-            local ohio = Shop_Npc:FindFirstChild("Ohio Popcat")
-            if ohio then return ohio end
-        end
-        return nil
-    end
-
-    local function goToPvpArenaIsland()
-        local island = workspace:FindFirstChild("Island")
-        local pvp = island and island:FindFirstChild("PvpArena")
-        if not pvp then return false end
-        local anchor
-        for _, obj in ipairs(pvp:GetDescendants()) do
-            if obj:IsA("BasePart") and obj.Size.Magnitude > 40 then anchor = obj; break end
-        end
-        if not anchor then return false end
-        local myHRP = getHRP()
-        if myHRP and (anchor.Position - myHRP.Position).Magnitude < 50 then return true end
-        teleportToCFrame(CFrame.new(anchor.Position + Vector3.new(0, 15, 0)))
-        return true
-    end
-
-    local function findCoolFloppa()
-        if not Quests_Npc then return nil end
-        local npc = Quests_Npc:FindFirstChild("Cool Floppa Quest")
-        if npc then return npc end
-        for _, c in ipairs(Quests_Npc:GetChildren()) do
-            local n = c.Name:lower()
-            if n:find("cool", 1, true) and n:find("floppa", 1, true) then return c end
-        end
-        return nil
-    end
-
-    local function fireNpcPrompt(npc)
-        if not npc then return false end
-        local npcPos = npc:GetPivot().Position
-        local myHRP = getHRP()
-        if myHRP and (npcPos - myHRP.Position).Magnitude > 6 then
-            teleportToCFrame(CFrame.new(npcPos + Vector3.new(0, 3, 3), npcPos))
-            task.wait(0.4)
-        end
-        local block = npc:FindFirstChild("Block")
-        local prompt = block and block:FindFirstChild("QuestPrompt")
-        if prompt then
-            pcall(function() prompt.MaxActivationDistance = 100; prompt.HoldDuration = 0; prompt.RequiresLineOfSight = false end)
-            pcall(function() fireproximityprompt(prompt) end)
-            task.wait(0.5)
-            pcall(function() fireproximityprompt(prompt) end)
-            return true
-        end
-        return false
-    end
-
-    local function findLavaFloppaPrompt()
-        local island = workspace:FindFirstChild("Island")
-        local fi = island and island:FindFirstChild("FloppaIsland")
-        if not fi then return nil end
-        local decoration = fi:FindFirstChild("Decoration")
-        local others = decoration and decoration:FindFirstChild("Others")
-        local lf = others and others:FindFirstChild("Lava Floppa")
-        if not lf then
-            for _, obj in ipairs(fi:GetDescendants()) do
-                if obj:IsA("Model") and obj.Name == "Lava Floppa" then lf = obj; break end
-            end
-        end
-        if not lf then return nil end
-        local cp = lf:FindFirstChild("ClickPart") or lf.PrimaryPart
-        local p = cp and cp:FindFirstChild("ProximityPrompt")
-        return p, cp
-    end
-
-    local function getMoney()
-        local v = PlayerData and PlayerData:FindFirstChild("Money")
-        return v and v.Value or 0
-    end
-
-    local function getOpenGachaGui()
-        local pg = LocalPlayer:FindFirstChild("PlayerGui")
-        if not pg then return nil end
-        local folder = pg:FindFirstChild("NpcGui_Folder")
-        if not folder then return nil end
-        for _, child in ipairs(folder:GetChildren()) do
-            if child:IsA("ScreenGui") and child.Enabled then
-                local bg = child:FindFirstChild("Background")
-                if bg and bg.Visible then return child end
-            end
-        end
-        return nil
-    end
-
-    local function getGachaButton(rolls)
-        local npcGui = getOpenGachaGui()
-        if not npcGui then return nil end
-        local bg = npcGui:FindFirstChild("Background")
-        local fr = bg and bg:FindFirstChild("Frame")
-        if not fr then return nil end
-        if rolls == 1 then
-            local f = fr:FindFirstChild("ConfirmFrame"); return f and f:FindFirstChild("Confirm")
-        elseif rolls == 3 then
-            local f = fr:FindFirstChild("TripleFrame"); return f and f:FindFirstChild("Triple")
-        elseif rolls == 10 then
-            local f = fr:FindFirstChild("DecupleFrame"); return f and f:FindFirstChild("Decuple")
-        end
-        return nil
-    end
-
-    local function isGachaGuiOpen() return getOpenGachaGui() ~= nil end
-
-    local function clickButton(btn)
-        if not btn then return false end
-        local inset = GuiService:GetGuiInset()
-        local pos = btn.AbsolutePosition + (btn.AbsoluteSize / 2) + Vector2.new(0, inset.Y)
-        pcall(function() VirtualInput:SendMouseButtonEvent(pos.X, pos.Y, 0, true, game, 1) end)
-        task.wait(0.05)
-        pcall(function() VirtualInput:SendMouseButtonEvent(pos.X, pos.Y, 0, false, game, 1) end)
-        return true
-    end
-
-    local function teleportToGachaNpc()
-        if not Shop_Npc then return false end
-        local npc = Shop_Npc:FindFirstChild(State.gachaType)
-        if not npc then return false end
-        local prompt
-        for _, d in ipairs(npc:GetDescendants()) do
-            if d:IsA("ProximityPrompt") then prompt = d; break end
-        end
-        local anchor = prompt and prompt.Parent or npc:FindFirstChildWhichIsA("BasePart")
-        if not anchor then return false end
-        local myHRP = getHRP()
-        if not myHRP then return false end
-        pcall(function() myHRP.CFrame = CFrame.new(anchor.Position + Vector3.new(0, 0, 3), anchor.Position) end)
-        task.wait(0.4)
-        if prompt then
-            pcall(function() prompt.MaxActivationDistance = 100; prompt.HoldDuration = 0; prompt.RequiresLineOfSight = false end)
-            pcall(function() fireproximityprompt(prompt) end)
-        end
-        return true
-    end
-
-    LocalPlayer.CharacterAdded:Connect(function()
-        State.respawnWait = tick() + 3
-        restoreAntiDamage()
-        attackLoopActive = false
-        currentTarget = nil
-        currentMobName = nil
-    end)
-
-    task.spawn(function()
-        while not UNLOADED do
-            task.wait(0.15)
-            if (State.autoQuestFarm or State.sideRaceAwakening or State.sideFloppaWeapon or State.sidePopcatWeapon) and currentMobName then
-                local char = LocalPlayer.Character
-                local hum = char and char:FindFirstChildOfClass("Humanoid")
-                if hum then
-                    local h = hum.Health
-                    local track = humHealthTrack[hum]
-                    if track and track.lastHealth and track.lastHealth > 0 and h < track.lastHealth then
-                        local dmg = track.lastHealth - h
-                        if dmg >= 5 and (tick() - (track.lastDmgTime or 0)) > 0.5 then
-                            humHealthTrack[hum] = {lastHealth = h, lastDmgTime = tick()}
-                            onTookDamage(currentMobName, dmg)
-                        else
-                            humHealthTrack[hum] = {lastHealth = h, lastDmgTime = track.lastDmgTime}
-                        end
-                    else
-                        humHealthTrack[hum] = {lastHealth = h, lastDmgTime = track and track.lastDmgTime or 0}
-                    end
-                end
-            end
-        end
-    end)
-
     task.spawn(function()
         local lastState = ""
         local forceNpcUntil = 0
         local takeAttempts = 0
+
         while not UNLOADED do
             task.wait(0.1)
-            local sideBusy = State.sideRaceAwakening or State.sideFloppaWeapon or State.sidePopcatWeapon
-            if not State.autoQuestFarm or sideBusy then
-                currentTarget = nil
-                currentMobName = nil
-                attackLoopActive = false
-                lastState = ""
-                takeAttempts = 0
-                goingToNpc = false
+            if not isFarmActive() then
+                currentTarget = nil; lastState = ""; takeAttempts = 0; goingToNpc = false
+                restoreAntiDamage()
                 task.wait(0.4)
             else
                 local now = tick()
-                if now < (State.respawnWait or 0) then
-                    task.wait(0.3)
+                if now < State.respawnWait then task.wait(0.3)
                 else
                     local bestQuest = getBestQuestForLevel()
                     local activeQuest = getActiveQuest()
-                    if not bestQuest then
-                        task.wait(1)
+
+                    if not bestQuest then task.wait(1)
                     elseif activeQuest then
                         goingToNpc = false
                         takeAttempts = 0
@@ -770,16 +421,12 @@ function MemeSea.Init(ctx)
                                 if enemyLoc then teleportToCFrame(enemyLoc.CFrame + Vector3.new(0, 3, 0)) end
                                 task.wait(0.3)
                             end
-                        else
-                            task.wait(0.3)
-                        end
+                        else task.wait(0.3) end
                     else
-                        attackLoopActive = false
-                        if lastState ~= "take_" .. bestQuest.NpcName then
-                            lastState = "take_" .. bestQuest.NpcName
+                        if lastState ~= "take_"..bestQuest.NpcName then
+                            lastState = "take_"..bestQuest.NpcName
                             takeAttempts = 0
                             currentTarget = nil
-                            currentMobName = nil
                             goingToNpc = true
                         end
                         if now > forceNpcUntil then
@@ -792,15 +439,11 @@ function MemeSea.Init(ctx)
                             else
                                 forceNpcUntil = tick() + 1
                                 if takeAttempts > 10 then
-                                    lastState = ""
-                                    takeAttempts = 0
-                                    goingToNpc = false
+                                    lastState = ""; takeAttempts = 0; goingToNpc = false
                                     task.wait(3)
                                 end
                             end
-                        else
-                            task.wait(0.15)
-                        end
+                        else task.wait(0.15) end
                     end
                 end
             end
@@ -809,35 +452,36 @@ function MemeSea.Init(ctx)
 
     RunService.Heartbeat:Connect(function()
         if UNLOADED then return end
-        if State.sideRaceAwakening or State.sideFloppaWeapon or State.sidePopcatWeapon then return end
-        if not State.autoQuestFarm then return end
+        if not isFarmActive() then return end
         if goingToNpc then return end
         if not currentTarget or not currentTarget.Parent then return end
         if not isAlive(currentTarget) then
             currentTarget = nil
             currentMobName = nil
-            attackLoopActive = false
             return
         end
-        applyAntiDamage()
-        local pp = currentTarget.PrimaryPart or currentTarget:FindFirstChild("HumanoidRootPart")
-        if pp then
-            pcall(function()
-                local myHRP = getHRP()
-                if myHRP then
-                    myHRP.CFrame = pp.CFrame * calcDynamicCFrame(currentTarget)
-                    myHRP.Velocity = Vector3.new(0, 0, 0)
-                    myHRP.RotVelocity = Vector3.new(0, 0, 0)
-                    myHRP.CanCollide = false
-                end
-            end)
+        if State.antiDamage then applyAntiDamage() end
+        if State.adaptiveHitbox then
+            local pp = currentTarget.PrimaryPart or currentTarget:FindFirstChild("HumanoidRootPart")
+            if pp then
+                pcall(function()
+                    local myHRP = getHRP()
+                    if myHRP then
+                        myHRP.CFrame = pp.CFrame * calcDynamicCFrame(currentTarget)
+                        myHRP.Velocity = Vector3.new(0, 0, 0)
+                        myHRP.RotVelocity = Vector3.new(0, 0, 0)
+                        myHRP.CanCollide = false
+                    end
+                end)
+                hoverActive = true
+            end
         end
     end)
 
     task.spawn(function()
         while not UNLOADED do
             task.wait(0.5)
-            if State.autoQuestFarm then
+            if isFarmActive() then
                 local char = LocalPlayer.Character
                 if char then
                     local hum = char:FindFirstChildOfClass("Humanoid")
@@ -845,278 +489,6 @@ function MemeSea.Init(ctx)
                     if not findFarmTool() then equipFarmTool() end
                 end
             end
-        end
-    end)
-
-    -- SIDE QUESTS (race/floppa/popcat) — mantidos
-    task.spawn(function()
-        local wasActive = false
-        local phase = "idle"
-        local lastAttempt = 0
-        local RACE_LOC_NAME = "Floppa Quest [Race]"
-
-        local function teleportToRace()
-            if not QuestLocation then return false end
-            local loc = QuestLocation:FindFirstChild(RACE_LOC_NAME)
-            if not loc then
-                for _, c in ipairs(QuestLocation:GetChildren()) do
-                    if c.Name:lower():find("race", 1, true) then loc = c; break end
-                end
-            end
-            if not loc then return false end
-            teleportToCFrame(loc.CFrame + Vector3.new(0, 5, 0))
-            return true
-        end
-
-        local function findDancingNpc()
-            if not Quests_Npc then return nil end
-            for _, npc in ipairs(Quests_Npc:GetChildren()) do
-                if npc:IsA("Model") and npc.Name:lower():find("dancing", 1, true) then return npc end
-            end
-            return nil
-        end
-
-        local function getRaceQuest()
-            local aq = getActiveQuest()
-            if not aq then return nil end
-            if getQuestTargetName(aq) == "Sogga" then return aq end
-            return nil
-        end
-
-        while not UNLOADED do
-            task.wait(0.3)
-            if not State.sideRaceAwakening then
-                if wasActive then
-                    wasActive = false
-                    forcedQuestName = nil
-                    currentTarget = nil
-                    currentMobName = nil
-                    attackLoopActive = false
-                    restoreAntiDamage()
-                    phase = "idle"
-                end
-                task.wait(0.5)
-            else
-                if not wasActive then
-                    wasActive = true
-                    forcedQuestName = "Dancing Banana Quest"
-                    phase = "going"
-                end
-                local aq = getRaceQuest()
-                if not aq then
-                    phase = "going"
-                    teleportToRace()
-                    task.wait(0.4)
-                    local npc = findDancingNpc()
-                    if not npc then task.wait(0.5)
-                    else
-                        local npcPos = npc:GetPivot().Position
-                        local myHRP = getHRP()
-                        if myHRP and (npcPos - myHRP.Position).Magnitude > 8 then
-                            teleportToCFrame(CFrame.new(npcPos + Vector3.new(0, 3, 3), npcPos))
-                            task.wait(0.3)
-                        end
-                        local block = npc:FindFirstChild("Block")
-                        local prompt = block and block:FindFirstChild("QuestPrompt")
-                        if prompt then
-                            pcall(function() prompt.MaxActivationDistance = 100; prompt.HoldDuration = 0; prompt.RequiresLineOfSight = false end)
-                            pcall(function() fireproximityprompt(prompt) end)
-                            task.wait(0.5)
-                            pcall(function() fireproximityprompt(prompt) end)
-                            task.wait(1.0)
-                        else task.wait(1) end
-                    end
-                else
-                    local cur, need = getQuestProgress(aq)
-                    if cur >= need then
-                        phase = "returning"
-                        if tick() - lastAttempt > 3 then
-                            lastAttempt = tick()
-                            teleportToRace()
-                            task.wait(0.4)
-                            local npc = findDancingNpc()
-                            if npc then
-                                local npcPos = npc:GetPivot().Position
-                                teleportToCFrame(CFrame.new(npcPos + Vector3.new(0, 3, 3), npcPos))
-                                task.wait(0.3)
-                                local block = npc:FindFirstChild("Block")
-                                local prompt = block and block:FindFirstChild("QuestPrompt")
-                                if prompt then
-                                    pcall(function() fireproximityprompt(prompt) end)
-                                    task.wait(0.5)
-                                    pcall(function() fireproximityprompt(prompt) end)
-                                end
-                            end
-                        end
-                    else
-                        phase = "farming"
-                        local sogga = findEnemy("Sogga")
-                        if sogga then killMonster("Sogga")
-                        else
-                            local loc = EnemyLocation and EnemyLocation:FindFirstChild("Sogga")
-                            if loc then teleportToCFrame(loc.CFrame + Vector3.new(0, 3, 0)) end
-                            task.wait(0.5)
-                        end
-                    end
-                end
-            end
-        end
-    end)
-
-    task.spawn(function()
-        local wasActive = false
-        local phase = "idle"
-        local lastAttempt = 0
-        local lastClick = 0
-
-        local function getRealProgress()
-            local aq = getActiveQuest()
-            if not aq then return nil end
-            local a = aq:FindFirstChild("Amount")
-            local n = aq:FindFirstChild("Need")
-            if a and n then return a.Value, n.Value end
-            return nil
-        end
-
-        while not UNLOADED do
-            task.wait(0.05)
-            if not State.sideFloppaWeapon then
-                if wasActive then
-                    wasActive = false
-                    phase = "idle"
-                    State.forceFloppaClaim = false
-                    attackLoopActive = false
-                end
-                task.wait(0.5)
-            else
-                if not wasActive then
-                    wasActive = true
-                    phase = State.forceFloppaClaim and "turning_in" or "getting_quest"
-                end
-                if State.forceFloppaClaim then
-                    State.forceFloppaClaim = false
-                    phase = "turning_in"
-                end
-                if phase == "getting_quest" then
-                    local npc = findCoolFloppa()
-                    if not npc then
-                        if tick() - lastAttempt > 2 then
-                            lastAttempt = tick()
-                            if QuestLocation then
-                                local loc = QuestLocation:FindFirstChild("Cool Floppa Quest")
-                                if loc then teleportToCFrame(loc.CFrame + Vector3.new(0, 5, 0)) end
-                            end
-                        end
-                        task.wait(0.4)
-                    else
-                        fireNpcPrompt(npc)
-                        task.wait(1.2)
-                        phase = "clicking"
-                    end
-                elseif phase == "clicking" then
-                    local cur, need = getRealProgress()
-                    if not cur then phase = "getting_quest"
-                    elseif cur >= need then phase = "turning_in"
-                    else
-                        if tick() - lastClick > 0.1 then
-                            lastClick = tick()
-                            local prompt, clickPart = findLavaFloppaPrompt()
-                            if prompt and clickPart then
-                                local myHRP = getHRP()
-                                if myHRP and (clickPart.Position - myHRP.Position).Magnitude > 6 then
-                                    teleportToCFrame(CFrame.new(clickPart.Position + Vector3.new(0, 3, 3), clickPart.Position))
-                                    task.wait(0.2)
-                                end
-                                pcall(function() prompt.MaxActivationDistance = 100; prompt.HoldDuration = 0; prompt.RequiresLineOfSight = false end)
-                                pcall(function() fireproximityprompt(prompt) end)
-                            end
-                        else task.wait(0.02) end
-                    end
-                elseif phase == "turning_in" then
-                    if tick() - lastAttempt > 2 then
-                        lastAttempt = tick()
-                        local npc = findCoolFloppa()
-                        if npc then
-                            fireNpcPrompt(npc)
-                            task.wait(1.5)
-                            local cur, need = getRealProgress()
-                            if cur and cur < need then phase = "clicking"
-                            else phase = "getting_quest" end
-                        end
-                    else task.wait(0.3) end
-                end
-            end
-        end
-    end)
-
-    task.spawn(function()
-        local wasActive = false
-        local phase = "clicking"
-        local lastAttempt = 0
-        local GOAL = 10000
-
-        while not UNLOADED do
-            task.wait(0.02)
-            if not State.sidePopcatWeapon then
-                if wasActive then
-                    wasActive = false
-                    phase = "clicking"
-                    State.forcePopcatRedeem = false
-                end
-                task.wait(0.5)
-            else
-                if not wasActive then
-                    wasActive = true
-                    phase = findPopcatClickCount() >= GOAL and "going_to_ohio" or "clicking"
-                end
-                if State.forcePopcatRedeem then
-                    State.forcePopcatRedeem = false
-                    if findPopcatClickCount() >= GOAL then phase = "going_to_ohio" end
-                end
-                if phase == "clicking" then
-                    local island = workspace:FindFirstChild("Island")
-                    local fi = island and island:FindFirstChild("FloppaIsland")
-                    local popcat = fi and fi:FindFirstChild("Popcat_Clickable")
-                    local part = popcat and popcat:FindFirstChild("Part")
-                    local cd = part and part:FindFirstChild("ClickDetector")
-                    if cd and part then
-                        local myHRP = getHRP()
-                        if myHRP and (part.Position - myHRP.Position).Magnitude > 6 then
-                            teleportToCFrame(CFrame.new(part.Position + Vector3.new(0, 3, 3), part.Position))
-                            task.wait(0.2)
-                        end
-                        pcall(function() fireclickdetector(cd) end)
-                        if findPopcatClickCount() >= GOAL then phase = "going_to_ohio" end
-                    else task.wait(0.5) end
-                elseif phase == "going_to_ohio" then
-                    if tick() - lastAttempt > 2 then
-                        lastAttempt = tick()
-                        goToPvpArenaIsland()
-                        task.wait(2)
-                        local npc = findOhioPopcat()
-                        if npc then
-                            goToNpcAndPrompt(npc)
-                            task.wait(1.5)
-                        end
-                    else task.wait(0.3) end
-                end
-            end
-        end
-    end)
-
-    task.spawn(function()
-        while not UNLOADED do
-            task.wait(2)
-            if State.autoGacha then
-                local cost = GACHA_COST * State.gachaRolls
-                if getMoney() < cost then task.wait(3)
-                else
-                    if not isGachaGuiOpen() then teleportToGachaNpc(); task.wait(1.5) end
-                    local btn = getGachaButton(State.gachaRolls)
-                    if btn then clickButton(btn); task.wait(1.5)
-                    else teleportToGachaNpc(); task.wait(2) end
-                end
-            else task.wait(0.5) end
         end
     end)
 
@@ -1131,25 +503,14 @@ function MemeSea.Init(ctx)
                     if type(chosen) == "table" then chosen = chosen[1] end
                     local key
                     if chosen == "Balanced" then
-                        local stats = {
-                            MeleeLevel = PlayerData:FindFirstChild("MeleeLevel"),
-                            DefenseLevel = PlayerData:FindFirstChild("DefenseLevel"),
-                            SwordLevel = PlayerData:FindFirstChild("SwordLevel"),
-                            MemePowerLevel = PlayerData:FindFirstChild("MemePowerLevel"),
-                        }
+                        local stats = {MeleeLevel=PlayerData:FindFirstChild("MeleeLevel"),DefenseLevel=PlayerData:FindFirstChild("DefenseLevel"),SwordLevel=PlayerData:FindFirstChild("SwordLevel"),MemePowerLevel=PlayerData:FindFirstChild("MemePowerLevel")}
                         local lowest, lname = math.huge, "MeleeLevel"
-                        for k, v in pairs(stats) do
-                            if v and v.Value < lowest then lowest = v.Value; lname = k end
-                        end
+                        for k, v in pairs(stats) do if v and v.Value < lowest then lowest = v.Value; lname = k end end
                         key = lname
                     else key = STAT_ALIASES[tostring(chosen):lower()] end
                     if key then
                         local sf = MainEvents:FindFirstChild("StatsFunction")
-                        if sf then
-                            pcall(function()
-                                sf:InvokeServer({Target = key, Action = "UpgradeStats", Amount = math.min(sp.Value, State.statPointsPerTick)})
-                            end)
-                        end
+                        if sf then pcall(function() sf:InvokeServer({Target=key, Action="UpgradeStats", Amount=math.min(sp.Value, State.statPointsPerTick)}) end) end
                     end
                 end
             end
@@ -1163,13 +524,9 @@ function MemeSea.Init(ctx)
                 local cf = MainEvents:FindFirstChild("Code")
                 if cf then
                     local codes = {}
-                    for k, v in pairs(CodeList) do
-                        if v.Status ~= true then table.insert(codes, k) end
-                    end
+                    for k, v in pairs(CodeList) do if v.Status ~= true then table.insert(codes, k) end end
                     redeemIndex = redeemIndex + 1
-                    if redeemIndex > #codes then
-                        State.autoRedeem = false
-                        redeemIndex = 0
+                    if redeemIndex > #codes then State.autoRedeem = false; redeemIndex = 0
                     else pcall(function() cf:InvokeServer(codes[redeemIndex]) end) end
                 end
             else redeemIndex = 0 end
@@ -1180,7 +537,12 @@ function MemeSea.Init(ctx)
         while not UNLOADED do
             task.wait(60)
             if State.antiAfk then
-                if type(mouse1click) == "function" then pcall(mouse1click) end
+                if VirtualUser then
+                    pcall(function() VirtualUser:CaptureController() end)
+                    pcall(function() VirtualUser:ClickButton2(Vector2.new(0,0)) end)
+                elseif type(mouse1click) == "function" then
+                    pcall(mouse1click)
+                end
             end
         end
     end)
@@ -1196,14 +558,11 @@ function MemeSea.Init(ctx)
             if State.jumpPower and hum.UseJumpPower and hum.JumpPower ~= State.jumpPowerValue then hum.JumpPower = State.jumpPowerValue end
             if State.fullbright then
                 Lighting.Brightness = 3
-                Lighting.Ambient = Color3.fromRGB(200, 200, 200)
-                Lighting.OutdoorAmbient = Color3.fromRGB(200, 200, 200)
+                Lighting.Ambient = Color3.fromRGB(200,200,200)
+                Lighting.OutdoorAmbient = Color3.fromRGB(200,200,200)
                 Lighting.ClockTime = 14
             end
-            if State.noFog then
-                Lighting.FogEnd = 1e6
-                Lighting.FogStart = 0
-            end
+            if State.noFog then Lighting.FogEnd = 1e6; Lighting.FogStart = 0 end
         end)
     end)
 
@@ -1217,6 +576,13 @@ function MemeSea.Init(ctx)
             Lighting.FogStart = origFogStart
         end)
     end
+
+    LocalPlayer.CharacterAdded:Connect(function()
+        State.respawnWait = tick() + 3
+        restoreAntiDamage()
+        currentTarget = nil
+        currentMobName = nil
+    end)
 
     local BASE_FOLDER   = "InfiniteZen_Configs"
     local CONFIG_FOLDER = BASE_FOLDER .. "/MemeSea"
@@ -1234,16 +600,15 @@ function MemeSea.Init(ctx)
 
     local function syncUIFromState()
         local toggles = {
-            "autoQuestFarm", "bringMobs", "autoHaki", "autoClick",
-            "autoStats", "autoRedeem", "autoGacha",
-            "sideRaceAwakening", "sideFloppaWeapon", "sidePopcatWeapon",
+            "autoQuestFarm", "bringMobs", "autoHaki", "autoClick", "antiDamage", "adaptiveHitbox",
+            "autoStats", "autoRedeem",
             "speed", "jumpPower", "antiAfk", "fullbright", "noFog",
         }
         for _, key in ipairs(toggles) do
             local el = Elements[key]
             if el and State[key] ~= nil then setToggle(el, State[key]) end
         end
-        local sliders = { "attackCD", "teleportDistance", "statPointsPerTick", "speedValue", "jumpPowerValue" }
+        local sliders = { "hitboxMargin", "farmDistance", "statPointsPerTick", "speedValue", "jumpPowerValue" }
         for _, key in ipairs(sliders) do
             local el = Elements[key]
             if el and State[key] ~= nil then setSlider(el, State[key]) end
@@ -1264,9 +629,7 @@ function MemeSea.Init(ctx)
         if not ok or not content then return false end
         local success, data = pcall(function() return HttpService:JSONDecode(content) end)
         if not success or not data or not data.state then return false end
-        for k, v in pairs(data.state) do
-            if State[k] ~= nil then State[k] = v end
-        end
+        for k, v in pairs(data.state) do if State[k] ~= nil then State[k] = v end end
         syncUIFromState()
         if Window then Window:Notify("📂 Load", "Loaded: " .. name, 3, "info") end
         return true
@@ -1274,10 +637,7 @@ function MemeSea.Init(ctx)
 
     local function deleteConfigNamed(name)
         local path = getConfigPath(name)
-        if isfile and isfile(path) then
-            pcall(function() delfile(path) end)
-            return true
-        end
+        if isfile and isfile(path) then pcall(function() delfile(path) end); return true end
         return false
     end
 
@@ -1298,11 +658,9 @@ function MemeSea.Init(ctx)
         ensureFolder()
         pcall(function() writefile(getAutoloadPath(), name) end)
     end
-
     local function clearAutoload()
         pcall(function() if isfile(getAutoloadPath()) then delfile(getAutoloadPath()) end end)
     end
-
     local function getAutoload()
         local ok, content = pcall(function() return readfile(getAutoloadPath()) end)
         if ok and content and content ~= "" then return content end
@@ -1311,7 +669,7 @@ function MemeSea.Init(ctx)
 
     local function buildUI()
         Window = UI:CreateWindow({
-            Title = "INFINITE ZEN [BETA]",
+            Title = "INFINITE ZEN",
             Subtitle = SHORT_VERSION,
             ToggleKey = Enum.KeyCode.K,
         })
@@ -1327,7 +685,7 @@ function MemeSea.Init(ctx)
         }))
         FarmTab:CreateDropdown({
             Name = T("ms.farmWeapon.name", "Farm Weapon"),
-            Description = T("ms.farmWeapon.desc", "Which tool to use for farming"),
+            Description = T("ms.farmWeapon.desc", "Which tool to use"),
             Icon = "⚔️",
             Options = { "Fight", "Power", "Weapon" },
             Default = 1,
@@ -1342,7 +700,7 @@ function MemeSea.Init(ctx)
         }))
         reg("autoHaki", FarmTab:CreateToggle({
             Name = T("ms.autoHaki.name", "Auto Haki (Aura)"),
-            Description = T("ms.autoHaki.desc", "Auto-enable Aura ability"),
+            Description = T("ms.autoHaki.desc", "Auto-enable Aura"),
             Icon = "✨", Default = true,
             Callback = function(v) State.autoHaki = v end,
         }))
@@ -1352,93 +710,32 @@ function MemeSea.Init(ctx)
             Icon = "⚡", Default = true,
             Callback = function(v) State.autoClick = v end,
         }))
-        FarmTab:CreateSection(T("ms.section.tuning", "Tuning"))
-        reg("attackCD", FarmTab:CreateSlider({
-            Name = T("ms.attackDelay.name", "Attack Delay"),
-            Description = T("ms.attackDelay.desc", "Seconds between attacks"),
-            Icon = "⏱️",
-            Min = 0.05, Max = 1, Default = 0.15,
-            Callback = function(v) State.attackCD = v end,
-        }))
-        reg("teleportDistance", FarmTab:CreateSlider({
-            Name = T("ms.teleportDistance.name", "Teleport Distance"),
-            Description = T("ms.teleportDistance.desc", "How close to teleport"),
-            Icon = "📏",
-            Min = 2, Max = 20, Default = 6,
-            Callback = function(v) State.teleportDistance = v end,
+        reg("antiDamage", FarmTab:CreateToggle({
+            Name = "Anti-Dano",
+            Description = "CanQuery=false / CanTouch=false no próprio personagem",
+            Icon = "🛡️", Default = true,
+            Callback = function(v) State.antiDamage = v; if not v then restoreAntiDamage() end end,
         }))
 
-        local SideTab = Window:CreateTab(T("ms.tab.side", "Side-Quests"), "🎯")
-        SideTab:CreateSection(T("ms.section.race", "Race Awakening (V2)"))
-        SideTab:CreateLabel(T("ms.dancingBanana", "Snow Island | 100 Soggas | Awakening Orb"), Color3.fromRGB(140, 140, 155))
-        reg("sideRaceAwakening", SideTab:CreateToggle({
-            Name = T("ms.autoRace.name", "Auto Race Awakening"),
-            Description = T("ms.autoRace.desc", "Farms Sogga x100 and turns in"),
-            Icon = "🏃", Default = false,
-            Callback = function(v)
-                State.sideRaceAwakening = v
-                if v then State.sideFloppaWeapon = false; State.sidePopcatWeapon = false end
-            end,
+        FarmTab:CreateSection("Adaptive Hitbox")
+        reg("adaptiveHitbox", FarmTab:CreateToggle({
+            Name = "Adaptive Positioning",
+            Description = "Calcula posição baseado no tamanho do mob",
+            Icon = "🎯", Default = true,
+            Callback = function(v) State.adaptiveHitbox = v end,
         }))
-
-        SideTab:CreateSection(T("ms.section.floppa", "Floppa Weapon (Loop)"))
-        SideTab:CreateLabel(T("ms.coolFloppa", "Cool Floppa + Lava Floppa | 1000 clicks"), Color3.fromRGB(140, 140, 155))
-        reg("sideFloppaWeapon", SideTab:CreateToggle({
-            Name = T("ms.autoFloppa.name", "Auto Floppa Weapon"),
-            Description = T("ms.autoFloppa.desc", "Get quest, click 1000x, turn in, repeat"),
-            Icon = "🔥", Default = false,
-            Callback = function(v)
-                State.sideFloppaWeapon = v
-                if v then State.sideRaceAwakening = false; State.sidePopcatWeapon = false end
-            end,
+        reg("hitboxMargin", FarmTab:CreateSlider({
+            Name = "Hitbox Margin",
+            Description = "Distância extra do mob",
+            Icon = "📏", Min = 1, Max = 15, Default = 4,
+            Callback = function(v) State.hitboxMargin = v end,
         }))
-        SideTab:CreateButton({
-            Name = T("ms.skipTurnIn.name", "Skip to Turn-in (Cool Floppa)"),
-            Icon = "⚡",
-            Callback = function() State.forceFloppaClaim = true end,
-        })
-
-        SideTab:CreateSection(T("ms.section.popcat", "Popcat Weapon"))
-        SideTab:CreateLabel(T("ms.popcatInfo", "Floppa Island | 10000 clicks | Redeem at PvP Arena"), Color3.fromRGB(140, 140, 155))
-        reg("sidePopcatWeapon", SideTab:CreateToggle({
-            Name = T("ms.autoPopcat.name", "Auto Popcat Weapon"),
-            Description = T("ms.autoPopcat.desc", "Clicks Popcat 10000x then redeems"),
-            Icon = "🐱", Default = false,
-            Callback = function(v)
-                State.sidePopcatWeapon = v
-                if v then State.sideRaceAwakening = false; State.sideFloppaWeapon = false end
-            end,
+        reg("farmDistance", FarmTab:CreateSlider({
+            Name = "Farm Distance",
+            Description = "Distância mínima do mob",
+            Icon = "📐", Min = 5, Max = 30, Default = 10.5,
+            Callback = function(v) State.farmDistance = v end,
         }))
-        SideTab:CreateButton({
-            Name = T("ms.skipClicks.name", "Skip Clicks -> Redeem"),
-            Icon = "⚡",
-            Callback = function()
-                if findPopcatClickCount() >= 10000 then State.forcePopcatRedeem = true end
-            end,
-        })
-
-        local ShopTab = Window:CreateTab(T("ms.tab.shop", "Shop"), "🛒")
-        ShopTab:CreateSection(T("ms.section.weapons", "Weapons"))
-        ShopTab:CreateButton({ Name = "Katana | $5,000 | Doge", Callback = function() tryBuyItem("doge", "Katana") end })
-        ShopTab:CreateButton({ Name = "Hanger | $25,000 | Hanger", Callback = function() tryBuyItem("hanger", "Hanger") end })
-        ShopTab:CreateButton({ Name = "Flame Katana | $50k + Cheems Cola | Cheems", Callback = function() tryBuyItem("cheems", "Flame Katana") end })
-        ShopTab:CreateButton({ Name = "Banana Weapon | $350k + Cat Food | Smiling Cat", Callback = function() tryBuyItem("smiling", "Banana Weapon") end })
-        ShopTab:CreateButton({ Name = "Bonk | $1M + 5x Money Bags | Meme Man", Callback = function() tryBuyItem("meme man", "Bonk") end })
-        ShopTab:CreateButton({ Name = "Popcat Weapon | 10k Pops | Ohio Popcat", Callback = function() tryBuyItem("ohio", "Popcat Weapon") end })
-
-        ShopTab:CreateSection(T("ms.section.fighting", "Fighting Styles / Abilities"))
-        ShopTab:CreateButton({ Name = "Combat | Free | Maxwell", Callback = function() tryBuyItem("maxwell", "Combat") end })
-        ShopTab:CreateButton({ Name = "Baller Style | $10M + 10x Balls | Baller", Callback = function() tryBuyItem("baller", "Baller Style") end })
-        ShopTab:CreateButton({ Name = "Flash Step | $100,000 | Giga Chad", Callback = function() tryBuyItem("giga", "Flash Step") end })
-        ShopTab:CreateButton({ Name = "Instinct | $2,500,000 | Nugget Man", Callback = function() tryBuyItem("nugget", "Instinct") end })
-        ShopTab:CreateButton({ Name = "Aura | $10M + 1x Meme Cube | Aura Master", Callback = function() tryBuyItem("aura master", "Aura") end })
-
-        ShopTab:CreateSection(T("ms.section.utilities", "Utilities"))
-        ShopTab:CreateButton({ Name = "Quest Scroll | $1,000,000 | Popcat", Callback = function() tryBuyItem("popcat", "Quest Scroll") end })
-        ShopTab:CreateButton({ Name = "Race Reroll | 150 Gems | Watermelon Man", Callback = function() tryBuyItem("watermelon man", "Race Reroll") end })
-
-        ShopTab:CreateSection(T("ms.section.cosmetics", "Cosmetics"))
-        ShopTab:CreateButton({ Name = "Aura Color Reroll | 10 Gems | Halfed Sorcerer", Callback = function() tryBuyItem("halfed sorcerer", "Aura Color Reroll") end })
 
         local ProgressTab = Window:CreateTab(T("ms.tab.progress", "Progress"), "📈")
         ProgressTab:CreateSection(T("ms.section.stats", "Stats"))
@@ -1459,8 +756,7 @@ function MemeSea.Init(ctx)
         reg("statPointsPerTick", ProgressTab:CreateSlider({
             Name = T("ms.pointsPerCycle.name", "Points Per Cycle"),
             Description = T("ms.pointsPerCycle.desc", "Points per cycle"),
-            Icon = "🔢",
-            Min = 1, Max = 50, Default = 1,
+            Icon = "🔢", Min = 1, Max = 50, Default = 1,
             Callback = function(v) State.statPointsPerTick = v end,
         }))
 
@@ -1471,35 +767,6 @@ function MemeSea.Init(ctx)
             Icon = "🎁", Default = false,
             Callback = function(v) State.autoRedeem = v; redeemIndex = 0 end,
         }))
-
-        ProgressTab:CreateSection(T("ms.section.gacha", "Gacha"))
-        reg("autoGacha", ProgressTab:CreateToggle({
-            Name = T("ms.autoGacha.name", "Auto Gacha"),
-            Description = T("ms.autoGacha.desc", "Auto-spin gacha"),
-            Icon = "🎰", Default = false,
-            Callback = function(v) State.autoGacha = v end,
-        }))
-        ProgressTab:CreateDropdown({
-            Name = T("ms.gachaType.name", "Gacha Type"),
-            Description = T("ms.gachaType.desc", "Which gacha machine"),
-            Icon = "🎲",
-            Options = { "Floppa Gacha", "Doge Gacha" },
-            Default = 1,
-            Callback = function(opt) State.gachaType = tostring(opt) end,
-        })
-        ProgressTab:CreateDropdown({
-            Name = T("ms.gachaRolls.name", "Gacha Rolls"),
-            Description = T("ms.gachaRolls.desc", "Rolls per cycle"),
-            Icon = "🔢",
-            Options = { "1x", "3x", "10x" },
-            Default = 1,
-            Callback = function(opt)
-                local v = tostring(opt)
-                if v == "1x" then State.gachaRolls = 1
-                elseif v == "3x" then State.gachaRolls = 3
-                elseif v == "10x" then State.gachaRolls = 10 end
-            end,
-        })
 
         local PlayerTab = Window:CreateTab(T("ms.tab.player", "Player"), "🏃")
         PlayerTab:CreateSection(T("ms.section.movement", "Movement"))
@@ -1512,8 +779,7 @@ function MemeSea.Init(ctx)
         reg("speedValue", PlayerTab:CreateSlider({
             Name = T("ms.speedValue.name", "Speed Value"),
             Description = T("ms.speedValue.desc", "WalkSpeed"),
-            Icon = "📏",
-            Min = 16, Max = 200, Default = 50,
+            Icon = "📏", Min = 16, Max = 200, Default = 50,
             Callback = function(v) State.speedValue = v end,
         }))
         reg("jumpPower", PlayerTab:CreateToggle({
@@ -1525,13 +791,12 @@ function MemeSea.Init(ctx)
         reg("jumpPowerValue", PlayerTab:CreateSlider({
             Name = T("ms.jumpValue.name", "Jump Value"),
             Description = T("ms.jumpValue.desc", "JumpPower"),
-            Icon = "📏",
-            Min = 30, Max = 200, Default = 80,
+            Icon = "📏", Min = 30, Max = 200, Default = 80,
             Callback = function(v) State.jumpPowerValue = v end,
         }))
         reg("antiAfk", PlayerTab:CreateToggle({
             Name = T("ms.antiAfk.name", "Anti-AFK"),
-            Description = T("ms.antiAfk.desc", "Prevent kick for inactivity"),
+            Description = T("ms.antiAfk.desc", "Prevent kick"),
             Icon = "🛡️", Default = false,
             Callback = function(v) State.antiAfk = v end,
         }))
