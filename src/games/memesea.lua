@@ -1,5 +1,5 @@
 -- ============================================================
--- Infinite Zen - MemeSea - V1 (BETA TEST)
+-- Infinite Zen - MemeSea - V1.0
 -- ============================================================
 
 local MemeSea = {}
@@ -16,7 +16,7 @@ function MemeSea.Init(ctx)
         return v
     end
 
-    local GAME_VERSION  = "1"
+    local GAME_VERSION  = "1.0"
     local FULL_VERSION  = "Infinite Zen V" .. GAME_VERSION .. " - " .. gameName
     local SHORT_VERSION = "V" .. GAME_VERSION .. " - " .. gameName
 
@@ -138,6 +138,7 @@ function MemeSea.Init(ctx)
     local goingToNpc      = false
     local forcedQuestName = nil
     local redeemIndex     = 0
+    local attackLoopActive = false
 
     local function getHRP()
         local c = LocalPlayer.Character
@@ -280,20 +281,52 @@ function MemeSea.Init(ctx)
         return nil
     end
 
+    -- ═══════════════════════════════════════════════════════
+    -- ATAQUE (VIRTUALUSER + VirtualInput fallback)
+    -- ═══════════════════════════════════════════════════════
+
     local function playerClick()
         if not State.autoClick then return end
         local char = LocalPlayer.Character
         if not char then return end
+
+        -- Método 1: VirtualUser (funciona em 95% dos executores)
         pcall(function() VirtualUser:CaptureController() end)
         pcall(function() VirtualUser:Button1Down(Vector2.new(1e4, 1e4)) end)
+
+        -- Método 2: VirtualInput fallback
+        pcall(function()
+            VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+            task.wait(0.01)
+            VirtualInput:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+        end)
+
         if State.autoHaki then
             local aura = char:FindFirstChild("AuraColor_Folder")
-            if aura and #aura:GetChildren() < 1 and Ability then
+            if aura and #aura:GetChildren() < 1 and Ability and MainEvents then
                 local ab = Ability:FindFirstChild("Aura")
                 if ab and ab.Value then pcall(function() MainEvents.Ability:InvokeServer("Aura") end) end
             end
         end
     end
+
+    -- ─── Loop de ataque DEDICADO (chave do fix) ───
+    task.spawn(function()
+        while not UNLOADED do
+            if attackLoopActive and State.autoClick and currentTarget and currentTarget.Parent then
+                if isAlive(currentTarget) then
+                    playerClick()
+                    task.wait(State.attackCD or 0.15)
+                else
+                    task.wait(0.1)
+                end
+            else
+                task.wait(0.1)
+            end
+        end
+    end)
+
+    -- ═══════════════════════════════════════════════════════
 
     local function findEnemy(name)
         if not Monsters then return nil end
@@ -389,9 +422,11 @@ function MemeSea.Init(ctx)
         if not pp then return false end
         currentMobName = enemy.Name
         currentTarget = enemy
+        attackLoopActive = true
         teleportToCFrame(pp.CFrame * calcDynamicCFrame(enemy))
         applyAntiDamage()
         equipFarmTool()
+        -- ataque imediato (o loop assume depois)
         playerClick()
         if State.bringMobs then bringMobsTo(enemyName, pp.CFrame) end
         return true
@@ -686,6 +721,9 @@ function MemeSea.Init(ctx)
     LocalPlayer.CharacterAdded:Connect(function()
         State.respawnWait = tick() + 3
         restoreAntiDamage()
+        attackLoopActive = false
+        currentTarget = nil
+        currentMobName = nil
     end)
 
     task.spawn(function()
@@ -719,6 +757,7 @@ function MemeSea.Init(ctx)
             if not State.autoQuestFarm or sideBusy then
                 currentTarget = nil
                 currentMobName = nil
+                attackLoopActive = false
                 lastState = ""
                 takeAttempts = 0
                 goingToNpc = false
@@ -746,6 +785,7 @@ function MemeSea.Init(ctx)
                             task.wait(0.3)
                         end
                     else
+                        attackLoopActive = false
                         if lastState ~= "take_" .. bestQuest.NpcName then
                             lastState = "take_" .. bestQuest.NpcName
                             takeAttempts = 0
@@ -787,6 +827,7 @@ function MemeSea.Init(ctx)
         if not isAlive(currentTarget) then
             currentTarget = nil
             currentMobName = nil
+            attackLoopActive = false
             return
         end
         applyAntiDamage()
@@ -818,6 +859,7 @@ function MemeSea.Init(ctx)
         end
     end)
 
+    -- (side quest threads mantidos idênticos - race, floppa, popcat)
     task.spawn(function()
         local wasActive = false
         local phase = "idle"
@@ -860,6 +902,7 @@ function MemeSea.Init(ctx)
                     forcedQuestName = nil
                     currentTarget = nil
                     currentMobName = nil
+                    attackLoopActive = false
                     restoreAntiDamage()
                     phase = "idle"
                 end
@@ -958,6 +1001,7 @@ function MemeSea.Init(ctx)
                     wasActive = false
                     phase = "idle"
                     State.forceFloppaClaim = false
+                    attackLoopActive = false
                 end
                 task.wait(0.5)
             else
