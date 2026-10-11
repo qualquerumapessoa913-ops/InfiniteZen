@@ -29,7 +29,6 @@ function MemeSea.Init(ctx)
     local RunService        = game:GetService("RunService")
     local UserInputService  = game:GetService("UserInputService")
     local VirtualInput      = game:GetService("VirtualInputManager")
-    local VirtualUser       = game:GetService("VirtualUser")
     local GuiService        = game:GetService("GuiService")
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local HttpService       = game:GetService("HttpService")
@@ -37,8 +36,14 @@ function MemeSea.Init(ctx)
     local LocalPlayer       = Players.LocalPlayer
     local PlayerGui         = LocalPlayer:WaitForChild("PlayerGui")
 
-    local UNLOADED = false
+    -- ═══ VirtualUser SAFE (pode ser nil no executor) ═══
+    local VirtualUser = nil
+    pcall(function() VirtualUser = game:GetService("VirtualUser") end)
+    if VirtualUser == nil then
+        print("[MemeSea] ⚠️ VirtualUser nil — usando mouse1click/VirtualInput")
+    end
 
+    local UNLOADED = false
     local Elements = {}
     local Window   = nil
 
@@ -93,29 +98,14 @@ function MemeSea.Init(ctx)
         autoClick = true,
         attackCD = 0.15,
         teleportDistance = 6,
-
-        autoStats = false,
-        statPriority = "Melee",
-        statPointsPerTick = 1,
-
-        autoRedeem = false,
-        autoGacha = false,
-        gachaType = "Floppa Gacha",
-        gachaRolls = 1,
-
-        sideRaceAwakening = false,
-        sideFloppaWeapon = false,
-        sidePopcatWeapon = false,
-        forcePopcatRedeem = false,
-        forceFloppaClaim = false,
-
-        speed = false,
-        speedValue = 50,
-        jumpPower = false,
-        jumpPowerValue = 80,
-        antiAfk = false,
-        fullbright = false,
-        noFog = false,
+        autoStats = false, statPriority = "Melee", statPointsPerTick = 1,
+        autoRedeem = false, autoGacha = false,
+        gachaType = "Floppa Gacha", gachaRolls = 1,
+        sideRaceAwakening = false, sideFloppaWeapon = false, sidePopcatWeapon = false,
+        forcePopcatRedeem = false, forceFloppaClaim = false,
+        speed = false, speedValue = 50,
+        jumpPower = false, jumpPowerValue = 80,
+        antiAfk = false, fullbright = false, noFog = false,
     }
 
     local origBrightness = Lighting.Brightness
@@ -125,6 +115,8 @@ function MemeSea.Init(ctx)
     local origFogEnd     = Lighting.FogEnd
     local origFogStart   = Lighting.FogStart
 
+    local humHealthTrack = setmetatable({}, {__mode = "k"})
+
     local mobAdaptHeights  = {}
     local mobAdaptSide     = {}
     local MIN_HEIGHT       = 10.5
@@ -133,11 +125,11 @@ function MemeSea.Init(ctx)
     local MAX_HEIGHT       = 60
     local GACHA_COST       = 25000
 
-    local currentTarget   = nil
-    local currentMobName  = nil
-    local goingToNpc      = false
-    local forcedQuestName = nil
-    local redeemIndex     = 0
+    local currentTarget    = nil
+    local currentMobName   = nil
+    local goingToNpc       = false
+    local forcedQuestName  = nil
+    local redeemIndex      = 0
     local attackLoopActive = false
 
     local function getHRP()
@@ -168,13 +160,6 @@ function MemeSea.Init(ctx)
             local t = v:FindFirstChild("Target")
             if t and t.Value and t.Value ~= "None" then return v end
         end
-        return nil
-    end
-
-    local function getQuestGiverName(q)
-        if not q then return nil end
-        local g = q:FindFirstChild("QuestGiver")
-        if g and g.Value and g.Value ~= "None" then return g.Value end
         return nil
     end
 
@@ -282,24 +267,28 @@ function MemeSea.Init(ctx)
     end
 
     -- ═══════════════════════════════════════════════════════
-    -- ATAQUE (VIRTUALUSER + VirtualInput fallback)
+    -- CLICK — usa mouse1click / VirtualInput (VirtualUser é nil aqui)
     -- ═══════════════════════════════════════════════════════
-
     local function playerClick()
         if not State.autoClick then return end
         local char = LocalPlayer.Character
         if not char then return end
 
-        -- Método 1: VirtualUser (funciona em 95% dos executores)
-        pcall(function() VirtualUser:CaptureController() end)
-        pcall(function() VirtualUser:Button1Down(Vector2.new(1e4, 1e4)) end)
-
-        -- Método 2: VirtualInput fallback
-        pcall(function()
-            VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-            task.wait(0.01)
-            VirtualInput:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-        end)
+        -- 1. mouse1click (melhor)
+        if type(mouse1click) == "function" then
+            pcall(mouse1click)
+        -- 2. VirtualInput
+        elseif VirtualInput then
+            pcall(function()
+                VirtualInput:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+                task.wait(0.01)
+                VirtualInput:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+            end)
+        -- 3. VirtualUser (fallback extremo)
+        elseif VirtualUser and VirtualUser.Button1Down then
+            pcall(function() VirtualUser:CaptureController() end)
+            pcall(function() VirtualUser:Button1Down(Vector2.new(1e4, 1e4)) end)
+        end
 
         if State.autoHaki then
             local aura = char:FindFirstChild("AuraColor_Folder")
@@ -310,7 +299,6 @@ function MemeSea.Init(ctx)
         end
     end
 
-    -- ─── Loop de ataque DEDICADO (chave do fix) ───
     task.spawn(function()
         while not UNLOADED do
             if attackLoopActive and State.autoClick and currentTarget and currentTarget.Parent then
@@ -325,8 +313,6 @@ function MemeSea.Init(ctx)
             end
         end
     end)
-
-    -- ═══════════════════════════════════════════════════════
 
     local function findEnemy(name)
         if not Monsters then return nil end
@@ -426,7 +412,6 @@ function MemeSea.Init(ctx)
         teleportToCFrame(pp.CFrame * calcDynamicCFrame(enemy))
         applyAntiDamage()
         equipFarmTool()
-        -- ataque imediato (o loop assume depois)
         playerClick()
         if State.bringMobs then bringMobsTo(enemyName, pp.CFrame) end
         return true
@@ -734,14 +719,18 @@ function MemeSea.Init(ctx)
                 local hum = char and char:FindFirstChildOfClass("Humanoid")
                 if hum then
                     local h = hum.Health
-                    if hum._izLastHealth and hum._izLastHealth > 0 and h < hum._izLastHealth then
-                        local dmg = hum._izLastHealth - h
-                        if dmg >= 5 and tick() - (hum._izLastDmgTime or 0) > 0.5 then
-                            hum._izLastDmgTime = tick()
+                    local track = humHealthTrack[hum]
+                    if track and track.lastHealth and track.lastHealth > 0 and h < track.lastHealth then
+                        local dmg = track.lastHealth - h
+                        if dmg >= 5 and (tick() - (track.lastDmgTime or 0)) > 0.5 then
+                            humHealthTrack[hum] = {lastHealth = h, lastDmgTime = tick()}
                             onTookDamage(currentMobName, dmg)
+                        else
+                            humHealthTrack[hum] = {lastHealth = h, lastDmgTime = track.lastDmgTime}
                         end
+                    else
+                        humHealthTrack[hum] = {lastHealth = h, lastDmgTime = track and track.lastDmgTime or 0}
                     end
-                    hum._izLastHealth = h
                 end
             end
         end
@@ -859,7 +848,7 @@ function MemeSea.Init(ctx)
         end
     end)
 
-    -- (side quest threads mantidos idênticos - race, floppa, popcat)
+    -- SIDE QUESTS (race/floppa/popcat) — mantidos
     task.spawn(function()
         local wasActive = false
         local phase = "idle"
@@ -919,8 +908,7 @@ function MemeSea.Init(ctx)
                     teleportToRace()
                     task.wait(0.4)
                     local npc = findDancingNpc()
-                    if not npc then
-                        task.wait(0.5)
+                    if not npc then task.wait(0.5)
                     else
                         local npcPos = npc:GetPivot().Position
                         local myHRP = getHRP()
@@ -936,9 +924,7 @@ function MemeSea.Init(ctx)
                             task.wait(0.5)
                             pcall(function() fireproximityprompt(prompt) end)
                             task.wait(1.0)
-                        else
-                            task.wait(1)
-                        end
+                        else task.wait(1) end
                     end
                 else
                     local cur, need = getQuestProgress(aq)
@@ -965,8 +951,7 @@ function MemeSea.Init(ctx)
                     else
                         phase = "farming"
                         local sogga = findEnemy("Sogga")
-                        if sogga then
-                            killMonster("Sogga")
+                        if sogga then killMonster("Sogga")
                         else
                             local loc = EnemyLocation and EnemyLocation:FindFirstChild("Sogga")
                             if loc then teleportToCFrame(loc.CFrame + Vector3.new(0, 3, 0)) end
@@ -987,10 +972,9 @@ function MemeSea.Init(ctx)
         local function getRealProgress()
             local aq = getActiveQuest()
             if not aq then return nil end
-            local target = getQuestTargetName(aq)
             local a = aq:FindFirstChild("Amount")
             local n = aq:FindFirstChild("Need")
-            if a and n then return a.Value, n.Value, target end
+            if a and n then return a.Value, n.Value end
             return nil
         end
 
@@ -1007,12 +991,7 @@ function MemeSea.Init(ctx)
             else
                 if not wasActive then
                     wasActive = true
-                    if State.forceFloppaClaim then
-                        State.forceFloppaClaim = false
-                        phase = "turning_in"
-                    else
-                        phase = "getting_quest"
-                    end
+                    phase = State.forceFloppaClaim and "turning_in" or "getting_quest"
                 end
                 if State.forceFloppaClaim then
                     State.forceFloppaClaim = false
@@ -1036,10 +1015,8 @@ function MemeSea.Init(ctx)
                     end
                 elseif phase == "clicking" then
                     local cur, need = getRealProgress()
-                    if not cur then
-                        phase = "getting_quest"
-                    elseif cur >= need then
-                        phase = "turning_in"
+                    if not cur then phase = "getting_quest"
+                    elseif cur >= need then phase = "turning_in"
                     else
                         if tick() - lastClick > 0.1 then
                             lastClick = tick()
@@ -1053,9 +1030,7 @@ function MemeSea.Init(ctx)
                                 pcall(function() prompt.MaxActivationDistance = 100; prompt.HoldDuration = 0; prompt.RequiresLineOfSight = false end)
                                 pcall(function() fireproximityprompt(prompt) end)
                             end
-                        else
-                            task.wait(0.02)
-                        end
+                        else task.wait(0.02) end
                     end
                 elseif phase == "turning_in" then
                     if tick() - lastAttempt > 2 then
@@ -1065,15 +1040,10 @@ function MemeSea.Init(ctx)
                             fireNpcPrompt(npc)
                             task.wait(1.5)
                             local cur, need = getRealProgress()
-                            if cur and cur < need then
-                                phase = "clicking"
-                            else
-                                phase = "getting_quest"
-                            end
+                            if cur and cur < need then phase = "clicking"
+                            else phase = "getting_quest" end
                         end
-                    else
-                        task.wait(0.3)
-                    end
+                    else task.wait(0.3) end
                 end
             end
         end
@@ -1097,11 +1067,7 @@ function MemeSea.Init(ctx)
             else
                 if not wasActive then
                     wasActive = true
-                    if findPopcatClickCount() >= GOAL then
-                        phase = "going_to_ohio"
-                    else
-                        phase = "clicking"
-                    end
+                    phase = findPopcatClickCount() >= GOAL and "going_to_ohio" or "clicking"
                 end
                 if State.forcePopcatRedeem then
                     State.forcePopcatRedeem = false
@@ -1121,9 +1087,7 @@ function MemeSea.Init(ctx)
                         end
                         pcall(function() fireclickdetector(cd) end)
                         if findPopcatClickCount() >= GOAL then phase = "going_to_ohio" end
-                    else
-                        task.wait(0.5)
-                    end
+                    else task.wait(0.5) end
                 elseif phase == "going_to_ohio" then
                     if tick() - lastAttempt > 2 then
                         lastAttempt = tick()
@@ -1134,9 +1098,7 @@ function MemeSea.Init(ctx)
                             goToNpcAndPrompt(npc)
                             task.wait(1.5)
                         end
-                    else
-                        task.wait(0.3)
-                    end
+                    else task.wait(0.3) end
                 end
             end
         end
@@ -1147,22 +1109,14 @@ function MemeSea.Init(ctx)
             task.wait(2)
             if State.autoGacha then
                 local cost = GACHA_COST * State.gachaRolls
-                if getMoney() < cost then
-                    task.wait(3)
+                if getMoney() < cost then task.wait(3)
                 else
                     if not isGachaGuiOpen() then teleportToGachaNpc(); task.wait(1.5) end
                     local btn = getGachaButton(State.gachaRolls)
-                    if btn then
-                        clickButton(btn)
-                        task.wait(1.5)
-                    else
-                        teleportToGachaNpc()
-                        task.wait(2)
-                    end
+                    if btn then clickButton(btn); task.wait(1.5)
+                    else teleportToGachaNpc(); task.wait(2) end
                 end
-            else
-                task.wait(0.5)
-            end
+            else task.wait(0.5) end
         end
     end)
 
@@ -1188,9 +1142,7 @@ function MemeSea.Init(ctx)
                             if v and v.Value < lowest then lowest = v.Value; lname = k end
                         end
                         key = lname
-                    else
-                        key = STAT_ALIASES[tostring(chosen):lower()]
-                    end
+                    else key = STAT_ALIASES[tostring(chosen):lower()] end
                     if key then
                         local sf = MainEvents:FindFirstChild("StatsFunction")
                         if sf then
@@ -1218,13 +1170,9 @@ function MemeSea.Init(ctx)
                     if redeemIndex > #codes then
                         State.autoRedeem = false
                         redeemIndex = 0
-                    else
-                        pcall(function() cf:InvokeServer(codes[redeemIndex]) end)
-                    end
+                    else pcall(function() cf:InvokeServer(codes[redeemIndex]) end) end
                 end
-            else
-                redeemIndex = 0
-            end
+            else redeemIndex = 0 end
         end
     end)
 
@@ -1232,8 +1180,7 @@ function MemeSea.Init(ctx)
         while not UNLOADED do
             task.wait(60)
             if State.antiAfk then
-                pcall(function() VirtualUser:CaptureController() end)
-                pcall(function() VirtualUser:ClickButton2(Vector2.new(0, 0)) end)
+                if type(mouse1click) == "function" then pcall(mouse1click) end
             end
         end
     end)
@@ -1430,10 +1377,7 @@ function MemeSea.Init(ctx)
             Icon = "🏃", Default = false,
             Callback = function(v)
                 State.sideRaceAwakening = v
-                if v then
-                    State.sideFloppaWeapon = false
-                    State.sidePopcatWeapon = false
-                end
+                if v then State.sideFloppaWeapon = false; State.sidePopcatWeapon = false end
             end,
         }))
 
@@ -1445,10 +1389,7 @@ function MemeSea.Init(ctx)
             Icon = "🔥", Default = false,
             Callback = function(v)
                 State.sideFloppaWeapon = v
-                if v then
-                    State.sideRaceAwakening = false
-                    State.sidePopcatWeapon = false
-                end
+                if v then State.sideRaceAwakening = false; State.sidePopcatWeapon = false end
             end,
         }))
         SideTab:CreateButton({
@@ -1465,24 +1406,18 @@ function MemeSea.Init(ctx)
             Icon = "🐱", Default = false,
             Callback = function(v)
                 State.sidePopcatWeapon = v
-                if v then
-                    State.sideRaceAwakening = false
-                    State.sideFloppaWeapon = false
-                end
+                if v then State.sideRaceAwakening = false; State.sideFloppaWeapon = false end
             end,
         }))
         SideTab:CreateButton({
             Name = T("ms.skipClicks.name", "Skip Clicks -> Redeem"),
             Icon = "⚡",
             Callback = function()
-                if findPopcatClickCount() >= 10000 then
-                    State.forcePopcatRedeem = true
-                end
+                if findPopcatClickCount() >= 10000 then State.forcePopcatRedeem = true end
             end,
         })
 
         local ShopTab = Window:CreateTab(T("ms.tab.shop", "Shop"), "🛒")
-
         ShopTab:CreateSection(T("ms.section.weapons", "Weapons"))
         ShopTab:CreateButton({ Name = "Katana | $5,000 | Doge", Callback = function() tryBuyItem("doge", "Katana") end })
         ShopTab:CreateButton({ Name = "Hanger | $25,000 | Hanger", Callback = function() tryBuyItem("hanger", "Hanger") end })
@@ -1704,9 +1639,7 @@ function MemeSea.Init(ctx)
                 loadBtn.TextColor3 = Color3.fromRGB(240, 240, 245)
                 loadBtn.AutoButtonColor = false
                 Instance.new("UICorner", loadBtn).CornerRadius = UDim.new(0, 4)
-                loadBtn.MouseButton1Click:Connect(function()
-                    loadConfigNamed(name); refreshConfigList()
-                end)
+                loadBtn.MouseButton1Click:Connect(function() loadConfigNamed(name); refreshConfigList() end)
 
                 local autoBtn = Instance.new("TextButton", entry)
                 autoBtn.Size = UDim2.new(0, 22, 0, 22)
@@ -1733,9 +1666,7 @@ function MemeSea.Init(ctx)
                 delBtn.TextColor3 = Color3.fromRGB(255, 40, 40)
                 delBtn.AutoButtonColor = false
                 Instance.new("UICorner", delBtn).CornerRadius = UDim.new(0, 4)
-                delBtn.MouseButton1Click:Connect(function()
-                    deleteConfigNamed(name); refreshConfigList()
-                end)
+                delBtn.MouseButton1Click:Connect(function() deleteConfigNamed(name); refreshConfigList() end)
             end
         end
 
@@ -1749,17 +1680,12 @@ function MemeSea.Init(ctx)
 
         SettingsTab:CreateButton({
             Name = T("config.refresh", "🔄 Refresh List"),
-            Callback = function()
-                refreshConfigList()
-                Window:Notify("🔄", T("config.refresh", "Refresh List"), 2, "info")
-            end,
+            Callback = function() refreshConfigList(); Window:Notify("🔄", T("config.refresh", "Refresh List"), 2, "info") end,
         })
 
         SettingsTab:CreateButton({
             Name = T("config.disable_autoload", "🚫 Disable Autoload"),
-            Callback = function()
-                clearAutoload(); refreshConfigList()
-            end,
+            Callback = function() clearAutoload(); refreshConfigList() end,
         })
 
         refreshConfigList()
