@@ -11,5 +11,6 @@
         "UnknownGlobal",
         "UnusedLocal",
         "DeprecatedApi"
-    ]
+    ],
+    "stylua.targetReleaseVersion": "latest"
 }
