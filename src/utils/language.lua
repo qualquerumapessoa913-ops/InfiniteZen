@@ -1,5 +1,5 @@
 -- ============================================================
--- INFINITE ZEN - LANGUAGE v3.7
+-- INFINITE ZEN - LANGUAGE v3.8
 -- ============================================================
 
 local HttpService = game:GetService("HttpService")
@@ -128,6 +128,50 @@ Language.translations["en"] = {
     ["jb.esp.grenades"]="Grenade ESP", ["jb.esp.grenades.desc"]="Show nearby grenades",
 
     ["bs.esp.weapon"]="Weapon ESP", ["bs.esp.armor"]="Armor ESP",
+
+    ["ms.tab.farm"]="Auto Farm", ["ms.tab.side"]="Side-Quests", ["ms.tab.shop"]="Shop",
+    ["ms.tab.progress"]="Progress", ["ms.tab.player"]="Player", ["ms.tab.visuals"]="Visuals",
+    ["ms.section.quest"]="Quest", ["ms.section.combat"]="Combat", ["ms.section.tuning"]="Tuning",
+    ["ms.section.race"]="Race Awakening (V2)", ["ms.section.floppa"]="Floppa Weapon (Loop)",
+    ["ms.section.popcat"]="Popcat Weapon", ["ms.section.weapons"]="Weapons",
+    ["ms.section.fighting"]="Fighting Styles / Abilities", ["ms.section.utilities"]="Utilities",
+    ["ms.section.cosmetics"]="Cosmetics", ["ms.section.stats"]="Stats", ["ms.section.rewards"]="Rewards",
+    ["ms.section.gacha"]="Gacha", ["ms.section.movement"]="Movement", ["ms.section.environment"]="Environment",
+
+    ["ms.autoQuestFarm.name"]="Auto Quest Farm", ["ms.autoQuestFarm.desc"]="Grab quest, kill mobs, complete, repeat",
+    ["ms.farmWeapon.name"]="Farm Weapon", ["ms.farmWeapon.desc"]="Which tool to use for farming",
+    ["ms.bringMobs.name"]="Bring Mobs", ["ms.bringMobs.desc"]="Teleport mobs to you",
+    ["ms.autoHaki.name"]="Auto Haki (Aura)", ["ms.autoHaki.desc"]="Auto-enable Aura ability",
+    ["ms.autoAttack.name"]="Auto Attack", ["ms.autoAttack.desc"]="Auto-click to attack",
+    ["ms.attackDelay.name"]="Attack Delay", ["ms.attackDelay.desc"]="Seconds between attacks",
+    ["ms.teleportDistance.name"]="Teleport Distance", ["ms.teleportDistance.desc"]="How close to teleport",
+
+    ["ms.dancingBanana"]="Snow Island | 100 Soggas | Awakening Orb",
+    ["ms.autoRace.name"]="Auto Race Awakening", ["ms.autoRace.desc"]="Farms Sogga x100 and turns in",
+    ["ms.coolFloppa"]="Cool Floppa + Lava Floppa | 1000 clicks",
+    ["ms.autoFloppa.name"]="Auto Floppa Weapon", ["ms.autoFloppa.desc"]="Get quest, click 1000x, turn in, repeat",
+    ["ms.skipTurnIn.name"]="Skip to Turn-in (Cool Floppa)", ["ms.skipTurnIn.desc"]="Force visit to Cool Floppa",
+    ["ms.popcatInfo"]="Floppa Island | 10000 clicks | Redeem at PvP Arena",
+    ["ms.autoPopcat.name"]="Auto Popcat Weapon", ["ms.autoPopcat.desc"]="Clicks Popcat 10000x then redeems",
+    ["ms.skipClicks.name"]="Skip Clicks -> Redeem", ["ms.skipClicks.desc"]="Skip if you already have 10000",
+
+    ["ms.autoStats.name"]="Auto Stats", ["ms.autoStats.desc"]="Spend points automatically",
+    ["ms.statPriority.name"]="Stat Priority", ["ms.statPriority.desc"]="Which stat to upgrade",
+    ["ms.pointsPerCycle.name"]="Points Per Cycle", ["ms.pointsPerCycle.desc"]="Points per cycle",
+    ["ms.autoRedeem.name"]="Auto Redeem Codes", ["ms.autoRedeem.desc"]="Redeem available codes",
+    ["ms.autoGacha.name"]="Auto Gacha", ["ms.autoGacha.desc"]="Auto-spin gacha",
+    ["ms.gachaType.name"]="Gacha Type", ["ms.gachaType.desc"]="Which gacha machine",
+    ["ms.gachaRolls.name"]="Gacha Rolls", ["ms.gachaRolls.desc"]="Rolls per cycle",
+
+    ["ms.speed.name"]="Speed", ["ms.speed.desc"]="Custom walkspeed",
+    ["ms.speedValue.name"]="Speed Value", ["ms.speedValue.desc"]="WalkSpeed",
+    ["ms.jumpPower.name"]="Jump Power", ["ms.jumpPower.desc"]="Custom jump",
+    ["ms.jumpValue.name"]="Jump Value", ["ms.jumpValue.desc"]="JumpPower",
+    ["ms.antiAfk.name"]="Anti-AFK", ["ms.antiAfk.desc"]="Prevent kick for inactivity",
+
+    ["ms.fullbright.name"]="Fullbright", ["ms.fullbright.desc"]="Bright map",
+    ["ms.noFog.name"]="No Fog", ["ms.noFog.desc"]="Remove fog",
+    ["ms.loaded"]="MemeSea loaded successfully",
 }
 
 Language.translations["pt-br"] = {
@@ -218,6 +262,50 @@ Language.translations["pt-br"] = {
     ["jb.esp.grenades"]="ESP de Granada", ["jb.esp.grenades.desc"]="Mostra granadas próximas",
 
     ["bs.esp.weapon"]="ESP de Arma", ["bs.esp.armor"]="ESP de Armadura",
+
+    ["ms.tab.farm"]="Auto Farm", ["ms.tab.side"]="Side-Quests", ["ms.tab.shop"]="Loja",
+    ["ms.tab.progress"]="Progresso", ["ms.tab.player"]="Jogador", ["ms.tab.visuals"]="Visual",
+    ["ms.section.quest"]="Missão", ["ms.section.combat"]="Combate", ["ms.section.tuning"]="Ajustes",
+    ["ms.section.race"]="Despertar de Raça (V2)", ["ms.section.floppa"]="Floppa Weapon (Loop)",
+    ["ms.section.popcat"]="Popcat Weapon", ["ms.section.weapons"]="Armas",
+    ["ms.section.fighting"]="Estilos de Luta / Habilidades", ["ms.section.utilities"]="Utilidades",
+    ["ms.section.cosmetics"]="Cosméticos", ["ms.section.stats"]="Atributos", ["ms.section.rewards"]="Recompensas",
+    ["ms.section.gacha"]="Gacha", ["ms.section.movement"]="Movimento", ["ms.section.environment"]="Ambiente",
+
+    ["ms.autoQuestFarm.name"]="Auto Quest Farm", ["ms.autoQuestFarm.desc"]="Pega missão, mata mob, entrega, repete",
+    ["ms.farmWeapon.name"]="Arma de Farm", ["ms.farmWeapon.desc"]="Qual ferramenta usar",
+    ["ms.bringMobs.name"]="Trazer Mobs", ["ms.bringMobs.desc"]="Teleporta mobs pra você",
+    ["ms.autoHaki.name"]="Auto Haki (Aura)", ["ms.autoHaki.desc"]="Ativa Aura automaticamente",
+    ["ms.autoAttack.name"]="Auto Ataque", ["ms.autoAttack.desc"]="Auto-clica pra atacar",
+    ["ms.attackDelay.name"]="Delay de Ataque", ["ms.attackDelay.desc"]="Segundos entre ataques",
+    ["ms.teleportDistance.name"]="Distância de TP", ["ms.teleportDistance.desc"]="Quão perto teleportar",
+
+    ["ms.dancingBanana"]="Snow Island | 100 Soggas | Awakening Orb",
+    ["ms.autoRace.name"]="Auto Race Awakening", ["ms.autoRace.desc"]="Farm Sogga x100 e entrega",
+    ["ms.coolFloppa"]="Cool Floppa + Lava Floppa | 1000 cliques",
+    ["ms.autoFloppa.name"]="Auto Floppa Weapon", ["ms.autoFloppa.desc"]="Pega quest, clica 1000x, entrega, repete",
+    ["ms.skipTurnIn.name"]="Pular pro Resgate (Cool Floppa)", ["ms.skipTurnIn.desc"]="Força visita ao Cool Floppa",
+    ["ms.popcatInfo"]="Floppa Island | 10000 cliques | Resgate na PvP Arena",
+    ["ms.autoPopcat.name"]="Auto Popcat Weapon", ["ms.autoPopcat.desc"]="Clica Popcat 10000x e resgata",
+    ["ms.skipClicks.name"]="Pular Cliques -> Resgate", ["ms.skipClicks.desc"]="Pula se já tiver 10000",
+
+    ["ms.autoStats.name"]="Auto Stats", ["ms.autoStats.desc"]="Gasta pontos automaticamente",
+    ["ms.statPriority.name"]="Prioridade", ["ms.statPriority.desc"]="Qual atributo upar",
+    ["ms.pointsPerCycle.name"]="Pontos Por Ciclo", ["ms.pointsPerCycle.desc"]="Pontos por ciclo",
+    ["ms.autoRedeem.name"]="Auto Resgatar Códigos", ["ms.autoRedeem.desc"]="Resgata códigos disponíveis",
+    ["ms.autoGacha.name"]="Auto Gacha", ["ms.autoGacha.desc"]="Gira gacha automaticamente",
+    ["ms.gachaType.name"]="Tipo de Gacha", ["ms.gachaType.desc"]="Qual máquina girar",
+    ["ms.gachaRolls.name"]="Giros de Gacha", ["ms.gachaRolls.desc"]="Giros por ciclo",
+
+    ["ms.speed.name"]="Velocidade", ["ms.speed.desc"]="Velocidade customizada",
+    ["ms.speedValue.name"]="Valor da Velocidade", ["ms.speedValue.desc"]="WalkSpeed",
+    ["ms.jumpPower.name"]="Força do Pulo", ["ms.jumpPower.desc"]="Pulo customizado",
+    ["ms.jumpValue.name"]="Valor do Pulo", ["ms.jumpValue.desc"]="JumpPower",
+    ["ms.antiAfk.name"]="Anti-AFK", ["ms.antiAfk.desc"]="Evita kick por inatividade",
+
+    ["ms.fullbright.name"]="Fullbright", ["ms.fullbright.desc"]="Mapa claro",
+    ["ms.noFog.name"]="Sem Névoa", ["ms.noFog.desc"]="Remove névoa",
+    ["ms.loaded"]="MemeSea carregado com sucesso",
 }
 
 local function ensureLanguageRegistered(code)
