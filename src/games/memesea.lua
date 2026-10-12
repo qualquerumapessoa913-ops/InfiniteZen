@@ -628,64 +628,85 @@ function MemeSea.Init(ctx)
             return false
         end
 
-        teleportToIsland(islandName)
-        task.wait(1.2)
-
-        local myHRP = getHRP()
-        if not myHRP then return false end
-
-        local keywords = {}
-        for word in itemName:gmatch("%S+") do
-            table.insert(keywords, word:lower())
-        end
-        for word in islandName:gmatch("%S+") do
-            table.insert(keywords, word:lower())
-        end
-
-        local matchedPrompt = nil
-        local fallbackPrompt = nil
-        local fallbackDist = math.huge
-
-        for _, d in ipairs(workspace:GetDescendants()) do
-            if d:IsA("ProximityPrompt") and d.Parent and d.Parent:IsA("BasePart") then
-                local dist = (d.Parent.Position - myHRP.Position).Magnitude
-                if dist < fallbackDist then
-                    fallbackDist = dist
-                    fallbackPrompt = d
-                end
-                local fullPath = d:GetFullName():lower()
-                for _, kw in ipairs(keywords) do
-                    if fullPath:find(kw, 1, true) then
-                        matchedPrompt = d
-                        break
-                    end
-                end
-            end
-        end
-
-        local prompt = matchedPrompt or fallbackPrompt
-        if prompt and prompt.Parent and prompt.Parent:IsA("BasePart") then
-            local parentPart = prompt.Parent
-            myHRP.CFrame = CFrame.new(parentPart.Position + Vector3.new(0, 3, 0))
-            task.wait(0.4)
-
-            pcall(function()
-                prompt.MaxActivationDistance = 500
-                prompt.HoldDuration = 0
-                prompt.RequiresLineOfSight = false
-            end)
-
-            pcall(function() fireproximityprompt(prompt) end)
-            print("[MemeSea] 🇧🇷 Boss invocado via prompt: " .. prompt:GetFullName())
-            print("[MemeSea] 🇺🇸 Boss summoned via prompt: " .. prompt:GetFullName())
-            return true
-        end
-
         local char = LocalPlayer.Character
         local hum = char and char:FindFirstChildOfClass("Humanoid")
         if item:IsA("Tool") and hum then
             pcall(function() hum:EquipTool(item) end)
             task.wait(0.4)
+        end
+
+        local island = findChildFuzzy(IslandFolder, islandName)
+            or findChildFuzzy(workspace, islandName)
+
+        local bestPrompt = nil
+        local bestPromptDist = math.huge
+
+        if island then
+            for _, d in ipairs(island:GetDescendants()) do
+                if d:IsA("ProximityPrompt") and d.Parent and d.Parent:IsA("BasePart") then
+                    local myHRP = getHRP()
+                    if myHRP then
+                        local dist = (d.Parent.Position - myHRP.Position).Magnitude
+                        if dist < bestPromptDist then
+                            bestPromptDist = dist
+                            bestPrompt = d
+                        end
+                    end
+                end
+            end
+        end
+
+        if not bestPrompt then
+            local myHRP = getHRP()
+            if myHRP then
+                for _, d in ipairs(workspace:GetDescendants()) do
+                    if d:IsA("ProximityPrompt") and d.Parent and d.Parent:IsA("BasePart") then
+                        local path = d:GetFullName():lower()
+                        local keywordHit = path:find("noob", 1, true)
+                            or path:find("pumpkin", 1, true)
+                            or path:find("sus", 1, true)
+                            or path:find("altar", 1, true)
+                            or path:find("summon", 1, true)
+                        if keywordHit then
+                            local dist = (d.Parent.Position - myHRP.Position).Magnitude
+                            if dist < bestPromptDist and dist < 5000 then
+                                bestPromptDist = dist
+                                bestPrompt = d
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
+        if bestPrompt then
+            local parentPart = bestPrompt.Parent
+            local myHRP = getHRP()
+            if myHRP and parentPart then
+                myHRP.CFrame = CFrame.new(parentPart.Position + Vector3.new(0, 3, 0))
+                myHRP.Velocity = Vector3.new(0, 0, 0)
+                myHRP.RotVelocity = Vector3.new(0, 0, 0)
+                task.wait(0.5)
+
+                pcall(function()
+                    bestPrompt.Enabled = true
+                    bestPrompt.MaxActivationDistance = 500
+                    bestPrompt.HoldDuration = 0
+                    bestPrompt.RequiresLineOfSight = false
+                end)
+
+                pcall(function() fireproximityprompt(bestPrompt) end)
+                task.wait(0.3)
+                pcall(function() fireproximityprompt(bestPrompt) end)
+                task.wait(0.3)
+
+                print("[MemeSea] 🇧🇷 Boss invocado via prompt: " .. bestPrompt:GetFullName())
+                print("[MemeSea] 🇺🇸 Boss summoned via prompt: " .. bestPrompt:GetFullName())
+                return true
+            end
+        end
+
+        if item:IsA("Tool") and hum then
             if item.Activated then pcall(function() item:Activate() end) end
             if firesignal and item.Activated then pcall(function() firesignal(item.Activated) end) end
             print("[MemeSea] 🇧🇷 Boss invocado via tool: " .. itemName)
@@ -693,14 +714,7 @@ function MemeSea.Init(ctx)
             return true
         end
 
-        if item:IsA("GuiObject") then
-            pcall(function() item:Activate() end)
-            print("[MemeSea] 🇧🇷 Boss invocado via GUI: " .. itemName)
-            print("[MemeSea] 🇺🇸 Boss summoned via GUI: " .. itemName)
-            return true
-        end
-
-        warn("[Boss] No summon method found for:", itemName, "Class:", item.ClassName)
+        warn("[Boss] No summon method found for:", itemName)
         return false
     end
 
