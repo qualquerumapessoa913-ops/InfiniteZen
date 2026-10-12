@@ -242,25 +242,37 @@ function MemeSea.Init(ctx)
 
     local function teleportToIsland(islandName)
         local island = findChildFuzzy(IslandFolder, islandName)
-        if not island then
-            island = findChildFuzzy(workspace, islandName)
-        end
-        if not island then
-            if Window then Window:Notify("Warning", islandName .. " not found", 3, "error") end
-            warn("[TP] Island not found:", islandName)
-            return false
-        end
-
-        local pos = findIslandAnchor(island)
-        if not pos then
-            if Window then Window:Notify("Warning", "No anchor in " .. island.Name, 3, "error") end
-            warn("[TP] No anchor for:", island.Name)
-            return false
+        if island then
+            local pos = findIslandAnchor(island)
+            if pos then
+                teleportToCFrame(CFrame.new(pos + Vector3.new(0, 15, 0)))
+                if Window then Window:Notify("Teleport", "Teleported to " .. island.Name, 2, "success") end
+                return true
+            end
         end
 
-        teleportToCFrame(CFrame.new(pos + Vector3.new(0, 15, 0)))
-        if Window then Window:Notify("Teleport", "Teleported to " .. island.Name, 2, "success") end
-        return true
+        if TeleportLoc then
+            local tp = findChildFuzzy(TeleportLoc, islandName)
+            if tp and tp:IsA("BasePart") then
+                teleportToCFrame(CFrame.new(tp.Position + Vector3.new(0, 15, 0)))
+                if Window then Window:Notify("Teleport", "Teleported to " .. islandName, 2, "success") end
+                return true
+            end
+        end
+
+        local wsObj = findChildFuzzy(workspace, islandName)
+        if wsObj then
+            local pos = findIslandAnchor(wsObj)
+            if pos then
+                teleportToCFrame(CFrame.new(pos + Vector3.new(0, 15, 0)))
+                if Window then Window:Notify("Teleport", "Teleported to " .. islandName, 2, "success") end
+                return true
+            end
+        end
+
+        if Window then Window:Notify("Warning", islandName .. " not found", 3, "error") end
+        warn("[TP] Island not found:", islandName)
+        return false
     end
 
     local function teleportToFolderTarget(folder, name, yOffset)
@@ -616,37 +628,56 @@ function MemeSea.Init(ctx)
             return false
         end
 
-        local island = findChildFuzzy(IslandFolder, islandName)
-            or findChildFuzzy(workspace, islandName)
-        if island then
-            local pos = findIslandAnchor(island)
-            if pos then
-                teleportToCFrame(CFrame.new(pos + Vector3.new(0, 15, 0)))
-                task.wait(1)
-            end
+        teleportToIsland(islandName)
+        task.wait(1.2)
+
+        local myHRP = getHRP()
+        if not myHRP then return false end
+
+        local keywords = {}
+        for word in itemName:gmatch("%S+") do
+            table.insert(keywords, word:lower())
+        end
+        for word in islandName:gmatch("%S+") do
+            table.insert(keywords, word:lower())
         end
 
-        local altar = nil
-        if island then
-            for _, d in ipairs(island:GetDescendants()) do
-                if d:IsA("ProximityPrompt") then
-                    altar = d
-                    break
+        local matchedPrompt = nil
+        local fallbackPrompt = nil
+        local fallbackDist = math.huge
+
+        for _, d in ipairs(workspace:GetDescendants()) do
+            if d:IsA("ProximityPrompt") and d.Parent and d.Parent:IsA("BasePart") then
+                local dist = (d.Parent.Position - myHRP.Position).Magnitude
+                if dist < fallbackDist then
+                    fallbackDist = dist
+                    fallbackPrompt = d
+                end
+                local fullPath = d:GetFullName():lower()
+                for _, kw in ipairs(keywords) do
+                    if fullPath:find(kw, 1, true) then
+                        matchedPrompt = d
+                        break
+                    end
                 end
             end
         end
-        if altar then
+
+        local prompt = matchedPrompt or fallbackPrompt
+        if prompt and prompt.Parent and prompt.Parent:IsA("BasePart") then
+            local parentPart = prompt.Parent
+            myHRP.CFrame = CFrame.new(parentPart.Position + Vector3.new(0, 3, 0))
+            task.wait(0.4)
+
             pcall(function()
-                altar.MaxActivationDistance = 100
-                altar.HoldDuration = 0
-                altar.RequiresLineOfSight = false
+                prompt.MaxActivationDistance = 500
+                prompt.HoldDuration = 0
+                prompt.RequiresLineOfSight = false
             end)
-            local myHRP = getHRP()
-            if myHRP and altar.Parent and altar.Parent:IsA("BasePart") then
-                myHRP.CFrame = CFrame.new(altar.Parent.Position + Vector3.new(0, 3, 0))
-            end
-            task.wait(0.3)
-            pcall(function() fireproximityprompt(altar) end)
+
+            pcall(function() fireproximityprompt(prompt) end)
+            print("[MemeSea] 🇧🇷 Boss invocado via prompt: " .. prompt:GetFullName())
+            print("[MemeSea] 🇺🇸 Boss summoned via prompt: " .. prompt:GetFullName())
             return true
         end
 
@@ -657,10 +688,19 @@ function MemeSea.Init(ctx)
             task.wait(0.4)
             if item.Activated then pcall(function() item:Activate() end) end
             if firesignal and item.Activated then pcall(function() firesignal(item.Activated) end) end
+            print("[MemeSea] 🇧🇷 Boss invocado via tool: " .. itemName)
+            print("[MemeSea] 🇺🇸 Boss summoned via tool: " .. itemName)
             return true
         end
 
-        warn("[Boss] No summon method found for:", itemName)
+        if item:IsA("GuiObject") then
+            pcall(function() item:Activate() end)
+            print("[MemeSea] 🇧🇷 Boss invocado via GUI: " .. itemName)
+            print("[MemeSea] 🇺🇸 Boss summoned via GUI: " .. itemName)
+            return true
+        end
+
+        warn("[Boss] No summon method found for:", itemName, "Class:", item.ClassName)
         return false
     end
 
