@@ -1,5 +1,5 @@
 -- ============================================================
--- Infinite Zen - MemeSea - V1.1
+-- Infinite Zen - MemeSea - V1.2
 -- ============================================================
 
 local MemeSea = {}
@@ -16,7 +16,7 @@ function MemeSea.Init(ctx)
         return v
     end
 
-    local GAME_VERSION  = "1.1"
+    local GAME_VERSION  = "1.2"
     local FULL_VERSION  = "Infinite Zen V" .. GAME_VERSION .. " - " .. gameName
     local SHORT_VERSION = "V" .. GAME_VERSION .. " - " .. gameName
 
@@ -105,6 +105,19 @@ function MemeSea.Init(ctx)
         end
     end)
 
+    local COMMON_BOSSES = {
+        { Name = "Big Floppa",    Level = 100,  Island = "Floppa Island" },
+        { Name = "Walter Dog",    Level = 250,  Island = "Floppa Island" },
+        { Name = "Snow Tree",     Level = 400,  Island = "Snow Island" },
+        { Name = "Sus Face",      Level = 550,  Island = "Snow Island" },
+        { Name = "Gorilla King",  Level = 700,  Island = "Gorilla Island" },
+        { Name = "Obamid",        Level = 900,  Island = "Sand Island" },
+        { Name = "Pink Absorber", Level = 1150, Island = "Sand Island" },
+        { Name = "Moai",          Level = 1350, Island = "Moai Island" },
+        { Name = "Rick Roller",   Level = 2200, Island = "MrBeast Island" },
+        { Name = "Mr Beast",      Level = 2300, Island = "MrBeast Island" },
+    }
+
     local State = {
         autoQuestFarm = false, autoStats = false, autoRedeem = false,
         statPriority = "Melee", statPointsPerTick = 1, farmWeapon = "Fight",
@@ -114,6 +127,11 @@ function MemeSea.Init(ctx)
         jumpPower = false, jumpPowerValue = 80,
         antiAfk = false, fullbright = false, noFog = false,
         respawnWait = 0,
+        autoBoss = false, bossTarget = "Big Floppa", bossCustom = "",
+        fetchBossQuest = true,
+        autoGiantPumpkin = false, autoEvilNoob = false,
+        autoLordSus = false, autoMemeBeast = false,
+        bossAttackDelay = 0.15,
     }
 
     local origBrightness = Lighting.Brightness
@@ -128,8 +146,13 @@ function MemeSea.Init(ctx)
     local hoverActive    = false
     local redeemIndex    = 0
     local currentMobName = nil
+    local currentBoss    = nil
+    local bossState      = "idle"
 
     local function isFarmActive() return State.autoQuestFarm end
+    local function isBossActive()
+        return State.autoBoss or State.autoGiantPumpkin or State.autoEvilNoob or State.autoLordSus or State.autoMemeBeast
+    end
 
     local function getHRP()
         local c = LocalPlayer.Character
@@ -306,13 +329,6 @@ function MemeSea.Init(ctx)
         return nil
     end
 
-    local function getQuestProgress(q)
-        if not q then return 0, 0 end
-        local a = q:FindFirstChild("Amount")
-        local n = q:FindFirstChild("Need")
-        return (a and a.Value) or 0, (n and n.Value) or 0
-    end
-
     local function buildQuests()
         local list = {}
         if not QuestSettings or not QuestLocation or not EnemyLocation then return list end
@@ -422,6 +438,21 @@ function MemeSea.Init(ctx)
         return nil
     end
 
+    local function findEnemyFuzzy(name)
+        if not Monsters then return nil end
+        local target = normalizeName(name)
+        for _, m in ipairs(Monsters:GetChildren()) do
+            if isAlive(m) and normalizeName(m.Name) == target then return m end
+        end
+        for _, m in ipairs(Monsters:GetChildren()) do
+            if isAlive(m) then
+                local n = normalizeName(m.Name)
+                if n:find(target, 1, true) or target:find(n, 1, true) then return m end
+            end
+        end
+        return nil
+    end
+
     local function getMobHitboxRadius(mob)
         if not mob then return 0 end
         local maxSize = 0
@@ -503,6 +534,23 @@ function MemeSea.Init(ctx)
         return true
     end
 
+    local function killBossFuzzy(bossName)
+        if goingToNpc then return false end
+        local enemy = findEnemyFuzzy(bossName)
+        if not enemy then return false end
+        local pp = enemy.PrimaryPart or enemy:FindFirstChild("HumanoidRootPart")
+        if not pp then return false end
+        currentTarget = enemy
+        currentMobName = enemy.Name
+        currentBoss = enemy
+        teleportToCFrame(pp.CFrame * calcDynamicCFrame(enemy))
+        applyAntiDamage()
+        equipFarmTool()
+        playerClick()
+        if State.bringMobs then bringMobsTo(enemy.Name, pp.CFrame) end
+        return true
+    end
+
     local function takeQuest(npcName)
         if not QuestLocation then return false end
         local loc = QuestLocation:FindFirstChild(npcName)
@@ -536,6 +584,84 @@ function MemeSea.Init(ctx)
         pcall(function() fireproximityprompt(prompt) end)
         task.wait(0.3)
         return true
+    end
+
+    local function findItemInInventory(itemName)
+        if not itemName then return nil end
+        local target = normalizeName(itemName)
+        local searchRoots = {
+            LocalPlayer,
+            LocalPlayer:FindFirstChild("Backpack"),
+            PlayerGui and PlayerGui:FindFirstChild("Inventory"),
+        }
+        for _, root in ipairs(searchRoots) do
+            if root then
+                for _, c in ipairs(root:GetDescendants()) do
+                    if normalizeName(c.Name) == target
+                        or normalizeName(c.Name):find(target, 1, true) then
+                        return c
+                    end
+                end
+            end
+        end
+        return nil
+    end
+
+    local function trySummonBoss(islandName, itemName)
+        if not itemName then return false end
+        local item = findItemInInventory(itemName)
+        if not item then
+            print("[MemeSea] 🇧🇷 Item não encontrado no inventário: " .. itemName)
+            print("[MemeSea] 🇺🇸 Item not found in inventory: " .. itemName)
+            return false
+        end
+
+        local island = findChildFuzzy(IslandFolder, islandName)
+            or findChildFuzzy(workspace, islandName)
+        if island then
+            local pos = findIslandAnchor(island)
+            if pos then
+                teleportToCFrame(CFrame.new(pos + Vector3.new(0, 15, 0)))
+                task.wait(1)
+            end
+        end
+
+        local altar = nil
+        if island then
+            for _, d in ipairs(island:GetDescendants()) do
+                if d:IsA("ProximityPrompt") then
+                    altar = d
+                    break
+                end
+            end
+        end
+        if altar then
+            pcall(function()
+                altar.MaxActivationDistance = 100
+                altar.HoldDuration = 0
+                altar.RequiresLineOfSight = false
+            end)
+            local myHRP = getHRP()
+            if myHRP and altar.Parent and altar.Parent:IsA("BasePart") then
+                myHRP.CFrame = CFrame.new(altar.Parent.Position + Vector3.new(0, 3, 0))
+            end
+            task.wait(0.3)
+            pcall(function() fireproximityprompt(altar) end)
+            return true
+        end
+
+        local char = LocalPlayer.Character
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if item:IsA("Tool") and hum then
+            pcall(function() hum:EquipTool(item) end)
+            task.wait(0.4)
+            if item.Activated then pcall(function() item:Activate() end) end
+            if firesignal and item.Activated then pcall(function() firesignal(item.Activated) end) end
+            return true
+        end
+
+        warn("[Boss] No summon method found for:", itemName)
+        return false
     end
 
     task.spawn(function()
@@ -596,9 +722,100 @@ function MemeSea.Init(ctx)
         end
     end)
 
+    task.spawn(function()
+        while not UNLOADED do
+            task.wait(0.15)
+            if not isBossActive() then
+                currentBoss = nil
+                bossState = "idle"
+                task.wait(0.5)
+            else
+                local targetName = nil
+                local raidItem = nil
+                local raidIsland = nil
+
+                if State.autoGiantPumpkin then
+                    targetName = "Giant Pumpkin"
+                    raidItem = "Flame Orb"
+                    raidIsland = "Pumpkin Island"
+                elseif State.autoEvilNoob then
+                    targetName = "Evil Noob"
+                    raidItem = "Noob Head"
+                    raidIsland = "Noob Arena"
+                elseif State.autoLordSus then
+                    targetName = "Lord Sus"
+                    raidItem = "Sussy Orb"
+                    raidIsland = "Forgotten Island"
+                elseif State.autoMemeBeast then
+                    targetName = "Meme Beast"
+                elseif State.autoBoss then
+                    if State.bossCustom and State.bossCustom ~= "" then
+                        targetName = State.bossCustom
+                    else
+                        targetName = State.bossTarget
+                    end
+                end
+
+                if not targetName then
+                    task.wait(1)
+                else
+                    local alive = findEnemyFuzzy(targetName)
+                    if alive then
+                        if raidItem then
+                            local hasItem = findItemInInventory(raidItem)
+                            if not hasItem then
+                                print("[MemeSea] 🇧🇷 Sem " .. raidItem .. " — aguardando drop")
+                                print("[MemeSea] 🇺🇸 No " .. raidItem .. " — waiting for drop")
+                                task.wait(5)
+                            else
+                                bossState = "farming"
+                                killBossFuzzy(targetName)
+                                task.wait(State.bossAttackDelay)
+                            end
+                        else
+                            bossState = "farming"
+                            killBossFuzzy(targetName)
+                            task.wait(State.bossAttackDelay)
+                        end
+                    else
+                        if raidItem and raidIsland and bossState ~= "summoning" then
+                            bossState = "summoning"
+                            trySummonBoss(raidIsland, raidItem)
+                            task.wait(3)
+                            bossState = "idle"
+                        else
+                            bossState = "waiting_spawn"
+                            if State.fetchBossQuest and State.autoBoss then
+                                local npcName = nil
+                                for _, q in ipairs(Quests) do
+                                    if normalizeName(q.Enemy) == normalizeName(targetName) then
+                                        npcName = q.NpcName
+                                        break
+                                    end
+                                end
+                                if npcName then
+                                    local active = getActiveQuest()
+                                    local activeTarget = getQuestTargetName(active)
+                                    if activeTarget ~= targetName then
+                                        takeQuest(npcName)
+                                        task.wait(1)
+                                    end
+                                end
+                            end
+                            if raidIsland then
+                                teleportToIsland(raidIsland)
+                            end
+                            task.wait(2)
+                        end
+                    end
+                end
+            end
+        end
+    end)
+
     RunService.Heartbeat:Connect(function()
         if UNLOADED then return end
-        if not isFarmActive() then return end
+        if not (isFarmActive() or isBossActive()) then return end
         if goingToNpc then return end
         if not currentTarget or not currentTarget.Parent then return end
         if not isAlive(currentTarget) then
@@ -627,7 +844,7 @@ function MemeSea.Init(ctx)
     task.spawn(function()
         while not UNLOADED do
             task.wait(0.5)
-            if isFarmActive() then
+            if isFarmActive() or isBossActive() then
                 local char = LocalPlayer.Character
                 if char then
                     local hum = char:FindFirstChildOfClass("Humanoid")
@@ -728,6 +945,7 @@ function MemeSea.Init(ctx)
         restoreAntiDamage()
         currentTarget = nil
         currentMobName = nil
+        currentBoss = nil
     end)
 
     local BASE_FOLDER   = "InfiniteZen_Configs"
@@ -749,12 +967,14 @@ function MemeSea.Init(ctx)
             "autoQuestFarm", "bringMobs", "autoHaki", "autoClick", "antiDamage", "adaptiveHitbox",
             "autoStats", "autoRedeem",
             "speed", "jumpPower", "antiAfk", "fullbright", "noFog",
+            "autoBoss", "fetchBossQuest",
+            "autoGiantPumpkin", "autoEvilNoob", "autoLordSus", "autoMemeBeast",
         }
         for _, key in ipairs(toggles) do
             local el = Elements[key]
             if el and State[key] ~= nil then setToggle(el, State[key]) end
         end
-        local sliders = { "hitboxMargin", "farmDistance", "statPointsPerTick", "speedValue", "jumpPowerValue" }
+        local sliders = { "hitboxMargin", "farmDistance", "statPointsPerTick", "speedValue", "jumpPowerValue", "bossAttackDelay" }
         for _, key in ipairs(sliders) do
             local el = Elements[key]
             if el and State[key] ~= nil then setSlider(el, State[key]) end
@@ -883,14 +1103,148 @@ function MemeSea.Init(ctx)
             Callback = function(v) State.farmDistance = v end,
         }))
 
-        local TeleTab = Window:CreateTab("Teleport", "🌀")
+        local BossTab = Window:CreateTab("Bosses", "👹")
 
+        BossTab:CreateSection("Common Bosses")
+        reg("autoBoss", BossTab:CreateToggle({
+            Name = "Auto Boss",
+            Description = "Farms the selected boss and its quest",
+            Icon = "👹", Default = false,
+            Callback = function(v) State.autoBoss = v end,
+        }))
+
+        local bossOptions = {}
+        for _, b in ipairs(COMMON_BOSSES) do
+            table.insert(bossOptions, b.Name .. " [Lv. " .. b.Level .. "]")
+        end
+        BossTab:CreateDropdown({
+            Name = "Boss Target",
+            Description = "Pick the boss to farm",
+            Icon = "🎯",
+            Options = bossOptions,
+            Default = 1,
+            Callback = function(opt)
+                State.bossTarget = tostring(opt):gsub("%s*%[Lv%.%s*%d+%]$", "")
+            end,
+        })
+
+        local customBossFrame = Instance.new("Frame", BossTab.container)
+        customBossFrame.Size = UDim2.new(1, 0, 0, 58)
+        customBossFrame.BackgroundColor3 = UI.Theme.Surface
+        customBossFrame.BorderSizePixel = 0
+        customBossFrame.LayoutOrder = #BossTab.container:GetChildren()
+        Instance.new("UICorner", customBossFrame).CornerRadius = UDim.new(0, 8)
+        local cbStroke = Instance.new("UIStroke", customBossFrame)
+        cbStroke.Color = UI.Theme.Border
+        cbStroke.Thickness = 1
+        cbStroke.Transparency = 0.5
+
+        local cbIcon = Instance.new("Frame", customBossFrame)
+        cbIcon.Size = UDim2.new(0, 32, 0, 32)
+        cbIcon.Position = UDim2.new(0, 14, 0.5, -16)
+        cbIcon.BackgroundColor3 = UI.Theme.Bg
+        cbIcon.BorderSizePixel = 0
+        Instance.new("UICorner", cbIcon).CornerRadius = UDim.new(0, 8)
+        local cbIconStroke = Instance.new("UIStroke", cbIcon)
+        cbIconStroke.Color = UI.Theme.Border
+        cbIconStroke.Thickness = 1
+
+        local cbIconLbl = Instance.new("TextLabel", cbIcon)
+        cbIconLbl.Size = UDim2.new(1, 0, 1, 0)
+        cbIconLbl.BackgroundTransparency = 1
+        cbIconLbl.Font = UI.Theme.FontBold
+        cbIconLbl.Text = "✏️"
+        cbIconLbl.TextColor3 = UI.Theme.Primary
+        cbIconLbl.TextSize = 14
+
+        local cbTitle = Instance.new("TextLabel", customBossFrame)
+        cbTitle.Size = UDim2.new(0.5, 0, 0, 18)
+        cbTitle.Position = UDim2.new(0, 58, 0, 10)
+        cbTitle.BackgroundTransparency = 1
+        cbTitle.Font = UI.Theme.FontBold
+        cbTitle.Text = "Custom Boss Name"
+        cbTitle.TextColor3 = UI.Theme.Text
+        cbTitle.TextSize = 13
+        cbTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+        local cbDesc = Instance.new("TextLabel", customBossFrame)
+        cbDesc.Size = UDim2.new(0.5, 0, 0, 16)
+        cbDesc.Position = UDim2.new(0, 58, 0, 28)
+        cbDesc.BackgroundTransparency = 1
+        cbDesc.Font = UI.Theme.Font
+        cbDesc.Text = "Overrides dropdown when filled"
+        cbDesc.TextColor3 = UI.Theme.TextDim
+        cbDesc.TextSize = 11
+        cbDesc.TextXAlignment = Enum.TextXAlignment.Left
+
+        local cbInput = Instance.new("TextBox", customBossFrame)
+        cbInput.Size = UDim2.new(0, 130, 0, 26)
+        cbInput.Position = UDim2.new(1, -144, 0.5, -13)
+        cbInput.BackgroundColor3 = UI.Theme.Bg
+        cbInput.Font = UI.Theme.FontBold
+        cbInput.TextSize = 11
+        cbInput.TextColor3 = UI.Theme.Text
+        cbInput.PlaceholderText = "e.g. Big Floppa"
+        cbInput.PlaceholderColor3 = UI.Theme.TextMuted
+        cbInput.Text = ""
+        cbInput.ClearTextOnFocus = false
+        cbInput.TextXAlignment = Enum.TextXAlignment.Center
+        Instance.new("UICorner", cbInput).CornerRadius = UDim.new(0, 6)
+        local cbInputStroke = Instance.new("UIStroke", cbInput)
+        cbInputStroke.Color = UI.Theme.Border
+        cbInputStroke.Thickness = 1
+        cbInputStroke.Transparency = 0.3
+
+        cbInput:GetPropertyChangedSignal("Text"):Connect(function()
+            State.bossCustom = cbInput.Text
+        end)
+
+        reg("fetchBossQuest", BossTab:CreateToggle({
+            Name = "Fetch Boss Quest",
+            Description = "Auto-accepts the boss quest before farming",
+            Icon = "📜", Default = true,
+            Callback = function(v) State.fetchBossQuest = v end,
+        }))
+
+        reg("bossAttackDelay", BossTab:CreateSlider({
+            Name = "Boss Attack Delay",
+            Description = "Seconds between attacks",
+            Icon = "⏱️", Min = 0.05, Max = 1, Default = 0.15,
+            Callback = function(v) State.bossAttackDelay = v end,
+        }))
+
+        BossTab:CreateSection("Raid Bosses")
+        reg("autoGiantPumpkin", BossTab:CreateToggle({
+            Name = "Auto Giant Pumpkin",
+            Description = "Summons with Flame Orb on Pumpkin Island",
+            Icon = "🎃", Default = false,
+            Callback = function(v) State.autoGiantPumpkin = v end,
+        }))
+        reg("autoEvilNoob", BossTab:CreateToggle({
+            Name = "Auto Evil Noob",
+            Description = "Summons with Noob Head in Noob Arena",
+            Icon = "😈", Default = false,
+            Callback = function(v) State.autoEvilNoob = v end,
+        }))
+        reg("autoLordSus", BossTab:CreateToggle({
+            Name = "Auto Lord Sus",
+            Description = "Summons with Sussy Orb on Forgotten Island",
+            Icon = "🕵️", Default = false,
+            Callback = function(v) State.autoLordSus = v end,
+        }))
+        reg("autoMemeBeast", BossTab:CreateToggle({
+            Name = "Auto Meme Beast",
+            Description = "Scans open sea for random spawn every 30 min",
+            Icon = "🌊", Default = false,
+            Callback = function(v) State.autoMemeBeast = v end,
+        }))
+
+        local TeleTab = Window:CreateTab("Teleport", "🌀")
         TeleTab:CreateSection("Main")
         TeleTab:CreateButton({
             Name = "🏠 Spawn",
             Callback = function() teleportToSpawn() end,
         })
-
         TeleTab:CreateSection("Islands")
 
         task.spawn(function()
@@ -949,27 +1303,6 @@ function MemeSea.Init(ctx)
 
             print("[MemeSea] 🇧🇷 " .. #children .. " botões de ilha adicionados")
             print("[MemeSea] 🇺🇸 " .. #children .. " island buttons added")
-        end)
-
-        task.spawn(function()
-            task.wait(6)
-            local alreadyAdded = false
-            if IslandFolder then
-                for _, c in ipairs(IslandFolder:GetChildren()) do
-                    if c.Name:lower():find("pvp") then alreadyAdded = true; break end
-                end
-            end
-            if not alreadyAdded then
-                local pvp = workspace:FindFirstChild("PvpArena")
-                    or workspace:FindFirstChild("PvPArena")
-                    or workspace:FindFirstChild("Pvp_Arena")
-                if pvp then
-                    TeleTab:CreateButton({
-                        Name = "⚔️ PvP Arena",
-                        Callback = function() teleportToIsland(pvp.Name) end,
-                    })
-                end
-            end
         end)
 
         task.spawn(function()
