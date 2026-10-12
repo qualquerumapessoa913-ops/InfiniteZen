@@ -1,5 +1,5 @@
 -- ============================================================
--- INFINITE ZEN - LANGUAGE v3.8
+-- INFINITE ZEN - LANGUAGE v3.8.1
 -- ============================================================
 
 local HttpService = game:GetService("HttpService")
@@ -131,12 +131,15 @@ Language.translations["en"] = {
 
     ["ms.tab.farm"]="Auto Farm", ["ms.tab.side"]="Side-Quests", ["ms.tab.shop"]="Shop",
     ["ms.tab.progress"]="Progress", ["ms.tab.player"]="Player", ["ms.tab.visuals"]="Visuals",
+    ["ms.tab.teleport"]="Teleport",
     ["ms.section.quest"]="Quest", ["ms.section.combat"]="Combat", ["ms.section.tuning"]="Tuning",
     ["ms.section.race"]="Race Awakening (V2)", ["ms.section.floppa"]="Floppa Weapon (Loop)",
     ["ms.section.popcat"]="Popcat Weapon", ["ms.section.weapons"]="Weapons",
     ["ms.section.fighting"]="Fighting Styles / Abilities", ["ms.section.utilities"]="Utilities",
     ["ms.section.cosmetics"]="Cosmetics", ["ms.section.stats"]="Stats", ["ms.section.rewards"]="Rewards",
     ["ms.section.gacha"]="Gacha", ["ms.section.movement"]="Movement", ["ms.section.environment"]="Environment",
+    ["ms.section.teleport.main"]="Main", ["ms.section.teleport.islands"]="Islands",
+    ["ms.section.teleport.quest_npcs"]="Quest NPCs", ["ms.section.teleport.enemies"]="Enemies",
 
     ["ms.autoQuestFarm.name"]="Auto Quest Farm", ["ms.autoQuestFarm.desc"]="Grab quest, kill mobs, complete, repeat",
     ["ms.farmWeapon.name"]="Farm Weapon", ["ms.farmWeapon.desc"]="Which tool to use for farming",
@@ -145,6 +148,7 @@ Language.translations["en"] = {
     ["ms.autoAttack.name"]="Auto Attack", ["ms.autoAttack.desc"]="Auto-click to attack",
     ["ms.attackDelay.name"]="Attack Delay", ["ms.attackDelay.desc"]="Seconds between attacks",
     ["ms.teleportDistance.name"]="Teleport Distance", ["ms.teleportDistance.desc"]="How close to teleport",
+    ["ms.teleport.spawn"]="🏠 Spawn",
 
     ["ms.dancingBanana"]="Snow Island | 100 Soggas | Awakening Orb",
     ["ms.autoRace.name"]="Auto Race Awakening", ["ms.autoRace.desc"]="Farms Sogga x100 and turns in",
@@ -265,12 +269,15 @@ Language.translations["pt-br"] = {
 
     ["ms.tab.farm"]="Auto Farm", ["ms.tab.side"]="Side-Quests", ["ms.tab.shop"]="Loja",
     ["ms.tab.progress"]="Progresso", ["ms.tab.player"]="Jogador", ["ms.tab.visuals"]="Visual",
+    ["ms.tab.teleport"]="Teleporte",
     ["ms.section.quest"]="Missão", ["ms.section.combat"]="Combate", ["ms.section.tuning"]="Ajustes",
     ["ms.section.race"]="Despertar de Raça (V2)", ["ms.section.floppa"]="Floppa Weapon (Loop)",
     ["ms.section.popcat"]="Popcat Weapon", ["ms.section.weapons"]="Armas",
     ["ms.section.fighting"]="Estilos de Luta / Habilidades", ["ms.section.utilities"]="Utilidades",
     ["ms.section.cosmetics"]="Cosméticos", ["ms.section.stats"]="Atributos", ["ms.section.rewards"]="Recompensas",
     ["ms.section.gacha"]="Gacha", ["ms.section.movement"]="Movimento", ["ms.section.environment"]="Ambiente",
+    ["ms.section.teleport.main"]="Principal", ["ms.section.teleport.islands"]="Ilhas",
+    ["ms.section.teleport.quest_npcs"]="NPCs de Missão", ["ms.section.teleport.enemies"]="Inimigos",
 
     ["ms.autoQuestFarm.name"]="Auto Quest Farm", ["ms.autoQuestFarm.desc"]="Pega missão, mata mob, entrega, repete",
     ["ms.farmWeapon.name"]="Arma de Farm", ["ms.farmWeapon.desc"]="Qual ferramenta usar",
@@ -279,6 +286,7 @@ Language.translations["pt-br"] = {
     ["ms.autoAttack.name"]="Auto Ataque", ["ms.autoAttack.desc"]="Auto-clica pra atacar",
     ["ms.attackDelay.name"]="Delay de Ataque", ["ms.attackDelay.desc"]="Segundos entre ataques",
     ["ms.teleportDistance.name"]="Distância de TP", ["ms.teleportDistance.desc"]="Quão perto teleportar",
+    ["ms.teleport.spawn"]="🏠 Início",
 
     ["ms.dancingBanana"]="Snow Island | 100 Soggas | Awakening Orb",
     ["ms.autoRace.name"]="Auto Race Awakening", ["ms.autoRace.desc"]="Farm Sogga x100 e entrega",
@@ -423,6 +431,8 @@ function Language.get(key)
     if t and t[key] then return t[key] end
     local fb = Language.translations["en"]
     if fb and fb[key] then return fb[key] end
+    local fbPt = Language.translations["pt-br"]
+    if fbPt and fbPt[key] then return fbPt[key] end
     return key
 end
 

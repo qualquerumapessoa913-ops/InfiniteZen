@@ -1,5 +1,5 @@
 -- ============================================================
--- Infinite Zen - MemeSea - V1.0.1
+-- Infinite Zen - MemeSea - V1.1 (Teleport tab)
 -- ============================================================
 
 local MemeSea = {}
@@ -16,7 +16,7 @@ function MemeSea.Init(ctx)
         return v
     end
 
-    local GAME_VERSION  = "1.0.1"
+    local GAME_VERSION  = "1.1"
     local FULL_VERSION  = "Infinite Zen V" .. GAME_VERSION .. " - " .. gameName
     local SHORT_VERSION = "V" .. GAME_VERSION .. " - " .. gameName
 
@@ -71,10 +71,13 @@ function MemeSea.Init(ctx)
     local NPCs          = workspace:WaitForChild("NPCs", 30)
     local Location      = workspace:WaitForChild("Location", 30)
     local Monsters      = workspace:WaitForChild("Monster", 30)
+    local IslandFolder  = workspace:WaitForChild("Island", 30)
     local Quests_Npc    = NPCs and NPCs:WaitForChild("Quests_Npc", 15)
     local Shop_Npc      = NPCs and NPCs:WaitForChild("Shop_Npc", 15)
     local EnemyLocation = Location and Location:FindFirstChild("Enemy_Location", 15)
     local QuestLocation = Location and Location:FindFirstChild("QuestLocaion", 15)
+    local TeleportLoc   = Location and Location:FindFirstChild("Teleport", 10)
+    local SpawnLocs     = Location and Location:FindFirstChild("SpawnLocations", 10)
 
     local QuestFolder = LocalPlayer:WaitForChild("QuestFolder", 30)
     local PlayerData  = LocalPlayer:WaitForChild("PlayerData", 30)
@@ -137,6 +140,106 @@ function MemeSea.Init(ctx)
         if char then pcall(function() char:PivotTo(cf) end) end
     end
 
+    -- ═══ TELEPORT HELPERS ═══
+
+    local function findIslandAnchor(islandModel)
+        if not islandModel then return nil end
+        -- 1. Tenta Location.Teleport (se existir coord pronta)
+        if TeleportLoc then
+            local tp = TeleportLoc:FindFirstChild(islandModel.Name)
+            if tp then
+                if tp:IsA("BasePart") then return tp end
+                if tp:IsA("Model") then return tp.PrimaryPart or tp:FindFirstChildWhichIsA("BasePart") end
+            end
+        end
+        -- 2. Pega a maior BasePart da ilha
+        local best, bestSize = nil, 0
+        for _, obj in ipairs(islandModel:GetDescendants()) do
+            if obj:IsA("BasePart") then
+                local s = obj.Size.Magnitude
+                if s > bestSize and s > 30 then
+                    best = obj
+                    bestSize = s
+                end
+            end
+        end
+        return best
+    end
+
+    local function teleportToIsland(islandName)
+        if not IslandFolder then
+            if Window then Window:Notify("⚠️", "Island folder not found", 2, "error") end
+            return false
+        end
+        local island = IslandFolder:FindFirstChild(islandName)
+        if not island then
+            if Window then Window:Notify("⚠️", islandName .. " not found", 2, "error") end
+            return false
+        end
+        local anchor = findIslandAnchor(island)
+        if not anchor then
+            if Window then Window:Notify("⚠️", "No anchor in " .. islandName, 2, "error") end
+            return false
+        end
+        local myHRP = getHRP()
+        if myHRP then
+            pcall(function()
+                LocalPlayer.Character:PivotTo(CFrame.new(anchor.Position + Vector3.new(0, 15, 0)))
+            end)
+            if Window then Window:Notify("🌀", "Teleported to " .. islandName, 2, "success") end
+            return true
+        end
+        return false
+    end
+
+    local function teleportToFolderTarget(folder, name, yOffset)
+        if not folder then return false end
+        local target = folder:FindFirstChild(name)
+        if not target then
+            if Window then Window:Notify("⚠️", name .. " not found", 2, "error") end
+            return false
+        end
+        local pos
+        if target:IsA("BasePart") then
+            pos = target.Position
+        elseif target:IsA("Model") then
+            pos = target:GetPivot().Position
+        elseif target:IsA("Folder") then
+            local first = target:FindFirstChildWhichIsA("BasePart")
+            if not first then
+                local firstM = target:FindFirstChildWhichIsA("Model")
+                if firstM then pos = firstM:GetPivot().Position end
+            else
+                pos = first.Position
+            end
+        end
+        if not pos then
+            if Window then Window:Notify("⚠️", "No position for " .. name, 2, "error") end
+            return false
+        end
+        teleportToCFrame(CFrame.new(pos + Vector3.new(0, yOffset or 5, 0)))
+        if Window then Window:Notify("🌀", "Teleported to " .. name, 2, "success") end
+        return true
+    end
+
+    local function teleportToSpawn()
+        if SpawnLocs then
+            local first = SpawnLocs:GetChildren()[1]
+            if first then
+                local pos = first.Position or (first:GetPivot() and first:GetPivot().Position)
+                if pos then
+                    teleportToCFrame(CFrame.new(pos + Vector3.new(0, 5, 0)))
+                    if Window then Window:Notify("🏠", "Teleported to Spawn", 2, "success") end
+                    return true
+                end
+            end
+        end
+        if Window then Window:Notify("⚠️", "Spawn not found", 2, "error") end
+        return false
+    end
+
+    -- ═══ QUEST HELPERS ═══
+
     local function getPlayerLevel()
         if not PlayerLevel then return nil end
         return PlayerLevel.Value
@@ -148,13 +251,6 @@ function MemeSea.Init(ctx)
             local t = v:FindFirstChild("Target")
             if t and t.Value and t.Value ~= "None" then return v end
         end
-        return nil
-    end
-
-    local function getQuestGiverName(q)
-        if not q then return nil end
-        local g = q:FindFirstChild("QuestGiver")
-        if g and g.Value and g.Value ~= "None" then return g.Value end
         return nil
     end
 
@@ -675,6 +771,7 @@ function MemeSea.Init(ctx)
         })
         Elements = {}
 
+        -- ═══ FARM TAB ═══
         local FarmTab = Window:CreateTab(T("ms.tab.farm", "Auto Farm"), "🌾")
         FarmTab:CreateSection(T("ms.section.quest", "Quest"))
         reg("autoQuestFarm", FarmTab:CreateToggle({
@@ -711,8 +808,8 @@ function MemeSea.Init(ctx)
             Callback = function(v) State.autoClick = v end,
         }))
         reg("antiDamage", FarmTab:CreateToggle({
-            Name = "Anti-Dano",
-            Description = "CanQuery=false / CanTouch=false no próprio personagem",
+            Name = "Anti-Damage",
+            Description = "CanQuery=false / CanTouch=false on the character",
             Icon = "🛡️", Default = true,
             Callback = function(v) State.antiDamage = v; if not v then restoreAntiDamage() end end,
         }))
@@ -720,23 +817,84 @@ function MemeSea.Init(ctx)
         FarmTab:CreateSection("Adaptive Hitbox")
         reg("adaptiveHitbox", FarmTab:CreateToggle({
             Name = "Adaptive Positioning",
-            Description = "Calcula posição baseado no tamanho do mob",
+            Description = "Calculates position based on mob hitbox size",
             Icon = "🎯", Default = true,
             Callback = function(v) State.adaptiveHitbox = v end,
         }))
         reg("hitboxMargin", FarmTab:CreateSlider({
             Name = "Hitbox Margin",
-            Description = "Distância extra do mob",
+            Description = "Extra distance from mob",
             Icon = "📏", Min = 1, Max = 15, Default = 4,
             Callback = function(v) State.hitboxMargin = v end,
         }))
         reg("farmDistance", FarmTab:CreateSlider({
             Name = "Farm Distance",
-            Description = "Distância mínima do mob",
+            Description = "Minimum distance from mob",
             Icon = "📐", Min = 5, Max = 30, Default = 10.5,
             Callback = function(v) State.farmDistance = v end,
         }))
 
+        -- ═══ TELEPORT TAB ═══
+        local TeleTab = Window:CreateTab("Teleport", "🌀")
+
+        TeleTab:CreateSection("Main")
+        TeleTab:CreateButton({
+            Name = "🏠 Spawn",
+            Callback = function() teleportToSpawn() end,
+        })
+
+        TeleTab:CreateSection("Islands")
+        local islandNames = {
+            "FloppaIsland", "GorillaIsland", "SussyIsland", "MoaiIsland",
+            "PumpkinIsland", "MrBeastIsland", "ForgottenIsland", "SnowIsland",
+            "DesertIsland", "RockIsland", "PvpArena",
+        }
+        for _, name in ipairs(islandNames) do
+            TeleTab:CreateButton({
+                Name = "🏝️ " .. name,
+                Callback = function() teleportToIsland(name) end,
+            })
+        end
+
+        -- Quest NPCs (auto-detectado)
+        task.spawn(function()
+            task.wait(3)
+            if QuestLocation then
+                local added = 0
+                for _, child in ipairs(QuestLocation:GetChildren()) do
+                    added = added + 1
+                    local cname = child.Name
+                    TeleTab:CreateButton({
+                        Name = "💬 " .. cname,
+                        Callback = function() teleportToFolderTarget(QuestLocation, cname, 5) end,
+                    })
+                end
+                if added > 0 then
+                    print("[MemeSea] Added " .. added .. " quest NPC teleports")
+                end
+            end
+        end)
+
+        -- Enemies (auto-detectado)
+        task.spawn(function()
+            task.wait(4)
+            if EnemyLocation then
+                local added = 0
+                for _, child in ipairs(EnemyLocation:GetChildren()) do
+                    added = added + 1
+                    local cname = child.Name
+                    TeleTab:CreateButton({
+                        Name = "⚔️ " .. cname,
+                        Callback = function() teleportToFolderTarget(EnemyLocation, cname, 5) end,
+                    })
+                end
+                if added > 0 then
+                    print("[MemeSea] Added " .. added .. " enemy teleports")
+                end
+            end
+        end)
+
+        -- ═══ PROGRESS TAB ═══
         local ProgressTab = Window:CreateTab(T("ms.tab.progress", "Progress"), "📈")
         ProgressTab:CreateSection(T("ms.section.stats", "Stats"))
         reg("autoStats", ProgressTab:CreateToggle({
@@ -768,6 +926,7 @@ function MemeSea.Init(ctx)
             Callback = function(v) State.autoRedeem = v; redeemIndex = 0 end,
         }))
 
+        -- ═══ PLAYER TAB ═══
         local PlayerTab = Window:CreateTab(T("ms.tab.player", "Player"), "🏃")
         PlayerTab:CreateSection(T("ms.section.movement", "Movement"))
         reg("speed", PlayerTab:CreateToggle({
@@ -801,6 +960,7 @@ function MemeSea.Init(ctx)
             Callback = function(v) State.antiAfk = v end,
         }))
 
+        -- ═══ VISUALS TAB ═══
         local VisualTab = Window:CreateTab(T("ms.tab.visuals", "Visuals"), "👁️")
         VisualTab:CreateSection(T("ms.section.environment", "Environment"))
         reg("fullbright", VisualTab:CreateToggle({
@@ -816,6 +976,7 @@ function MemeSea.Init(ctx)
             Callback = function(v) State.noFog = v; if not v then restoreEnv() end end,
         }))
 
+        -- ═══ SETTINGS TAB ═══
         local SettingsTab = Window:CreateTab(T("tab.settings", "Settings"), "⚙️")
         SettingsTab:CreateSection(T("section.create_config", "Create Config"))
 
@@ -969,6 +1130,7 @@ function MemeSea.Init(ctx)
             end,
         })
 
+        -- ═══ LANGUAGE TAB ═══
         local LanguageTab = Window:CreateTab(T("tab.language", "Language"), "🌍")
         LanguageTab:CreateSection(T("section.language_select", "Language"))
 
@@ -1009,6 +1171,7 @@ function MemeSea.Init(ctx)
         LanguageTab:CreateLabel(T("lang.saved_to", "Language saved to: ") .. " InfiniteZen_Language.txt", Color3.fromRGB(140, 140, 155))
         LanguageTab:CreateLabel(T("lang.auto_restore", "Auto-restored on open."), Color3.fromRGB(90, 90, 105))
 
+        -- ═══ CREDITS TAB ═══
         local CreditsTab = Window:CreateTab(T("tab.credits", "Credits"), "➕")
         CreditsTab:CreateSection(T("section.founder", "Founder"))
         CreditsTab:CreateLabel(T("credits.role", "Sr Red"), Color3.fromRGB(255, 50, 50))
