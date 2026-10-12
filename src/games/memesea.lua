@@ -285,37 +285,6 @@ function MemeSea.Init(ctx)
         return false
     end
 
-    task.spawn(function()
-        task.wait(5)
-        print("[MemeSea] 🇧🇷 ======== Debug de Teleport ========")
-        print("[MemeSea] 🇺🇸 ======== Teleport Debug ========")
-        if IslandFolder then
-            print("[MemeSea] 🇧🇷 IslandFolder: " .. IslandFolder:GetFullName())
-            print("[MemeSea] 🇺🇸 IslandFolder: " .. IslandFolder:GetFullName())
-            for _, c in ipairs(IslandFolder:GetChildren()) do
-                print("   [Island]", c.Name, "(" .. c.ClassName .. ")")
-            end
-        else
-            warn("[Debug] IslandFolder NOT FOUND")
-            print("[MemeSea] 🇧🇷 Filhos do workspace:")
-            print("[MemeSea] 🇺🇸 workspace children:")
-            for _, c in ipairs(workspace:GetChildren()) do
-                print("   ws>", c.Name, "(" .. c.ClassName .. ")")
-            end
-        end
-        if TeleportLoc then
-            print("[MemeSea] 🇧🇷 TeleportLoc: " .. TeleportLoc:GetFullName())
-            print("[MemeSea] 🇺🇸 TeleportLoc: " .. TeleportLoc:GetFullName())
-            for _, c in ipairs(TeleportLoc:GetChildren()) do
-                print("   [TP]", c.Name, "(" .. c.ClassName .. ")")
-            end
-        else
-            warn("[Debug] Location.Teleport NOT FOUND")
-        end
-        print("[MemeSea] 🇧🇷 ========================================")
-        print("[MemeSea] 🇺🇸 ========================================")
-    end)
-
     local function getPlayerLevel()
         if not PlayerLevel then return nil end
         return PlayerLevel.Value
