@@ -1,5 +1,5 @@
 -- ============================================================
--- Infinite Zen - MemeSea - V1.1 (Teleport tab)
+-- Infinite Zen - MemeSea - V1.1
 -- ============================================================
 
 local MemeSea = {}
@@ -42,9 +42,11 @@ function MemeSea.Init(ctx)
         pcall(function() VirtualUser = Compat.getVirtualUser() end)
     end
     if VirtualUser == nil then
-        print("[MemeSea] ⚠️ VirtualUser nil — usando mouse1click/firesignal")
+        print("[MemeSea] 🇧🇷 VirtualUser nil — usando mouse1click/firesignal")
+        print("[MemeSea] 🇺🇸 VirtualUser nil — falling back to mouse1click/firesignal")
     else
-        print("[MemeSea] ✅ VirtualUser OK")
+        print("[MemeSea] 🇧🇷 VirtualUser OK")
+        print("[MemeSea] 🇺🇸 VirtualUser OK")
     end
 
     local UNLOADED = false
@@ -72,6 +74,8 @@ function MemeSea.Init(ctx)
     local Location      = workspace:WaitForChild("Location", 30)
     local Monsters      = workspace:WaitForChild("Monster", 30)
     local IslandFolder  = workspace:WaitForChild("Island", 30)
+        or workspace:FindFirstChild("Islands", 5)
+        or workspace:FindFirstChild("Map", 5)
     local Quests_Npc    = NPCs and NPCs:WaitForChild("Quests_Npc", 15)
     local Shop_Npc      = NPCs and NPCs:WaitForChild("Shop_Npc", 15)
     local EnemyLocation = Location and Location:FindFirstChild("Enemy_Location", 15)
@@ -91,7 +95,11 @@ function MemeSea.Init(ctx)
     task.spawn(function()
         if ModuleFolder then
             local ok, m = pcall(function() return require(ModuleFolder:WaitForChild("Quest_Settings", 10)) end)
-            if ok then QuestSettings = m; print("[MemeSea] Quest_Settings OK") end
+            if ok then
+                QuestSettings = m
+                print("[MemeSea] 🇧🇷 Quest_Settings carregado")
+                print("[MemeSea] 🇺🇸 Quest_Settings loaded")
+            end
             local ok2, c = pcall(function() return require(ModuleFolder:WaitForChild("CodeList", 10)) end)
             if ok2 and type(c) == "table" then CodeList = c end
         end
@@ -140,63 +148,103 @@ function MemeSea.Init(ctx)
         if char then pcall(function() char:PivotTo(cf) end) end
     end
 
-    -- ═══ TELEPORT HELPERS ═══
+    local function normalizeName(s)
+        return tostring(s):lower():gsub("[%s_%-]", "")
+    end
+
+    local function findChildFuzzy(parent, targetName)
+        if not parent or not targetName then return nil end
+        local exact = parent:FindFirstChild(targetName)
+        if exact then return exact end
+        local targetNorm = normalizeName(targetName)
+        for _, c in ipairs(parent:GetChildren()) do
+            if normalizeName(c.Name) == targetNorm then return c end
+        end
+        for _, c in ipairs(parent:GetChildren()) do
+            local n = normalizeName(c.Name)
+            if n:find(targetNorm, 1, true) or targetNorm:find(n, 1, true) then
+                return c
+            end
+        end
+        return nil
+    end
 
     local function findIslandAnchor(islandModel)
         if not islandModel then return nil end
-        -- 1. Tenta Location.Teleport (se existir coord pronta)
+
         if TeleportLoc then
-            local tp = TeleportLoc:FindFirstChild(islandModel.Name)
+            local tp = findChildFuzzy(TeleportLoc, islandModel.Name)
             if tp then
-                if tp:IsA("BasePart") then return tp end
-                if tp:IsA("Model") then return tp.PrimaryPart or tp:FindFirstChildWhichIsA("BasePart") end
+                if tp:IsA("BasePart") then return tp.Position end
+                if tp:IsA("Model") then
+                    local pp = tp.PrimaryPart or tp:FindFirstChildWhichIsA("BasePart")
+                    if pp then return pp.Position end
+                end
+                if tp:IsA("Folder") then
+                    local bp = tp:FindFirstChildWhichIsA("BasePart", true)
+                    if bp then return bp.Position end
+                end
             end
         end
-        -- 2. Pega a maior BasePart da ilha
+
+        if islandModel:IsA("Model") and islandModel.PrimaryPart then
+            return islandModel.PrimaryPart.Position
+        end
+
+        for _, part in ipairs(islandModel:GetDescendants()) do
+            if part:IsA("BasePart") then
+                local n = part.Name:lower()
+                if n:find("anchor") or n:find("teleport") or n:find("spawn") then
+                    return part.Position
+                end
+            end
+        end
+
         local best, bestSize = nil, 0
         for _, obj in ipairs(islandModel:GetDescendants()) do
             if obj:IsA("BasePart") then
                 local s = obj.Size.Magnitude
-                if s > bestSize and s > 30 then
-                    best = obj
-                    bestSize = s
-                end
+                if s > bestSize then best = obj; bestSize = s end
             end
         end
-        return best
+        if best then return best.Position end
+
+        if islandModel:IsA("Model") then
+            local ok, pivot = pcall(function() return islandModel:GetPivot() end)
+            if ok and pivot then return pivot.Position end
+        end
+
+        return nil
     end
 
     local function teleportToIsland(islandName)
-        if not IslandFolder then
-            if Window then Window:Notify("⚠️", "Island folder not found", 2, "error") end
-            return false
-        end
-        local island = IslandFolder:FindFirstChild(islandName)
+        local island = findChildFuzzy(IslandFolder, islandName)
         if not island then
-            if Window then Window:Notify("⚠️", islandName .. " not found", 2, "error") end
+            island = findChildFuzzy(workspace, islandName)
+        end
+        if not island then
+            if Window then Window:Notify("Warning", islandName .. " not found", 3, "error") end
+            warn("[TP] Island not found:", islandName)
             return false
         end
-        local anchor = findIslandAnchor(island)
-        if not anchor then
-            if Window then Window:Notify("⚠️", "No anchor in " .. islandName, 2, "error") end
+
+        local pos = findIslandAnchor(island)
+        if not pos then
+            if Window then Window:Notify("Warning", "No anchor in " .. island.Name, 3, "error") end
+            warn("[TP] No anchor for:", island.Name)
             return false
         end
-        local myHRP = getHRP()
-        if myHRP then
-            pcall(function()
-                LocalPlayer.Character:PivotTo(CFrame.new(anchor.Position + Vector3.new(0, 15, 0)))
-            end)
-            if Window then Window:Notify("🌀", "Teleported to " .. islandName, 2, "success") end
-            return true
-        end
-        return false
+
+        teleportToCFrame(CFrame.new(pos + Vector3.new(0, 15, 0)))
+        if Window then Window:Notify("Teleport", "Teleported to " .. island.Name, 2, "success") end
+        return true
     end
 
     local function teleportToFolderTarget(folder, name, yOffset)
         if not folder then return false end
-        local target = folder:FindFirstChild(name)
+        local target = findChildFuzzy(folder, name)
         if not target then
-            if Window then Window:Notify("⚠️", name .. " not found", 2, "error") end
+            if Window then Window:Notify("Warning", name .. " not found", 2, "error") end
             return false
         end
         local pos
@@ -205,20 +253,19 @@ function MemeSea.Init(ctx)
         elseif target:IsA("Model") then
             pos = target:GetPivot().Position
         elseif target:IsA("Folder") then
-            local first = target:FindFirstChildWhichIsA("BasePart")
-            if not first then
+            local first = target:FindFirstChildWhichIsA("BasePart", true)
+            if first then pos = first.Position
+            else
                 local firstM = target:FindFirstChildWhichIsA("Model")
                 if firstM then pos = firstM:GetPivot().Position end
-            else
-                pos = first.Position
             end
         end
         if not pos then
-            if Window then Window:Notify("⚠️", "No position for " .. name, 2, "error") end
+            if Window then Window:Notify("Warning", "No position for " .. name, 2, "error") end
             return false
         end
         teleportToCFrame(CFrame.new(pos + Vector3.new(0, yOffset or 5, 0)))
-        if Window then Window:Notify("🌀", "Teleported to " .. name, 2, "success") end
+        if Window then Window:Notify("Teleport", "Teleported to " .. name, 2, "success") end
         return true
     end
 
@@ -229,16 +276,45 @@ function MemeSea.Init(ctx)
                 local pos = first.Position or (first:GetPivot() and first:GetPivot().Position)
                 if pos then
                     teleportToCFrame(CFrame.new(pos + Vector3.new(0, 5, 0)))
-                    if Window then Window:Notify("🏠", "Teleported to Spawn", 2, "success") end
+                    if Window then Window:Notify("Spawn", "Teleported to Spawn", 2, "success") end
                     return true
                 end
             end
         end
-        if Window then Window:Notify("⚠️", "Spawn not found", 2, "error") end
+        if Window then Window:Notify("Warning", "Spawn not found", 2, "error") end
         return false
     end
 
-    -- ═══ QUEST HELPERS ═══
+    task.spawn(function()
+        task.wait(5)
+        print("[MemeSea] 🇧🇷 ======== Debug de Teleport ========")
+        print("[MemeSea] 🇺🇸 ======== Teleport Debug ========")
+        if IslandFolder then
+            print("[MemeSea] 🇧🇷 IslandFolder: " .. IslandFolder:GetFullName())
+            print("[MemeSea] 🇺🇸 IslandFolder: " .. IslandFolder:GetFullName())
+            for _, c in ipairs(IslandFolder:GetChildren()) do
+                print("   [Island]", c.Name, "(" .. c.ClassName .. ")")
+            end
+        else
+            warn("[Debug] IslandFolder NOT FOUND")
+            print("[MemeSea] 🇧🇷 Filhos do workspace:")
+            print("[MemeSea] 🇺🇸 workspace children:")
+            for _, c in ipairs(workspace:GetChildren()) do
+                print("   ws>", c.Name, "(" .. c.ClassName .. ")")
+            end
+        end
+        if TeleportLoc then
+            print("[MemeSea] 🇧🇷 TeleportLoc: " .. TeleportLoc:GetFullName())
+            print("[MemeSea] 🇺🇸 TeleportLoc: " .. TeleportLoc:GetFullName())
+            for _, c in ipairs(TeleportLoc:GetChildren()) do
+                print("   [TP]", c.Name, "(" .. c.ClassName .. ")")
+            end
+        else
+            warn("[Debug] Location.Teleport NOT FOUND")
+        end
+        print("[MemeSea] 🇧🇷 ========================================")
+        print("[MemeSea] 🇺🇸 ========================================")
+    end)
 
     local function getPlayerLevel()
         if not PlayerLevel then return nil end
@@ -283,7 +359,8 @@ function MemeSea.Init(ctx)
             end
         end
         table.sort(list, function(a, b) return a.Level > b.Level end)
-        print("[MemeSea] Quests built:", #list)
+        print("[MemeSea] 🇧🇷 Quests construídas: " .. #list)
+        print("[MemeSea] 🇺🇸 Quests built: " .. #list)
         return list
     end
 
@@ -470,7 +547,11 @@ function MemeSea.Init(ctx)
             if npc then break end
             task.wait(0.3)
         end
-        if not npc then print("[MemeSea] NPC '"..npcName.."' nao spawnou"); return false end
+        if not npc then
+            print("[MemeSea] 🇧🇷 NPC '" .. npcName .. "' não spawnou")
+            print("[MemeSea] 🇺🇸 NPC '" .. npcName .. "' did not spawn")
+            return false
+        end
         local block = npc:FindFirstChild("Block")
         local prompt = block and block:FindFirstChild("QuestPrompt")
         if not prompt then return false end
@@ -716,7 +797,7 @@ function MemeSea.Init(ctx)
         local data = { version = GAME_VERSION, state = {} }
         for k, v in pairs(State) do data.state[k] = v end
         local ok = pcall(function() writefile(getConfigPath(name), HttpService:JSONEncode(data)) end)
-        if ok and Window then Window:Notify("💾 Config", "Saved: " .. name, 3, "success") end
+        if ok and Window then Window:Notify("Config", "Saved: " .. name, 3, "success") end
         return ok
     end
 
@@ -727,7 +808,7 @@ function MemeSea.Init(ctx)
         if not success or not data or not data.state then return false end
         for k, v in pairs(data.state) do if State[k] ~= nil then State[k] = v end end
         syncUIFromState()
-        if Window then Window:Notify("📂 Load", "Loaded: " .. name, 3, "info") end
+        if Window then Window:Notify("Load", "Loaded: " .. name, 3, "info") end
         return true
     end
 
@@ -771,7 +852,6 @@ function MemeSea.Init(ctx)
         })
         Elements = {}
 
-        -- ═══ FARM TAB ═══
         local FarmTab = Window:CreateTab(T("ms.tab.farm", "Auto Farm"), "🌾")
         FarmTab:CreateSection(T("ms.section.quest", "Quest"))
         reg("autoQuestFarm", FarmTab:CreateToggle({
@@ -834,7 +914,6 @@ function MemeSea.Init(ctx)
             Callback = function(v) State.farmDistance = v end,
         }))
 
-        -- ═══ TELEPORT TAB ═══
         local TeleTab = Window:CreateTab("Teleport", "🌀")
 
         TeleTab:CreateSection("Main")
@@ -844,19 +923,86 @@ function MemeSea.Init(ctx)
         })
 
         TeleTab:CreateSection("Islands")
-        local islandNames = {
-            "FloppaIsland", "GorillaIsland", "SussyIsland", "MoaiIsland",
-            "PumpkinIsland", "MrBeastIsland", "ForgottenIsland", "SnowIsland",
-            "DesertIsland", "RockIsland", "PvpArena",
-        }
-        for _, name in ipairs(islandNames) do
-            TeleTab:CreateButton({
-                Name = "🏝️ " .. name,
-                Callback = function() teleportToIsland(name) end,
-            })
-        end
 
-        -- Quest NPCs (auto-detectado)
+        task.spawn(function()
+            local tries = 0
+            while not IslandFolder and tries < 30 do
+                task.wait(0.5)
+                IslandFolder = workspace:FindFirstChild("Island")
+                    or workspace:FindFirstChild("Islands")
+                    or workspace:FindFirstChild("Map")
+                tries = tries + 1
+            end
+
+            local DISPLAY = {
+                FloppaIsland    = "Floppa Island",
+                GorillaIsland   = "Gorilla Island",
+                SussyIsland     = "Sussy Island",
+                MoaiIsland      = "Moai Island",
+                PumpkinIsland   = "Pumpkin Island",
+                MrBeastIsland   = "MrBeast Island",
+                ForgottenIsland = "Forgotten Island",
+                SnowIsland      = "Snow Island",
+                DesertIsland    = "Desert Island",
+                RockIsland      = "Rock Island",
+                PvpArena        = "PvP Arena",
+                PvPArena        = "PvP Arena",
+            }
+
+            if not IslandFolder then
+                warn("[MemeSea] IslandFolder not found - using hardcoded fallback")
+                local fallback = {
+                    "FloppaIsland","GorillaIsland","SussyIsland","MoaiIsland",
+                    "PumpkinIsland","MrBeastIsland","ForgottenIsland","SnowIsland",
+                    "DesertIsland","RockIsland","PvpArena",
+                }
+                for _, name in ipairs(fallback) do
+                    local display = DISPLAY[name] or name
+                    TeleTab:CreateButton({
+                        Name = "🏝️ " .. display,
+                        Callback = function() teleportToIsland(name) end,
+                    })
+                end
+                return
+            end
+
+            local children = IslandFolder:GetChildren()
+            table.sort(children, function(a, b) return a.Name < b.Name end)
+
+            for _, child in ipairs(children) do
+                local cname = child.Name
+                local display = DISPLAY[cname] or cname
+                TeleTab:CreateButton({
+                    Name = "🏝️ " .. display,
+                    Callback = function() teleportToIsland(cname) end,
+                })
+            end
+
+            print("[MemeSea] 🇧🇷 " .. #children .. " botões de ilha adicionados")
+            print("[MemeSea] 🇺🇸 " .. #children .. " island buttons added")
+        end)
+
+        task.spawn(function()
+            task.wait(6)
+            local alreadyAdded = false
+            if IslandFolder then
+                for _, c in ipairs(IslandFolder:GetChildren()) do
+                    if c.Name:lower():find("pvp") then alreadyAdded = true; break end
+                end
+            end
+            if not alreadyAdded then
+                local pvp = workspace:FindFirstChild("PvpArena")
+                    or workspace:FindFirstChild("PvPArena")
+                    or workspace:FindFirstChild("Pvp_Arena")
+                if pvp then
+                    TeleTab:CreateButton({
+                        Name = "⚔️ PvP Arena",
+                        Callback = function() teleportToIsland(pvp.Name) end,
+                    })
+                end
+            end
+        end)
+
         task.spawn(function()
             task.wait(3)
             if QuestLocation then
@@ -870,12 +1016,12 @@ function MemeSea.Init(ctx)
                     })
                 end
                 if added > 0 then
-                    print("[MemeSea] Added " .. added .. " quest NPC teleports")
+                    print("[MemeSea] 🇧🇷 " .. added .. " teleports de NPC de quest adicionados")
+                    print("[MemeSea] 🇺🇸 " .. added .. " quest NPC teleports added")
                 end
             end
         end)
 
-        -- Enemies (auto-detectado)
         task.spawn(function()
             task.wait(4)
             if EnemyLocation then
@@ -889,12 +1035,12 @@ function MemeSea.Init(ctx)
                     })
                 end
                 if added > 0 then
-                    print("[MemeSea] Added " .. added .. " enemy teleports")
+                    print("[MemeSea] 🇧🇷 " .. added .. " teleports de inimigos adicionados")
+                    print("[MemeSea] 🇺🇸 " .. added .. " enemy teleports added")
                 end
             end
         end)
 
-        -- ═══ PROGRESS TAB ═══
         local ProgressTab = Window:CreateTab(T("ms.tab.progress", "Progress"), "📈")
         ProgressTab:CreateSection(T("ms.section.stats", "Stats"))
         reg("autoStats", ProgressTab:CreateToggle({
@@ -926,7 +1072,6 @@ function MemeSea.Init(ctx)
             Callback = function(v) State.autoRedeem = v; redeemIndex = 0 end,
         }))
 
-        -- ═══ PLAYER TAB ═══
         local PlayerTab = Window:CreateTab(T("ms.tab.player", "Player"), "🏃")
         PlayerTab:CreateSection(T("ms.section.movement", "Movement"))
         reg("speed", PlayerTab:CreateToggle({
@@ -960,7 +1105,6 @@ function MemeSea.Init(ctx)
             Callback = function(v) State.antiAfk = v end,
         }))
 
-        -- ═══ VISUALS TAB ═══
         local VisualTab = Window:CreateTab(T("ms.tab.visuals", "Visuals"), "👁️")
         VisualTab:CreateSection(T("ms.section.environment", "Environment"))
         reg("fullbright", VisualTab:CreateToggle({
@@ -976,7 +1120,6 @@ function MemeSea.Init(ctx)
             Callback = function(v) State.noFog = v; if not v then restoreEnv() end end,
         }))
 
-        -- ═══ SETTINGS TAB ═══
         local SettingsTab = Window:CreateTab(T("tab.settings", "Settings"), "⚙️")
         SettingsTab:CreateSection(T("section.create_config", "Create Config"))
 
@@ -1106,7 +1249,7 @@ function MemeSea.Init(ctx)
 
         SettingsTab:CreateButton({
             Name = T("config.refresh", "🔄 Refresh List"),
-            Callback = function() refreshConfigList(); Window:Notify("🔄", T("config.refresh", "Refresh List"), 2, "info") end,
+            Callback = function() refreshConfigList(); Window:Notify("Refresh", T("config.refresh", "Refresh List"), 2, "info") end,
         })
 
         SettingsTab:CreateButton({
@@ -1130,7 +1273,6 @@ function MemeSea.Init(ctx)
             end,
         })
 
-        -- ═══ LANGUAGE TAB ═══
         local LanguageTab = Window:CreateTab(T("tab.language", "Language"), "🌍")
         LanguageTab:CreateSection(T("section.language_select", "Language"))
 
@@ -1171,7 +1313,6 @@ function MemeSea.Init(ctx)
         LanguageTab:CreateLabel(T("lang.saved_to", "Language saved to: ") .. " InfiniteZen_Language.txt", Color3.fromRGB(140, 140, 155))
         LanguageTab:CreateLabel(T("lang.auto_restore", "Auto-restored on open."), Color3.fromRGB(90, 90, 105))
 
-        -- ═══ CREDITS TAB ═══
         local CreditsTab = Window:CreateTab(T("tab.credits", "Credits"), "➕")
         CreditsTab:CreateSection(T("section.founder", "Founder"))
         CreditsTab:CreateLabel(T("credits.role", "Sr Red"), Color3.fromRGB(255, 50, 50))
@@ -1182,7 +1323,7 @@ function MemeSea.Init(ctx)
             Callback = function()
                 if setclipboard then
                     setclipboard("https://discord.gg/ScZfU2mAGm")
-                    Window:Notify("📋", "Copied!", 2, "success")
+                    Window:Notify("Clipboard", "Copied!", 2, "success")
                 end
             end,
         })
@@ -1217,7 +1358,7 @@ function MemeSea.Init(ctx)
         end
     end)
 
-    Window:Notify("✅ " .. SHORT_VERSION, T("ms.loaded", "MemeSea loaded successfully"), 4, "success")
+    Window:Notify("Ready", T("ms.loaded", "MemeSea loaded successfully"), 4, "success")
 
     print("============================================")
     print("[Infinite Zen] 🇧🇷 " .. FULL_VERSION .. " carregado com sucesso!")
